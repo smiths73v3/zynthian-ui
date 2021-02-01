@@ -36,18 +36,30 @@ from . import zynthian_gui_selector
 
 class zynthian_gui_bank(zynthian_gui_selector):
 
+	buttonbar_config = [
+		(1, 'BACK'),
+		(0, 'LAYER'),
+		(2, 'FAVS'),
+		(3, 'SELECT')
+	]
 
 	def __init__(self):
 		super().__init__('Bank', True)
 
     
 	def fill_list(self):
+		if not self.zyngui.curlayer:
+			logging.error("Can't fill bank list for None layer!")
+			return
 		self.zyngui.curlayer.load_bank_list()
 		self.list_data=self.zyngui.curlayer.bank_list
 		super().fill_list()
 
 
 	def show(self):
+		if not self.zyngui.curlayer:
+			logging.error("Can't show bank list for None layer!")
+			return
 		self.index=self.zyngui.curlayer.get_bank_index()
 		logging.debug("BANK INDEX => %s" % self.index)
 		super().show()

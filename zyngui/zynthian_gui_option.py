@@ -3,9 +3,9 @@
 #******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian GUI
 # 
-# Zynthian GUI Audio-Out Selector Class
+# Zynthian GUI Option Selector Class
 # 
-# Copyright (C) 2015-2018 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2020 Fernando Moyano <jofemodo@zynthian.org>
 #
 #******************************************************************************
 # 
@@ -28,70 +28,42 @@ import tkinter
 import logging
 
 # Zynthian specific modules
-import zynautoconnect
-from . import zynthian_gui_config
 from . import zynthian_gui_selector
 
 #------------------------------------------------------------------------------
-# Zynthian Audio-Out Selection GUI Class
+# Zynthian Option Selection GUI Class
 #------------------------------------------------------------------------------
 
-class zynthian_gui_audio_out(zynthian_gui_selector):
+class zynthian_gui_option(zynthian_gui_selector):
 
 	def __init__(self):
-		self.layer=None
-		self.end_layer = None
-		super().__init__('Audio Out', True)
+		self.title = ""
+		self.options = []
+		self.cb_select = None
+		super().__init__("Option", True)
 
 
-	def set_layer(self, layer):
-		self.layer = layer
-		try:
-			self.end_layer = self.zyngui.screens['layer'].get_fxchain_ends(self.layer)[0]
-		except:
-			self.end_layer = None
+	def config(self, title, options, cb_select):
+		self.title = title
+		self.options = options
+		self.cb_select = cb_select
 
 
 	def fill_list(self):
-		self.list_data = []
-
-		for k in zynautoconnect.get_audio_input_ports().keys():
-			try:
-				title = self.zyngui.screens['layer'].get_layer_by_jackname(k).get_basepath()
-			except:
-				title = k
-
-			try:
-				ch = int(title.split('#')[0])-1
-				if ch==self.layer.midi_chan:
-					continue
-			except Exception as e:
-				#logging.debug("Can't get layer's midi chan => {}".format(e))
-				pass
-
-			if self.end_layer and k in self.end_layer.get_audio_out():
-				self.list_data.append((k, k, "[x] " + title))
-			else:
-				self.list_data.append((k, k, "[  ] " + title))
-
+		i=0
+		self.list_data=[]
+		for k,v in self.options.items():
+			self.list_data.append((v,i,k))
+			i += 1
 		super().fill_list()
 
 
-	def fill_listbox(self):
-		super().fill_listbox()
-
-
 	def select_action(self, i, t='S'):
-		self.end_layer.toggle_audio_out(self.list_data[i][1])
-		self.fill_list()
-
-
-	def back_action(self):
-		self.zyngui.show_modal('layer_options')
-		return ''
+		if self.cb_select:
+			self.cb_select(self.list_data[i][0])
 
 
 	def set_select_path(self):
-		self.select_path.set("Send Audio to ...")
+		self.select_path.set(self.title)
 
 #------------------------------------------------------------------------------

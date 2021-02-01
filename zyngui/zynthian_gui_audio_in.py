@@ -3,9 +3,9 @@
 #******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian GUI
 # 
-# Zynthian GUI Transpose Selector Class
+# Zynthian GUI Audio-In Selector Class
 # 
-# Copyright (C) 2015-2016 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2020 Fernando Moyano <jofemodo@zynthian.org>
 #
 #******************************************************************************
 # 
@@ -24,42 +24,48 @@
 #******************************************************************************
 
 import sys
+import tkinter
 import logging
 
 # Zynthian specific modules
-from zyncoder import *
+import zynautoconnect
 from . import zynthian_gui_config
 from . import zynthian_gui_selector
 
 #------------------------------------------------------------------------------
-# Zynthian Transpose Selection GUI Class
+# Zynthian Audio-In Selection GUI Class
 #------------------------------------------------------------------------------
 
-class zynthian_gui_transpose(zynthian_gui_selector):
+class zynthian_gui_audio_in(zynthian_gui_selector):
 
 	def __init__(self):
-		super().__init__('Transpose', True)
+		self.layer=None
+		super().__init__('Audio Capture', True)
+
+
+	def set_layer(self, layer):
+		self.layer = layer
 
 
 	def fill_list(self):
-		self.list_data=[]
-		for i in range(0,121):
-			offset=i-60
-			self.list_data.append((str(i),offset,str(offset)))
+		self.list_data = []
+
+		for scp in zynautoconnect.get_audio_capture_ports():
+			if scp.name in self.layer.get_audio_in():
+				self.list_data.append((scp.name, scp.name, "[x] " + scp.name))
+			else:
+				self.list_data.append((scp.name, scp.name, "[  ] " + scp.name))
+
 		super().fill_list()
 
 
-	def show(self):
-		offset=zyncoder.lib_zyncoder.get_midi_filter_transpose(self.get_layer_chan())
-		self.index=60+offset
-		super().show()
+	def fill_listbox(self):
+		super().fill_listbox()
 
 
 	def select_action(self, i, t='S'):
-		midi_chan = self.get_layer_chan()
-		logging.debug("TRANSPOSE MIDI CHAN {}!".format(midi_chan))
-		zyncoder.lib_zyncoder.set_midi_filter_transpose(midi_chan,self.list_data[i][1])
-		self.zyngui.show_modal('layer_options')
+		self.layer.toggle_audio_in(self.list_data[i][1])
+		self.fill_list()
 
 
 	def back_action(self):
@@ -68,11 +74,7 @@ class zynthian_gui_transpose(zynthian_gui_selector):
 
 
 	def set_select_path(self):
-		self.select_path.set("Transpose")
-
-
-	def get_layer_chan(self):
-		return self.zyngui.screens['layer_options'].layer.get_midi_chan()
+		self.select_path.set("Capture Audio from ...")
 
 
 #------------------------------------------------------------------------------

@@ -24,6 +24,7 @@
 #******************************************************************************
 
 import sys
+import time
 import logging
 import tkinter
 from tkinter import font as tkFont
@@ -37,6 +38,14 @@ from zyngui.zynthian_gui_keybinding import zynthian_gui_keybinding
 #------------------------------------------------------------------------------
 
 class zynthian_gui_base:
+
+	#Default buttonbar config (touchwidget)
+	buttonbar_config = [
+		(1, 'BACK'),
+		(0, 'LAYER'),
+		(2, 'LEARN'),
+		(3, 'SELECT')
+	]
 
 	def __init__(self):
 		self.shown = False
@@ -55,6 +64,7 @@ class zynthian_gui_base:
 		self.status_error = None
 		self.status_recplay = None
 		self.status_midi = None
+		self.status_midi_clock = None
 
 		#Status Area Parameters
 		self.status_h = zynthian_gui_config.topbar_height
@@ -71,6 +81,13 @@ class zynthian_gui_base:
 		self.dpm_over = 1 - self.dpm_overdB / self.dpm_rangedB
 		self.dpm_scale_lm = int(self.dpm_high * self.status_l)
 		self.dpm_scale_lh = int(self.dpm_over * self.status_l)
+
+		#Title Area parameters
+		self.path_canvas_width=zynthian_gui_config.display_width-self.status_l-self.status_lpad-2
+		self.select_path_font=tkFont.Font(family=zynthian_gui_config.font_topbar[0], size=zynthian_gui_config.font_topbar[1])
+		self.select_path_width=0
+		self.select_path_offset=0
+		self.select_path_dir=2
 
 		# Main Frame
 		self.main_frame = tkinter.Frame(zynthian_gui_config.top,
@@ -89,6 +106,31 @@ class zynthian_gui_base:
 		# Setup Topbar's Callback
 		self.tb_frame.bind("<Button-1>", self.cb_topbar)
 
+		# Topbar's Path Canvas
+		self.path_canvas = tkinter.Canvas(self.tb_frame,
+			width=self.path_canvas_width,
+			height=zynthian_gui_config.topbar_height,
+			bd=0,
+			highlightthickness=0,
+			relief='flat',
+			bg = zynthian_gui_config.color_bg)
+		self.path_canvas.grid(row=0, column=0, sticky="wns")
+		# Setup Topbar's Callback
+		self.path_canvas.bind("<Button-1>", self.cb_topbar)
+
+		# Topbar's Select Path
+		self.select_path = tkinter.StringVar()
+		self.select_path.trace("w", self.cb_select_path)
+		self.label_select_path = tkinter.Label(self.path_canvas,
+			font=zynthian_gui_config.font_topbar,
+			textvariable=self.select_path,
+			justify=tkinter.LEFT,
+			bg=zynthian_gui_config.color_header_bg,
+			fg=zynthian_gui_config.color_header_tx)
+		self.label_select_path.place(x=0, y=0)
+		# Setup Topbar's Callback
+		self.label_select_path.bind("<Button-1>", self.cb_topbar)
+
 		# Canvas for displaying status: CPU, ...
 		self.status_canvas = tkinter.Canvas(self.tb_frame,
 			width=self.status_l+2,
@@ -100,7 +142,77 @@ class zynthian_gui_base:
 		self.status_canvas.grid(row=0, column=1, sticky="ens", padx=(self.status_lpad,0))
 
 		# Configure Topbar's Frame column widths
-		#self.tb_frame.grid_columnconfigure(0, minsize=self.path_canvas_width)
+		self.tb_frame.grid_columnconfigure(0, minsize=self.path_canvas_width)
+
+		# Init touchbar
+		#self.init_buttonbar()
+
+		self.button_push_ts = 0
+
+		# Update Title
+		self.set_select_path()
+		self.cb_scroll_select_path()
+
+
+	def init_buttonbar(self):
+		# Touchbar frame
+		if not zynthian_gui_config.enable_touch_widgets:
+			return
+
+		self.buttonbar_frame = tkinter.Frame(self.main_frame,
+			width=zynthian_gui_config.display_width,
+			height=zynthian_gui_config.buttonbar_height,
+			bg=zynthian_gui_config.color_bg)
+		self.buttonbar_frame.grid(row=3, column=0, columnspan=3, padx=(0,0), pady=(2,0))
+		self.buttonbar_frame.grid_propagate(False)
+		self.buttonbar_frame.grid_rowconfigure(
+			0, minsize=zynthian_gui_config.buttonbar_height, pad=0)
+		for i in range(4):
+			self.buttonbar_frame.grid_columnconfigure(
+				i, minsize=zynthian_gui_config.button_width, pad=0)
+			self.add_button(i, self.buttonbar_config[i][0], self.buttonbar_config[i][1])
+
+
+	def add_button(self, column, index, label):
+		select_button = tkinter.Button(
+			self.buttonbar_frame,
+			bg=zynthian_gui_config.color_panel_bg,
+			fg=zynthian_gui_config.color_header_tx,
+			activebackground=zynthian_gui_config.color_panel_bg,
+			activeforeground=zynthian_gui_config.color_header_tx,
+			highlightbackground=zynthian_gui_config.color_bg,
+			highlightcolor=zynthian_gui_config.color_bg,
+			highlightthickness=0,
+			bd=0,
+			relief='flat',
+			font=zynthian_gui_config.font_buttonbar,
+			text=label)
+		if column==0:
+			padx = (0,1)
+		elif column==3:
+			padx = (1,0)
+		else:
+			padx = (1,1)
+		select_button.grid(row=0, column=column, sticky='nswe', padx=padx)
+		select_button.bind('<ButtonPress-1>', lambda e: self.button_down(index, e))
+		select_button.bind('<ButtonRelease-1>', lambda e: self.button_up(index, e))
+
+
+	def button_down(self, index, event):
+		self.button_push_ts=time.monotonic()
+
+
+	def button_up(self, index, event):
+		t = 'S'
+		if self.button_push_ts:
+			dts=(time.monotonic()-self.button_push_ts)
+			if dts<0.3:
+				t = 'S'
+			elif dts>=0.3 and dts<2:
+				t = 'B'
+			elif dts>=2:
+				t = 'L'
+		self.zyngui.zynswitch_defered(t,index)
 
 
 	def show(self):
@@ -299,17 +411,10 @@ class zynthian_gui_base:
 				self.status_canvas.itemconfig(self.status_recplay, text=flags, fill=color)
 
 			# Display MIDI flag
-			ul = None
-			flags = ""
-			if 'midi_clock' in status and status['midi_clock']:
-				#flags="\uf017";
-				ul = 0
 			if 'midi' in status and status['midi']:
-				flags = "m"
-				#flags = "\uf001"
-			elif ul is not None:
-				flags = "__"
-				ul = None
+				mstate = "normal"
+			else:
+				mstate = "hidden"
 
 			if not self.status_midi:
 				self.status_midi = self.status_canvas.create_text(
@@ -319,9 +424,35 @@ class zynthian_gui_base:
 					justify=tkinter.RIGHT,
 					fill=zynthian_gui_config.color_status_midi,
 					font=("FontAwesome", self.status_fs, "bold"),
-					text=flags, underline=ul)
+					text="m",
+					state=mstate)
 			else:
-				self.status_canvas.itemconfig(self.status_midi, text=flags, underline=ul)
+				self.status_canvas.itemconfig(self.status_midi, state=mstate)
+
+			# Display MIDI clock flag
+			if 'midi_clock' in status and status['midi_clock']:
+				mcstate = "normal"
+			else:
+				mcstate = "hidden"
+
+			if not self.status_midi_clock:
+				self.status_midi_clock = self.status_canvas.create_line(
+					int(self.status_l-self.status_fs*1.7+1),
+					int(self.status_h*0.85),
+					int(self.status_l-2),
+					int(self.status_h*0.85),
+					fill=zynthian_gui_config.color_status_midi,
+					state=mcstate)
+			else:
+				self.status_canvas.itemconfig(self.status_midi_clock, state=mcstate)
+
+
+	def refresh_loading(self):
+		pass
+
+
+	def zyncoder_read(self, zcnums=None):
+		pass
 
 
 	def cb_topbar(self,event):
@@ -348,6 +479,48 @@ class zynthian_gui_base:
 		action = zynthian_gui_keybinding.getInstance().get_key_action(keysym, event.state)
 		if action != None:
 			self.zyngui.callable_ui_action(action)
+
+
+	def cb_select_path(self, *args):
+		self.select_path_width=self.select_path_font.measure(self.select_path.get())
+		self.select_path_offset = 0;
+		self.select_path_dir = 2
+		self.label_select_path.place(x=0, y=0)
+
+
+	def cb_scroll_select_path(self):
+		if self.shown:
+			if self.dscroll_select_path():
+				zynthian_gui_config.top.after(1000, self.cb_scroll_select_path)
+				return
+
+		zynthian_gui_config.top.after(100, self.cb_scroll_select_path)
+
+
+	def dscroll_select_path(self):
+		if self.select_path_width>self.path_canvas_width:
+			#Scroll label
+			self.select_path_offset += self.select_path_dir
+			self.label_select_path.place(x=-self.select_path_offset, y=0)
+
+			#Change direction ...
+			if self.select_path_offset > (self.select_path_width-self.path_canvas_width):
+				self.select_path_dir = -2
+				return True
+			elif self.select_path_offset<=0:
+				self.select_path_dir = 2
+				return True
+
+		elif self.select_path_offset!=0:
+			self.select_path_offset = 0;
+			self.select_path_dir = 2
+			self.label_select_path.place(x=0, y=0)
+
+		return False
+
+
+	def set_select_path(self):
+		pass
 
 
 #------------------------------------------------------------------------------

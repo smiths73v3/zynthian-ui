@@ -80,15 +80,15 @@ class zynthian_engine_puredata(zynthian_engine):
 		#self.jackname = "pure_data_0"
 		self.jackname = "pure_data"
 
-		#self.options['midi_chan']=False
+		self.options['midi_route'] = True
 
 		self.preset = ""
 		self.preset_config = None
 
 		if self.config_remote_display():
-			self.base_command="/usr/bin/pd -jack -jackname \"{}\" -rt -alsamidi -mididev 1 -open \"{}\"".format(self.jackname, self.startup_patch)
+			self.base_command="pd -jack -jackname \"{}\" -rt -alsamidi -mididev 1 -open \"{}\"".format(self.jackname, self.startup_patch)
 		else:
-			self.base_command="/usr/bin/pd -nogui -jack  -jackname \"{}\" -rt -alsamidi -mididev 1 -open \"{}\"".format(self.jackname, self.startup_patch)
+			self.base_command="pd -nogui -jack  -jackname \"{}\" -rt -alsamidi -mididev 1 -open \"{}\"".format(self.jackname, self.startup_patch)
 
 		self.reset()
 
@@ -126,7 +126,7 @@ class zynthian_engine_puredata(zynthian_engine):
 		self.stop()
 		self.start()
 		self.refresh_all()
-		sleep(0.3)
+		sleep(0.5)
 		self.zyngui.zynautoconnect_midi(True)
 		self.zyngui.zynautoconnect_audio(False)
 		layer.send_ctrl_midi_cc()

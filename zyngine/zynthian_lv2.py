@@ -30,19 +30,10 @@ import time
 import string
 import logging
 import contextlib
+import re
 
 from enum import Enum
 from collections import OrderedDict
-
-
-#------------------------------------------------------------------------------
-# Log level and debuging
-#------------------------------------------------------------------------------
-
-if __name__ == '__main__':
-	#log_level=logging.DEBUG
-	log_level=logging.WARNING
-	logging.basicConfig(format='%(levelname)s:%(module)s: %(message)s', stream=sys.stderr, level=log_level)
 
 #------------------------------------------------------------------------------
 
@@ -53,6 +44,7 @@ def init_lilv():
 
 	world.ns.ev = lilv.Namespace(world, "http://lv2plug.in/ns/ext/event#")
 	world.ns.presets = lilv.Namespace(world, "http://lv2plug.in/ns/ext/presets#")
+	world.ns.portprops = lilv.Namespace(world, "http://lv2plug.in/ns/ext/port-props#")
 
 
 #------------------------------------------------------------------------------
@@ -139,6 +131,7 @@ def generate_plugins_config_file(refresh=True):
 			genplugins[name] = {
 				'URL': str(plugin.get_uri()),
 				'TYPE': get_plugin_type(plugin).value,
+				'CLASS': re.sub(' Plugin', '', str(plugin.get_class().get_label())),
 				'ENABLED': is_plugin_enabled(name)
 			}
 
@@ -217,7 +210,8 @@ def get_plugin_type(plugin):
 	}
 
 	# Try to determine the plugin type from the LV2 class ...
-	plugin_class = str(plugin.get_class().get_label())
+	plugin_class = re.sub(' Plugin', '', str(plugin.get_class().get_label()))
+	
 	if plugin_class in lv2_plugin_classes["MIDI_SYNTH"]:
 		return PluginType.MIDI_SYNTH
 
@@ -413,7 +407,11 @@ def get_plugin_ports(plugin_url):
 			is_toggled = port.has_property(world.ns.lv2.toggled)
 			is_integer = port.has_property(world.ns.lv2.integer)
 			is_enumeration = port.has_property(world.ns.lv2.enumeration)
-			is_logarithmic = port.has_property(world.ns.lv2.logarithmic)
+			is_logarithmic = port.has_property(world.ns.portprops.logarithmic)
+
+			#logging.debug("PORT {} propierties =>".format(port.get_symbol()))
+			#for node in port.get_properties():
+			#	logging.debug("    => {}".format(get_node_value(node)))
 
 			sp = []
 			for p in port.get_scale_points():
@@ -477,6 +475,12 @@ load_plugins()
 #get_plugin_ports("http://code.google.com/p/amsynth/amsynth")
 
 if __name__ == '__main__':
+
+	#log_level=logging.DEBUG
+	log_level=logging.WARNING
+	logging.basicConfig(format='%(levelname)s:%(module)s: %(message)s', stream=sys.stderr, level=log_level)
+	logging.getLogger().setLevel(level=log_level)
+
 	generate_plugins_config_file(False)
 	generate_all_presets_cache(False)
 

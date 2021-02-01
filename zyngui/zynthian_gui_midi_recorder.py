@@ -26,10 +26,10 @@
 import os
 import sys
 import logging
+import mutagen
 import signal
 import threading
 from time import sleep
-from mutagen.smf import SMF
 from os.path import isfile, isdir, join, basename
 from subprocess import check_output, Popen, PIPE, STDOUT
 
@@ -112,33 +112,44 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
 
 		self.list_data.append((None,0,"-----------------------------"))
 
-
-		i = 1
-		# Files in SD-Card
-		for f in sorted(os.listdir(self.capture_dir_sdc)):
-			fpath=join(self.capture_dir_sdc,f)
-			if isfile(fpath) and f[-4:].lower()=='.mid':
-				try:
-					length = SMF(fpath).info.length
-					title="SDC: {} [{}:{:02d}]".format(f[:-4], int(length/60), int(length%60))
-					self.list_data.append((fpath,i,title))
-					i+=1
-				except Exception as e:
-					logging.warning(e)
+		i=1
+		# Files on SD-Card
+		for fname, finfo in self.get_filelist(self.capture_dir_sdc).items():
+			l = finfo['length']
+			title="SD[{}:{:02d}] {}".format(int(l/60), int(l%60),fname.replace(";",">",1).replace(";","/"))
+			self.list_data.append((finfo['fpath'],i,title))
+			i+=1
 
 		# Files on USB-Pendrive
-		for f in sorted(os.listdir(self.capture_dir_usb)):
-			fpath=join(self.capture_dir_usb,f)
-			if isfile(fpath) and f[-4:].lower()=='.mid':
-				try:
-					length = SMF(fpath).info.length
-					title="USB: {} [{}:{:02d}]".format(f[:-4], int(length/60), int(length%60))
-					self.list_data.append((fpath,i,title))
-					i+=1
-				except Exception as e:
-					logging.warning(e)
+		for fname, finfo in self.get_filelist(self.capture_dir_usb).items():
+			l = finfo['length']
+			title="USB[{}:{:02d}] {}".format(int(l/60), int(l%60),fname.replace(";",">",1).replace(";","/"))
+			self.list_data.append((finfo['fpath'],i,title))
+			i+=1
 
 		super().fill_list()
+
+
+	def get_filelist(self, src_dir):
+		res = {}
+		for f in sorted(os.listdir(src_dir)):
+			fpath = join(src_dir, f)
+			fname = f[:-4]
+			fext = f[-4:].lower()
+			if isfile(fpath) and fext in ('.mid'):
+				res[fname] = {
+					'fpath': fpath,
+					'ext': fext
+				}
+
+		for fname in res:
+			try:
+				res[fname]['length'] = mutagen.File(res[fname]['fpath']).info.length
+			except Exception as e:
+				res[fname]['length'] = 0
+				logging.warning(e)
+
+		return res
 
 
 	def fill_listbox(self):
@@ -175,9 +186,25 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
 				self.zyngui.show_confirm("Do you really want to delete '{}'?".format(self.list_data[i][2]), self.delete_confirmed, fpath)
 
 
+	def get_next_filenum(self):
+		try:
+			n = max(map(lambda item: int(os.path.basename(item[0])[0:3]) if item[0] and os.path.basename(item[0])[0:3].isdigit() else 0, self.list_data))
+		except:
+			n = 0
+		return "{0:03d}".format(n+1)
+
+
+	def get_new_filename(self):
+		try:
+			parts = self.zyngui.curlayer.get_presetpath().split('#',2)
+			file_name = parts[1].replace("/",";").replace(">",";").replace(" ; ",";")
+		except:
+			file_name = "jack_capture"
+		return self.get_next_filenum() + '-' + file_name + '.mid'
+
+
 	def delete_confirmed(self, fpath):
 		logging.info("DELETE MIDI RECORDING: {}".format(fpath))
-		
 		try:
 			os.remove(fpath)
 		except Exception as e:
@@ -190,9 +217,9 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
 		if self.get_status() not in ("REC", "PLAY+REC"):
 			logging.info("STARTING NEW MIDI RECORD ...")
 			try:
-				cmd=self.sys_dir +"/sbin/jack-smf-recorder.sh --port {}".format(self.jack_record_port)
+				cmd = [self.sys_dir + "/sbin/jack-smf-recorder.sh", self.jack_record_port, self.get_new_filename()]
 				#logging.info("COMMAND: %s" % cmd)
-				self.rec_proc=Popen(cmd.split(" "), shell=True, preexec_fn=os.setpgrp)
+				self.rec_proc = Popen(cmd, preexec_fn=os.setpgrp)
 				sleep(0.2)
 			except Exception as e:
 				logging.error("ERROR STARTING MIDI RECORD: %s" % e)
@@ -349,6 +376,13 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
 		super().zyncoder_read()
 		if self.shown and self.bpm_zgui_ctrl:
 			self.bpm_zgui_ctrl.read_zyncoder()
+		return [0,1]
+
+
+	def plot_zctrls(self):
+		super().plot_zctrls()
+		if self.bpm_zgui_ctrl:
+			self.bpm_zgui_ctrl.plot_value()
 
 
 	def get_current_track_fpath(self):

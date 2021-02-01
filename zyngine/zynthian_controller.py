@@ -22,9 +22,10 @@
 # 
 #******************************************************************************
 
-import logging
+import math
 import liblo
 import ctypes
+import logging
 
 # Zynthian specific modules
 from zyncoder import *
@@ -50,6 +51,7 @@ class zynthian_controller:
 		self.ticks=None
 		self.is_toggle=False
 		self.is_integer=True
+		self.is_logarithmic=False
 
 		self.midi_chan=None
 		self.midi_cc=None
@@ -90,6 +92,8 @@ class zynthian_controller:
 			self.is_toggle=options['is_toggle']
 		if 'is_integer' in options:
 			self.is_integer=options['is_integer']
+		if 'is_logarithmic' in options:
+			self.is_logarithmic=options['is_logarithmic']
 		if 'midi_chan' in options:
 			self.midi_chan=options['midi_chan']
 		if 'midi_cc' in options:
@@ -141,6 +145,10 @@ class zynthian_controller:
 		else:
 			self.value_mid = self.value_min+self.value_range/2
 
+		if self.is_logarithmic:
+			self.powbase = self.value_max/self.value_min
+			self.log_powbase = math.log(self.powbase)
+
 		self._set_value(self.value)
 		if self.value_default is None:
 			self.value_default=self.value
@@ -160,6 +168,7 @@ class zynthian_controller:
 		self.value = val
 		self.is_toggle = False
 		self.is_integer = True
+		self.is_logarithmic = False
 
 		# Numeric
 		if isinstance(maxval,int):
@@ -175,6 +184,17 @@ class zynthian_controller:
 				self.labels = maxval
 
 		self._configure()
+
+
+	def get_path(self):
+		if self.osc_path:
+			return str(self.osc_path)
+		elif self.graph_path:
+			return str(self.graph_path)
+		elif self.midi_chan is not None and self.midi_cc is not None:
+			return "{}#{}".format(self_midi_chan,self.midi_cc)
+		else:
+			return None
 
 
 	def set_midi_chan(self, chan):
@@ -247,7 +267,9 @@ class zynthian_controller:
 		self._set_value(val)
 
 		if self.engine:
-			mval=self.get_ctrl_midi_val()
+			if self.midi_learn_cc or self.midi_cc:
+				mval=self.get_ctrl_midi_val()
+
 			try:
 				# Send value using engine method...
 				self.engine.send_controller_value(self)
@@ -256,14 +278,15 @@ class zynthian_controller:
 					try:
 						# Send value using OSC/MIDI ...
 						if self.osc_path:
-							liblo.send(self.engine.osc_target,self.osc_path,self.get_ctrl_osc_val())
-						elif self.midi_cc:
-							zyncoder.lib_zyncoder.zynmidi_send_ccontrol_change(self.midi_chan,self.midi_cc,mval)
+							liblo.send(self.engine.osc_target,self.osc_path, self.get_ctrl_osc_val())
+							logging.debug("Sending OSC controller '{}' value => {}".format(self.symbol, val))
 
-						logging.debug("Sending controller '{}' value => {} ({})".format(self.symbol,val,mval))
+						elif self.midi_cc:
+							zyncoder.lib_zyncoder.zynmidi_send_ccontrol_change(self.midi_chan, self.midi_cc, mval)
+							logging.debug("Sending MIDI controller '{}' value => {} ({})".format(self.symbol, val, mval))
 
 					except Exception as e:
-						logging.warning("Can't send controller '{}' value => {}".format(self.symbol,e))
+						logging.warning("Can't send controller '{}' value: {} => {}".format(self.symbol, val, e))
 
 			# Send feedback to MIDI controllers
 			try:
@@ -278,7 +301,7 @@ class zynthian_controller:
 				logging.warning("Can't send controller feedback '{}' => Val={}".format(self.symbol,e))
 
 
-	def get_value2label(self, val=None):
+	def get_value2index(self, val=None):
 		if val is None:
 			val=self.value
 		try:
@@ -286,22 +309,30 @@ class zynthian_controller:
 				if self.ticks[0]>self.ticks[-1]:
 					for i in reversed(range(len(self.labels))):
 						if val<=self.ticks[i]:
-							return self.labels[i]
-					return self.labels[0]
+							return i
+					return 0
 				else:
 					for i in range(len(self.labels)-1):
 						#logging.debug("V2L testing range {} => {} in {}-{}".format(i,val,self.ticks[i],self.ticks[i+1]))
 						if val<self.ticks[i+1]:
-							return self.labels[i]
-					return self.labels[i+1]
+							return i
+					return i+1
 			elif self.labels:
 				i=min(int((val-self.value_min)*len(self.labels)/self.value_range), len(self.labels)-1)
 				#logging.debug("V2L => {} has index {}".format(val,i))
-				return self.labels[i]
+				return i
 			else:
-				return val
+				return None
 		except Exception as e:
 			logging.error(e)
+
+
+	def get_value2label(self, val=None):
+		i = self.get_value2index(val)
+		if i is not None:
+			return self.labels[i]
+		else:
+			return val
 
 
 	def get_label2value(self, label):
@@ -325,10 +356,14 @@ class zynthian_controller:
 
 	def get_ctrl_midi_val(self):
 		try:
-			val=min(127, int(127*(self.value-self.value_min)/self.value_range))
+			if self.is_logarithmic:
+				val = int(127*math.log(self.value/self.value_min)/self.log_powbase)
+			else:
+				val = min(127, int(127*(self.value-self.value_min)/self.value_range))
 		except Exception as e:
 			logging.error(e)
 			val=0
+
 		return val
 
 
@@ -345,9 +380,13 @@ class zynthian_controller:
 
 
 	def get_snapshot(self):
-		snapshot = {
-			'value': self.value
-		}
+		snapshot = {}
+		
+		# Value
+		if math.isnan(self.value):
+			snapshot['value'] = None
+		else:
+			snapshot['value'] = self.value
 
 		# MIDI learning info
 		if self.midi_learn_chan is not None and self.midi_learn_cc is not None:
@@ -373,6 +412,7 @@ class zynthian_controller:
 				self.set_midi_learn(int(snapshot['midi_learn_chan']), int(snapshot['midi_learn_cc']))
 		else:
 			self.set_value(snapshot,True)
+		self.refresh_gui()
 
 
 	#--------------------------------------------------------------------------
@@ -526,13 +566,19 @@ class zynthian_controller:
 	# MIDI CC processing
 	#----------------------------------------------------------------------------
 
-
 	def midi_control_change(self, val):
-		value=self.value_min+val*self.value_range/127
+		if self.is_logarithmic:
+			value = self.value_min*pow(self.powbase, val/127)
+		else:
+			value = self.value_min+val*self.value_range/127
 		self.set_value(value)
+		self.refresh_gui()
+
+
+	def refresh_gui(self):
 		#Refresh GUI controller in screen when needed ...
 		try:
-			if (self.engine.zyngui.active_screen=='control' or self.engine.zyngui.modal_screen=='control') and self.engine.zyngui.screens['control'].mode=='control':
+			if (self.engine.zyngui.active_screen=='control' and not self.engine.zyngui.modal_screen) or self.engine.zyngui.modal_screen=='alsa_mixer':
 				self.engine.zyngui.screens['control'].set_controller_value(self)
 		except Exception as e:
 			logging.debug(e)

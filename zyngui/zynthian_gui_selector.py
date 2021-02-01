@@ -48,47 +48,15 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 		self.index = 0
 		self.list_data = []
 		self.zselector = None
-
-		#Title Area parameters
-		self.path_canvas_width=zynthian_gui_config.display_width-self.status_l-self.status_lpad-2
-		self.select_path_font=tkFont.Font(family=zynthian_gui_config.font_topbar[0], size=zynthian_gui_config.font_topbar[1])
-		self.select_path_width=0
-		self.select_path_offset=0
-		self.select_path_dir=2
+		self.zselector_hiden = False
 
 		# Listbox Size
-		self.lb_height=zynthian_gui_config.display_height-zynthian_gui_config.topbar_height
+		self.lb_height=zynthian_gui_config.body_height+1
 		self.wide=wide
 		if self.wide:
 			self.lb_width=zynthian_gui_config.display_width-zynthian_gui_config.ctrl_width
 		else:
 			self.lb_width=zynthian_gui_config.display_width-2*zynthian_gui_config.ctrl_width-2
-
-		# Topbar's Path Canvas
-		self.path_canvas = tkinter.Canvas(self.tb_frame,
-			width=self.path_canvas_width,
-			height=zynthian_gui_config.topbar_height,
-			bd=0,
-			highlightthickness=0,
-			relief='flat',
-			bg = zynthian_gui_config.color_bg)
-		self.path_canvas.grid(row=0, column=0, sticky="wns")
-		# Setup Topbar's Callback
-		self.path_canvas.bind("<Button-1>", self.cb_topbar)
-
-		# Topbar's Select Path
-		self.select_path = tkinter.StringVar()
-		self.select_path.trace("w", self.cb_select_path)
-		self.label_select_path = tkinter.Label(self.path_canvas,
-			font=zynthian_gui_config.font_topbar,
-			textvariable=self.select_path,
-			justify=tkinter.LEFT,
-			bg=zynthian_gui_config.color_header_bg,
-			fg=zynthian_gui_config.color_header_tx)
-		self.label_select_path.place(x=0, y=0)
-
-		# Configure Topbar's Frame column widths
-		self.tb_frame.grid_columnconfigure(0, minsize=self.path_canvas_width)
 
 		# ListBox's frame
 		self.lb_frame = tkinter.Frame(self.main_frame,
@@ -143,16 +111,15 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 		self.loading_canvas.bind("<Button-1>",self.cb_loading_push)
 		self.loading_canvas.bind("<ButtonRelease-1>",self.cb_loading_release)
 
+		# Init touchbar
+		self.init_buttonbar()
+
 		# Setup Loading Logo Animation
 		self.loading_index=0
 		self.loading_item=self.loading_canvas.create_image(3, 3, image = zynthian_gui_config.loading_imgs[0], anchor=tkinter.NW)
 
 		# Selector Controller Caption
 		self.selector_caption=selcap
-
-		# Update Title
-		self.set_select_path()
-		self.cb_scroll_select_path()
 
 
 	def show(self):
@@ -189,7 +156,7 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 			self.listbox.insert(tkinter.END, item[2])
 
 
-	def set_selector(self):
+	def set_selector(self, zs_hiden=False):
 		if self.shown:
 			if self.zselector:
 				self.zselector_ctrl.set_options({ 'symbol':self.selector_caption, 'name':self.selector_caption, 'short_name':self.selector_caption, 'midi_cc':0, 'value_max':len(self.list_data), 'value':self.index })
@@ -197,13 +164,18 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 				self.zselector.show()
 			else:
 				self.zselector_ctrl=zynthian_controller(None,self.selector_caption,self.selector_caption,{ 'midi_cc':0, 'value_max':len(self.list_data), 'value':self.index })
-				self.zselector=zynthian_gui_controller(zynthian_gui_config.select_ctrl,self.main_frame,self.zselector_ctrl)
+				self.zselector=zynthian_gui_controller(zynthian_gui_config.select_ctrl,self.main_frame,self.zselector_ctrl,zs_hiden)
+
+
+	def plot_zctrls(self):
+		self.zselector.plot_value()
 
 
 	def fill_list(self):
 		self.fill_listbox()
 		self.select()
 		#self.set_selector()
+		self.last_index_change_ts = datetime.min
 
 
 	def update_list(self):
@@ -227,6 +199,7 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 			self.zselector.read_zyncoder()
 			if self.index!=self.zselector.value:
 				self.select(self.zselector.value)
+		return [0,1,2]
 
 
 	def select_listbox(self,index):
@@ -248,6 +221,7 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 				else: self.listbox.see(index)
 				# Set index value
 				self.index=index
+				self.last_index_change_ts=datetime.now()
 
 
 	def select(self, index=None):
@@ -279,10 +253,6 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 
 
 	def select_action(self, index, t='S'):
-		pass
-
-
-	def set_select_path(self):
 		pass
 
 
@@ -334,43 +304,5 @@ class zynthian_gui_selector(zynthian_gui_base.zynthian_gui_base):
 				self.zyngui.zynswitch_defered('B',2)
 			elif dts>=2:
 				self.zyngui.zynswitch_defered('L',2)
-
-
-	def cb_select_path(self, *args):
-		self.select_path_width=self.select_path_font.measure(self.select_path.get())
-		self.select_path_offset = 0;
-		self.select_path_dir = 2
-		self.label_select_path.place(x=0, y=0)
-
-
-	def cb_scroll_select_path(self):
-		if self.shown:
-			if self.dscroll_select_path():
-				zynthian_gui_config.top.after(1000, self.cb_scroll_select_path)
-				return
-
-		zynthian_gui_config.top.after(100, self.cb_scroll_select_path)
-
-
-	def dscroll_select_path(self):
-		if self.select_path_width>self.path_canvas_width:
-			#Scroll label
-			self.select_path_offset += self.select_path_dir
-			self.label_select_path.place(x=-self.select_path_offset, y=0)
-
-			#Change direction ...
-			if self.select_path_offset > (self.select_path_width-self.path_canvas_width):
-				self.select_path_dir = -2
-				return True
-			elif self.select_path_offset<=0:
-				self.select_path_dir = 2
-				return True
-
-		elif self.select_path_offset!=0:
-			self.select_path_offset = 0;
-			self.select_path_dir = 2
-			self.label_select_path.place(x=0, y=0)
-
-		return False
 
 #------------------------------------------------------------------------------

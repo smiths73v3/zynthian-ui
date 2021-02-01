@@ -109,8 +109,21 @@ def get_pianoteq_subl():
 	return subl
 
 
-def fix_pianoteq_config():
+def fix_pianoteq_config(samplerate):
 	if os.path.isfile(PIANOTEQ_CONFIG_FILE):
+
+		PIANOTEQ_SAMPLERATE = samplerate
+		PIANOTEQ_CONFIG_INTERNAL_SR = PIANOTEQ_SAMPLERATE
+		while PIANOTEQ_CONFIG_INTERNAL_SR > 24000:
+			PIANOTEQ_CONFIG_INTERNAL_SR=PIANOTEQ_CONFIG_INTERNAL_SR / 2
+
+		if PIANOTEQ_VERSION[1]==0:
+			PIANOTEQ_CONFIG_VOICES=32
+			PIANOTEQ_CONFIG_MULTICORE=1
+		else:
+			PIANOTEQ_CONFIG_VOICES=32
+			PIANOTEQ_CONFIG_MULTICORE=2
+
 		tree = ElementTree.parse(PIANOTEQ_CONFIG_FILE)
 		root= tree.getroot()
 		try:
@@ -134,9 +147,9 @@ def fix_pianoteq_config():
 				logging.debug("Fixing Audio Setup")
 				for devicesetup in audio_setup_node.iter('DEVICESETUP'):
 					devicesetup.set('deviceType','JACK')
-					devicesetup.set('audioOutputDeviceName','Auto-connect ON')
-					devicesetup.set('audioInputDeviceName','Auto-connect ON')
-					devicesetup.set('audioDeviceRate','44100')
+					devicesetup.set('audioOutputDeviceName','Auto-connect OFF')
+					devicesetup.set('audioInputDeviceName','Auto-connect OFF')
+					devicesetup.set('audioDeviceRate',str(PIANOTEQ_SAMPLERATE))
 					devicesetup.set('forceStereo','0')
 			else:
 				logging.debug("Creating new Audio Setup")
@@ -144,9 +157,9 @@ def fix_pianoteq_config():
 				value.set('name','audio-setup')
 				devicesetup = ElementTree.SubElement(value,'DEVICESETUP')
 				devicesetup.set('deviceType','JACK')
-				devicesetup.set('audioOutputDeviceName','Auto-connect ON')
-				devicesetup.set('audioInputDeviceName','Auto-connect ON')
-				devicesetup.set('audioDeviceRate','44100')
+				devicesetup.set('audioOutputDeviceName','Auto-connect OFF')
+				devicesetup.set('audioInputDeviceName','Auto-connect OFF')
+				devicesetup.set('audioDeviceRate',str(PIANOTEQ_SAMPLERATE))
 				devicesetup.set('forceStereo','0')
 				root.append(value)
 
@@ -211,16 +224,6 @@ else:
 
 PIANOTEQ_CONFIG_FILE =  PIANOTEQ_CONFIG_DIR + "/" + PIANOTEQ_CONFIG_FILENAME
 
-if PIANOTEQ_VERSION[1]==0:
-	PIANOTEQ_CONFIG_INTERNAL_SR=22050
-	PIANOTEQ_CONFIG_VOICES=32
-	PIANOTEQ_CONFIG_MULTICORE=1
-else:
-	PIANOTEQ_CONFIG_INTERNAL_SR=22050
-	PIANOTEQ_CONFIG_VOICES=32
-	PIANOTEQ_CONFIG_MULTICORE=2
-
-
 #------------------------------------------------------------------------------
 # Piantoteq Engine Class
 #------------------------------------------------------------------------------
@@ -231,8 +234,21 @@ class zynthian_engine_pianoteq(zynthian_engine):
 	# Banks
 	# ---------------------------------------------------------------------------
 
+	bank_list_v7_0 = [
+		('NY Steinway D', 0, 'Grand Steinway D (New-York)', 'D4:A'),
+		('HB Steinway D', 0, 'Grand Steinway D (Hamburg)', 'D4:A')
+	]
+	
+	bank_list_v6_7 = [
+		('NY Steinway Square', 0, 'NY Steinway Square', 'Karsten:A'),
+		('J. Weimes Pianoforte', 0, 'J. Weimes Pianoforte', 'Karsten:A'),
+		('Ph. Schmidt Square', 0, 'Ph. Schmidt Square', 'Karsten:A'),
+		('G. Giusti Harpsichord', 0, 'G. Giusti Harpsichord', 'Karsten:A'),
+		('J. Salodiensis Virginal', 0, 'J. Salodiensis Virginal', 'Karsten:A')
+	]
+
 	bank_list_v6_6 = [
-        ('Celtic Harp', 0, 'Celtic Harp', 'Celtic Harp:A')
+        	('Celtic Harp', 0, 'Celtic Harp', 'Harp:A')
 	]
 
 	bank_list_v6_5 = [
@@ -253,7 +269,7 @@ class zynthian_engine_pianoteq(zynthian_engine):
 		('Steingraeber', 3, 'Steingraeber', 'Steingraeber:A'),
 		('Grotrian', 4, 'Grotrian', 'Grotrian:A'),
 		('Bluethner', 5, 'Bluethner', 'Bluethner:A'),
-		('YC5', 6, 'YC5', 'Rock:A'),
+		('YC5', 6, 'YC5', 'YC5:A'),
 		('K2', 7, 'K2', 'K2:A'),
 		('U4', 8, 'U4', 'U4:A'),
 		('MKI', 9, 'MKI', 'Electric:A'),
@@ -380,7 +396,11 @@ class zynthian_engine_pianoteq(zynthian_engine):
 			else:
 				shutil.copy(self.data_dir + "/pianoteq6/Pianoteq6.prefs", PIANOTEQ_CONFIG_FILE)
 
-		fix_pianoteq_config()
+		try:
+			sr = self.zyngui.get_jackd_samplerate()
+		except:
+			sr = 44100
+		fix_pianoteq_config(sr)
 
 		# Prepare bank list
 		self.prepare_banks()
@@ -440,17 +460,25 @@ class zynthian_engine_pianoteq(zynthian_engine):
 
 
 	def prepare_banks(self):
-		if PIANOTEQ_VERSION[0]>=6 and PIANOTEQ_VERSION[1]>=3:
+		
+		if PIANOTEQ_VERSION[0]>6 or (PIANOTEQ_VERSION[0]==6 and PIANOTEQ_VERSION[1]>=3):
 			self.bank_list = self.bank_list_v6_3 + self.bank_list
 
-		if PIANOTEQ_VERSION[0]>=6 and PIANOTEQ_VERSION[1]>=4:
+		if PIANOTEQ_VERSION[0]>6 or (PIANOTEQ_VERSION[0]==6 and PIANOTEQ_VERSION[1]>=4):
 			self.bank_list = self.bank_list_v6_4 + self.bank_list
 
-		if PIANOTEQ_VERSION[0]>=6 and PIANOTEQ_VERSION[1]>=5:
+		if PIANOTEQ_VERSION[0]>6 or (PIANOTEQ_VERSION[0]==6 and PIANOTEQ_VERSION[1]>=5):
 			self.bank_list = self.bank_list_v6_5 + self.bank_list
 
-		if PIANOTEQ_VERSION[0]>=6 and PIANOTEQ_VERSION[1]>=6:
+		if PIANOTEQ_VERSION[0]>6 or (PIANOTEQ_VERSION[0]==6 and PIANOTEQ_VERSION[1]>=6):
 			self.bank_list = self.bank_list_v6_6 + self.bank_list
+
+		if PIANOTEQ_VERSION[0]>6 or (PIANOTEQ_VERSION[0]==6 and PIANOTEQ_VERSION[1]>=7):
+			self.bank_list = self.bank_list_v6_7 + self.bank_list
+
+		if PIANOTEQ_VERSION[0]>7 or (PIANOTEQ_VERSION[0]==7 and PIANOTEQ_VERSION[1]>=0):
+                        self.bank_list = self.bank_list_v7_0 + self.bank_list
+
 
 		if not PIANOTEQ_TRIAL:
 			# Separate Licensed from Free and Demo
@@ -468,7 +496,6 @@ class zynthian_engine_pianoteq(zynthian_engine):
 						unlicensed_banks.append(bank)
 				self.bank_list = licensed_banks + free_banks + self.spacer_demo_bank + unlicensed_banks
 
-
 	#----------------------------------------------------------------------------
 	# Preset Managament
 	#----------------------------------------------------------------------------
@@ -480,6 +507,7 @@ class zynthian_engine_pianoteq(zynthian_engine):
 		try:
 			pianoteq=subprocess.Popen([PIANOTEQ_BINARY, "--list-presets"],stdout=subprocess.PIPE)
 			bank_list = sorted(self.bank_list, key=lambda bank: len(bank[0]) if bank[0] else 0, reverse=True)
+			logging.debug("bank_list => {}".format(bank_list))
 			for line in pianoteq.stdout:
 				l=line.rstrip().decode("utf-8")
 				logging.debug("PRESET => {}".format(l))
