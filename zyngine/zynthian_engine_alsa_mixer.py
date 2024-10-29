@@ -272,9 +272,17 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
 
     def get_mixer_zctrls(self, device_name, ctrl_list):
         _ctrls = []
+        ctrl_arrays = []
         try:
             ctrls = check_output(
                 f"amixer -M -c {device_name}", shell=True).decode("utf-8").split("Simple mixer control ")
+            for ctrl in ctrls:
+                lines = ctrl.splitlines()
+                if len(lines) == 0:
+                    continue
+                if lines[0][-2:] == ",1":
+                    # More than one entry in control array
+                    ctrl_arrays.append(lines[0][:-2].replace("'", ""))
             for ctrl in ctrls:
                 lines = ctrl.splitlines()
                 if len(lines) == 0:
@@ -283,10 +291,17 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 m = re.match("'(.*?)'.*", lines[0], re.M | re.I)
                 if m:
                     ctrl_name = m.group(1).strip()
+                    ctrl_path_name = ctrl_name
+                    if ctrl_name in ctrl_arrays:
+                        index = int(lines[0].split(',')[-1])
+                        if index:
+                            ctrl_path_name = ctrl_name + f",{index}"
+                        ctrl_name += f" {index + 1}"
                     ctrl_symbol = ctrl_name.replace(' ', '_')
                 else:
                     ctrl_name = None
                     ctrl_symbol = None
+                    ctrl_path_name = None
 
                 ctrl_type = None
                 ctrl_caps = None
@@ -372,7 +387,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 ctrl_name_trans, ctrl_symbol, ctrl_item0))
                             _ctrls.append([ctrl_symbol, {
                                 'name': ctrl_name_trans,
-                                'graph_path': [ctrl_name, ctrl_type, ctrl_items],
+                                'graph_path': [ctrl_path_name, ctrl_type, ctrl_items],
                                 'labels': ctrl_labels,
                                 'ticks': ctrl_ticks,
                                 'value': ctrl_value,
@@ -386,17 +401,17 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     elif ctrl_type in ("Playback", "Capture"):
                         for i, chan in enumerate(ctrl_chans):
                             if len(ctrl_chans) > 2:
-                                graph_path = [ctrl_name,
+                                graph_path = [ctrl_path_name,
                                               ctrl_type, i, len(ctrl_chans)]
                                 zctrl_symbol = ctrl_symbol + "_" + str(i)
                                 zctrl_name = ctrl_name + " " + str(i+1)
                             elif len(ctrl_chans) == 2:
-                                graph_path = [ctrl_name, ctrl_type, i, 2]
+                                graph_path = [ctrl_path_name, ctrl_type, i, 2]
                                 zctrl_symbol = ctrl_symbol + "_" + str(i)
                                 zctrl_name = ctrl_name + \
                                     " " + self.chan_names[i]
                             else:
-                                graph_path = [ctrl_name, ctrl_type]
+                                graph_path = [ctrl_path_name, ctrl_type]
                                 zctrl_symbol = ctrl_symbol
                                 zctrl_name = ctrl_name
                             if not ctrl_list or zctrl_symbol in ctrl_list:
