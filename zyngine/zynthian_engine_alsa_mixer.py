@@ -84,8 +84,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         device_overrides["sndrpihifiberry"]["ADC_0_1_level"]["graph_path"] = ["ADC", 0, 0, "level"]
         device_overrides["sndrpihifiberry"]["PGA_Gain_Left_0_0_level"]["graph_path"] = ["PGA Gain Right", 0, 0, "level"]
         device_overrides["sndrpihifiberry"]["PGA_Gain_Right_0_0_level"]["graph_path"] = ["PGA Gain Left", 0, 0, "level"]
-        device_overrides["sndrpihifiberry"]["ADC_Left_Input_0_0_enum"]["graph_path"] = ["ADC Right Input", 0, 0, "enum"]
-        device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["graph_path"] = ["ADC Left Input", 0, 0, "enum"]
+        device_overrides["sndrpihifiberry"]["ADC_Left_Input_0_0_enum"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
+        device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] =  ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
 
 
     # ---------------------------------------------------------------------------
