@@ -74,16 +74,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     }
 
     if soundcard_name == "ZynADAC":
-        # Fix left/right reversal
-        #TODO: Test on V4
-        device_overrides["sndrpihifiberry"]["Digital_0_0_level"]["graph_path"] = ["Digital", 0, 1, "level"]
-        device_overrides["sndrpihifiberry"]["Digital_0_1_level"]["graph_path"] = ["Digital", 0, 0, "level"]
-        device_overrides["sndrpihifiberry"]["Digital_0_0_switch"]["graph_path"] = ["Digital", 0, 1, "switch"]
-        device_overrides["sndrpihifiberry"]["Digital_0_1_switch"]["graph_path"] = ["Digital", 0, 0, "switch"]
-        device_overrides["sndrpihifiberry"]["ADC_0_0_level"]["graph_path"] = ["ADC", 0, 1, "level"]
-        device_overrides["sndrpihifiberry"]["ADC_0_1_level"]["graph_path"] = ["ADC", 0, 0, "level"]
-        device_overrides["sndrpihifiberry"]["PGA_Gain_Left_0_0_level"]["graph_path"] = ["PGA Gain Right", 0, 0, "level"]
-        device_overrides["sndrpihifiberry"]["PGA_Gain_Right_0_0_level"]["graph_path"] = ["PGA Gain Left", 0, 0, "level"]
         device_overrides["sndrpihifiberry"]["ADC_Left_Input_0_0_enum"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
         device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] =  ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
 
