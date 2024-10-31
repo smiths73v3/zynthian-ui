@@ -471,11 +471,12 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             logging.error(err)
 
         # Apply soundcard specific overrides
-        for ctrl in self.device_overrides[self.device_name]:
-            try:
-                _ctrls[ctrl] |= self.device_overrides[self.device_name][ctrl]
-            except:
-                pass # There may be hidden controls
+        if self.device_name in self.device_overrides:
+            for ctrl in self.device_overrides[self.device_name]:
+                try:
+                    _ctrls[ctrl] |= self.device_overrides[self.device_name][ctrl]
+                except:
+                    pass # There may be hidden controls
 
         return _ctrls
 
