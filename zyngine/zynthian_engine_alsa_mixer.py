@@ -28,6 +28,7 @@ import copy
 import logging
 from subprocess import check_output, PIPE, DEVNULL, STDOUT
 import alsaaudio
+import numpy as np
 
 from zyncoder.zyncore import lib_zyncore
 from . import zynthian_engine
@@ -70,13 +71,32 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             "PGA_Gain_Right_0_0_level": {"name":f"Input 2 Gain"},
             "ADC_Left_Input_0_0_enum": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Monoe TR", "Stereo TRS to Mono", "Balanced Mono TRS"]},
             "ADC_Right_Input_0_0_enum": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Monoe TR", "Stereo TRS to Mono", "Balanced Mono TRS"]}
-        }
+        },
+        "US16x08": {}
     }
 
     if soundcard_name == "ZynADAC":
         device_overrides["sndrpihifiberry"]["ADC_Left_Input_0_0_enum"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
         device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] =  ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
 
+    for i in range(16):
+        device_overrides["US16x08"][f"EQ_{i}_0_switch"] = {"name": f"EQ {i + 1} enable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "display_priority": 0}
+
+        for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
+            device_overrides["US16x08"][f"EQ_{param}_{i}_0_level"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "display_priority": 1 + j * 3}
+        device_overrides["US16x08"][f"EQ_High_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in np.geomspace(1.7, 18, num=32)], "display_priority": 2}
+        device_overrides["US16x08"][f"EQ_MidHigh_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "display_priority": 5}
+        device_overrides["US16x08"][f"EQ_MidHigh_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 6}
+        device_overrides["US16x08"][f"EQ_MidLow_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "display_priority": 8}
+        device_overrides["US16x08"][f"EQ_MidLow_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 9}
+        device_overrides["US16x08"][f"EQ_Low_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 16000, num=64)], "display_priority": 11}
+
+        device_overrides["US16x08"][f"Compressor_{i}_0_switch"] = {"name": f"Compressor {i + 1} enable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "display_priority": 0}
+        device_overrides["US16x08"][f"Compressor_Threshold_{i}_0_level"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "display_priority": 1}
+        device_overrides["US16x08"][f"Compressor_Ratio_{i}_0_level"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "display_priority": 2}
+        device_overrides["US16x08"][f"Compressor_Attack_{i}_0_level"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "display_priority": 3}
+        device_overrides["US16x08"][f"Compressor_Release_{i}_0_level"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "display_priority": 4}
+        device_overrides["US16x08"][f"Compressor_{i}_0_level"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "display_priority": 5}
 
     # ---------------------------------------------------------------------------
     # Controllers & Screens
@@ -206,6 +226,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     f"Can't configure RBPi headphones volume control: {e}")
 
         # Sort ctrls to match the configured mixer control list
+        """
         if ctrl_list and len(ctrl_list) > 0:
             sorted_ctrls = {}
             for symbol in ctrl_list:
@@ -214,6 +235,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 except:
                     pass
             ctrls = sorted_ctrls
+        """
 
         if processor:
             self.zctrls = processor.controllers_dict
@@ -477,6 +499,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     _ctrls[ctrl] |= self.device_overrides[self.device_name][ctrl]
                 except:
                     pass # There may be hidden controls
+
+        # Sort by group then display_priority if exists
+        _ctrls = dict(sorted(_ctrls.items(), key=lambda item: item[1].get('display_priority', float('inf'))))
 
         return _ctrls
 
