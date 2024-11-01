@@ -468,11 +468,11 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             name = f"{ctrl_name} {io_num}"
                         else:
                             name = ctrl_name
-                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_0_enum"
-                            if ctrl_list and symbol not in ctrl_list:
-                                idx += 1
-                                continue
-                            _ctrls[symbol] = {
+                        symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_0_enum"
+                        if ctrl_list and symbol not in ctrl_list:
+                            idx += 1
+                            continue
+                        _ctrls[symbol] = {
                             'name': name,
                             'graph_path': [f"{ctrl_name}",idx, 0, "enum"],
                             'labels': enum_vals[1],
