@@ -594,7 +594,7 @@ class zynthian_gui:
     def reset_screen_history(self):
         self.screen_history = []
 
-    def show_screen(self, screen=None, hmode=SCREEN_HMODE_ADD):
+    def show_screen(self, screen=None, hmode=SCREEN_HMODE_ADD, params=None):
         self.screen_lock.acquire()
         self.cancel_screen_timer()
         # self.current_processor = None
@@ -606,7 +606,7 @@ class zynthian_gui:
                 screen = "audio_mixer"
 
         elif screen == "alsa_mixer":
-            self.state_manager.alsa_mixer_processor.refresh_controllers()
+            self.state_manager.alsa_mixer_processor.refresh_controllers(params)
             self.current_processor = self.state_manager.alsa_mixer_processor
 
         elif screen == "audio_player":

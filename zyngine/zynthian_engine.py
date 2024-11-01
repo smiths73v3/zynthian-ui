@@ -670,6 +670,9 @@ class zynthian_engine(zynthian_basic_engine):
         if self._ctrl_screens is None:
             self._ctrl_screens = []
 
+        # Sort by display_priority if exists
+        zctrl_dict = dict(sorted(zctrl_dict.items(), key=lambda item: item[1].display_priority))
+
         # Get zctrls by group
         zctrl_group = {}
         for symbol, zctrl in zctrl_dict.items():

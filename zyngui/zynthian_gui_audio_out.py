@@ -90,10 +90,10 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             for title, processor in port_names:
                 if processor in self.chain.audio_out:
                     self.list_data.append(
-                        (processor, processor, "\u2612 " + title))
+                        (processor, None, "\u2612 " + title))
                 else:
                     self.list_data.append(
-                        (processor, processor, "\u2610 " + title))
+                        (processor, None, "\u2610 " + title))
 
         if self.chain.is_audio():
             port_names = []
@@ -103,20 +103,20 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             port_count = len(ports)
             for i in range(1, port_count + 1, 2):
                 if i < port_count:
-                    port_names.append((f"Output {i}", f"system:playback_{i}$"))
+                    port_names.append((f"Output {i}", f"system:playback_{i}$", [i - 1]))
                     port_names.append(
-                        (f"Output {i + 1}", f"system:playback_{i + 1}$"))
+                        (f"Output {i + 1}", f"system:playback_{i + 1}$", [i]))
                     port_names.append(
-                        (f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$"))
+                        (f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$", [i - 1, i]))
                 else:
                     port_names.append((f"Output {i}", f"system:playback_{i}$"))
-            for title, processor in port_names:
+            for title, processor, id in port_names:
                 if processor in self.chain.audio_out:
                     self.list_data.append(
-                        (processor, processor, "\u2612 " + title))
+                        (processor, id, "\u2612 " + title))
                 else:
                     self.list_data.append(
-                        (processor, processor, "\u2610 " + title))
+                        (processor, id, "\u2610 " + title))
 
         self.list_data.append((None, None, "> Audio Recorder"))
         armed = self.zyngui.state_manager.audio_recorder.is_armed(
@@ -127,10 +127,10 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             locked = "record"
         if armed:
             self.list_data.append(
-                (locked, 'record_disable', '\u2612 Record chain'))
+                (locked, None, '\u2612 Record chain'))
         else:
             self.list_data.append(
-                (locked, 'record_enable', '\u2610 Record chain'))
+                (locked, None, '\u2610 Record chain'))
 
         super().fill_list()
 
@@ -138,12 +138,27 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
         super().fill_listbox()
 
     def select_action(self, i, t='S'):
-        if self.list_data[i][0] == 'record':
-            self.zyngui.state_manager.audio_recorder.toggle_arm(
-                self.chain.mixer_chan)
+        if t == 'S':
+            if self.list_data[i][0] == 'record':
+                self.zyngui.state_manager.audio_recorder.toggle_arm(
+                    self.chain.mixer_chan)
+            else:
+                self.chain.toggle_audio_out(self.list_data[i][0])
+            self.fill_list()
         else:
-            self.chain.toggle_audio_out(self.list_data[i][0])
-        self.fill_list()
+            self.zyngui.state_manager.start_busy("alsa_output")
+            zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
+            ctrl_list = []
+            id = self.list_data[i][1]
+            for symbol, zctrl in zctrls.items():
+                try:
+                    if zctrl.graph_path[4] == "output" and (zctrl.graph_path[1] == 0 and zctrl.graph_path[2] in id or zctrl.graph_path[1] in id and zctrl.graph_path[2] == 0):
+                        ctrl_list.append(symbol)
+                except:
+                    pass
+            self.zyngui.state_manager.end_busy("alsa_output")
+            if ctrl_list:
+                self.zyngui.show_screen("alsa_mixer", params=ctrl_list)
 
     def set_select_path(self):
         self.select_path.set("Send Audio to ...")
