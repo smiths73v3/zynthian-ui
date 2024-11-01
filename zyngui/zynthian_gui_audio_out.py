@@ -103,11 +103,11 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             port_count = len(ports)
             for i in range(1, port_count + 1, 2):
                 if i < port_count:
-                    port_names.append((f"Output {i}", f"system:playback_{i}$", [i - 1]))
+                    port_names.append((f"Output {i}", f"system:playback_{i}$", [f"output_{i - 1}"]))
                     port_names.append(
-                        (f"Output {i + 1}", f"system:playback_{i + 1}$", [i]))
+                        (f"Output {i + 1}", f"system:playback_{i + 1}$", [f"output_{i}"]))
                     port_names.append(
-                        (f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$", [i - 1, i]))
+                        (f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$", [f"output_{i - 1}", f"output_{i}"]))
                 else:
                     port_names.append((f"Output {i}", f"system:playback_{i}$"))
             for title, processor, id in port_names:
@@ -149,10 +149,9 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             self.zyngui.state_manager.start_busy("alsa_output")
             zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
             ctrl_list = []
-            id = self.list_data[i][1]
             for symbol, zctrl in zctrls.items():
                 try:
-                    if zctrl.graph_path[4] == "output" and (zctrl.graph_path[1] == 0 and zctrl.graph_path[2] in id or zctrl.graph_path[1] in id and zctrl.graph_path[2] == 0):
+                    if zctrl.graph_path[4] in self.list_data[i][1]:
                         ctrl_list.append(symbol)
                 except:
                     pass

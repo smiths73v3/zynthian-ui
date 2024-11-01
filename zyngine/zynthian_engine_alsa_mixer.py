@@ -67,10 +67,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             "Digital_0_1_switch": {"name": f"Output 2 mute"},
             "ADC_0_0_level": {"name": f"Input 1 level"}, 
             "ADC_0_1_level": {"name": f"Input 2 level"}, 
-            "PGA_Gain_Left_0_0_level": {"name":f"Input 1 Gain"},
-            "PGA_Gain_Right_0_0_level": {"name":f"Input 2 Gain"},
-            "ADC_Left_Input_0_0_enum": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Monoe TR", "Stereo TRS to Mono", "Balanced Mono TRS"]},
-            "ADC_Right_Input_0_0_enum": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Monoe TR", "Stereo TRS to Mono", "Balanced Mono TRS"]}
+            "PGA_Gain_Left_0_0_enum": {"name":f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"], "group_symbol": "input"},
+            "PGA_Gain_Right_0_0_enum": {"name":f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"], "group_symbol": "input"},
+            "ADC_Left_Input_0_0_enum": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Monoe TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"], "group_symbol": "input"},
+            "ADC_Right_Input_0_0_enum": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Monoe TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 1, "enum", "input_1"], "group_symbol": "input"}
         },
         "US16x08": {}
     }
@@ -80,9 +80,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] =  ["Disabled", "Unbalanced Mono TR", "Unbalanced Monoe TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
 
     for i in range(16):
-        device_overrides["US16x08"][f"EQ_{i}_0_switch"] = {"name": f"EQ {i + 1} enable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "graph_path": ["EQ", i, 0, "switch", "input"], "display_priority": i}
+        device_overrides["US16x08"][f"EQ_{i}_0_switch"] = {"name": f"EQ {i + 1} enable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": i}
         for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
-            device_overrides["US16x08"][f"EQ_{param}_{i}_0_level"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", "input"], "display_priority": 21}
+            device_overrides["US16x08"][f"EQ_{param}_{i}_0_level"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 21}
         device_overrides["US16x08"][f"EQ_High_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in np.geomspace(1.7, 18, num=32)], "display_priority": 22}
         device_overrides["US16x08"][f"EQ_MidHigh_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "display_priority": 23}
         device_overrides["US16x08"][f"EQ_MidHigh_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 24}
@@ -90,7 +90,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         device_overrides["US16x08"][f"EQ_MidLow_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 26}
         device_overrides["US16x08"][f"EQ_Low_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 16000, num=64)], "display_priority": 27}
 
-        device_overrides["US16x08"][f"Compressor_{i}_0_switch"] = {"name": f"Compressor {i + 1} enable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", "input"], "display_priority": i}
+        device_overrides["US16x08"][f"Compressor_{i}_0_switch"] = {"name": f"Compressor {i + 1} enable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "display_priority": i}
         device_overrides["US16x08"][f"Compressor_Threshold_{i}_0_level"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "display_priority": 21}
         device_overrides["US16x08"][f"Compressor_Ratio_{i}_0_level"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "display_priority": 22}
         device_overrides["US16x08"][f"Compressor_Attack_{i}_0_level"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "display_priority": 23}
@@ -204,7 +204,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     'value_max': lib_zyncore.get_hpvol_max(),
                     'is_integer': True,
                     'group_symbol': "output",
-                    'group_name': "Output controls"
+                    'group_name': "Output levels"
                 }
                 logging.debug(
                     "Added zyncore Headphones Amplifier volume control")
@@ -272,7 +272,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             mixer_ctrl_names = sorted(set(alsaaudio.mixers(device=device)))
             for ctrl_name in mixer_ctrl_names:
                 idx = 0
-                io_num = 1
                 try:
                     alsaaudio.Mixer(ctrl_name, 1, -1, device)
                     ctrl_array = True
@@ -305,10 +304,13 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 labels = None
                             symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_level"
                             if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
                                 continue
+                            if ctrl_name == "Headphone":
+                                io_num = 0 # Clumsey but we are only guestimating here
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name, idx, chan, "level", "output"],
+                                'graph_path': [ctrl_name, idx, chan, "level", f"output_{io_num - 1}"],
                                     'value': val,
                                     'value_min': ctrl_range[0],
                                     'value_max': ctrl_range[1],
@@ -317,7 +319,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                     'labels' : labels,
                                     'processor': self.processor,
                                     'group_symbol': "output",
-                                    'group_name': "Output controls"
+                                    'group_name': "Output levels",
+                                    'display_priority': 100000 + io_num
                                 }
                             io_num += 1
                     elif "Capture Volume" in level_cap:
@@ -337,10 +340,11 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 labels = None
                             symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_level"
                             if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
                                 continue
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name,idx, chan, "level", "input"],
+                                'graph_path': [ctrl_name,idx, chan, "level", f"input_{io_num - 1}"],
                                     'value': val,
                                     'value_min': ctrl_range[0],
                                     'value_max': ctrl_range[1],
@@ -349,7 +353,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                     'labels' : labels,
                                     'processor': self.processor,
                                     'group_symbol': "input",
-                                    'group_name': "Input controls",
+                                    'group_name': "Input levels",
+                                    'display_priority': 100000 + io_num
                                 }
                             io_num += 1
                     elif "Volume" in level_cap:
@@ -369,6 +374,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 labels = None
                             symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_level"
                             if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
                                 continue
                             _ctrls[symbol] = {
                                 'name': name,
@@ -381,7 +387,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                     'labels' : labels,
                                     'processor': self.processor,
                                     'group_symbol': "other",
-                                    'group_name': "Other controls"
+                                    'group_name': "Other controls",
+                                    'display_priority': 100000 + io_num
                                 }
                             io_num += 1
                     io_num = idx + 1
@@ -396,10 +403,11 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 name = ctrl_name
                             symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_switch"
                             if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
                                 continue
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name, idx, chan, "switch", "output"],
+                                'graph_path': [ctrl_name, idx, chan, "switch", f"output_{io_num - 1}"],
                                     'value': val,
                                     'value_min': 0,
                                     'value_max': 1,
@@ -408,7 +416,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                     'labels': ["off", "on"],
                                     'processor': self.processor,
                                     'group_symbol': "output",
-                                    'group_name': "Output controls"
+                                    'group_name': "Output levels",
+                                    'display_priority': 100000 + io_num
                                 }
                             io_num += 1
                     elif "Capture Mute" in switch_cap:
@@ -422,10 +431,11 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 name = ctrl_name
                             symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_switch"
                             if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
                                 continue
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name, idx, chan, "switch", "input"],
+                                'graph_path': [ctrl_name, idx, chan, "switch", f"input_{io_num - 1}"],
                                     'value': val,
                                     'value_min': 0,
                                     'value_max': 1,
@@ -434,7 +444,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                     'labels': ["off", "on"],
                                     'processor': self.processor,
                                     'group_symbol': "input",
-                                    'group_name': "Input controls"
+                                    'group_name': "Input levels",
+                                    'display_priority': 100000 + io_num
                                 }
                             io_num += 1
                     elif "Mute" in switch_cap:
@@ -448,6 +459,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 name = ctrl_name
                             symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_switch"
                             if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
                                 continue
                             _ctrls[symbol] = {
                                 'name': name,
@@ -460,7 +472,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                     'labels': ["off", "on"],
                                     'processor': self.processor,
                                     'group_symbol': "other",
-                                    'group_name': "Other controls"
+                                    'group_name': "Other controls",
+                                    'display_priority': 100000 + io_num
                                 }
                             io_num += 1
                     io_num = idx + 1
@@ -486,7 +499,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             'is_integer': True,
                             'processor': self.processor,
                             'group_symbol': "other",
-                            'group_name': "Other controls"
+                            'group_name': "Other controls",
+                            'display_priority': 100000 + io_num
                         }
                         io_num += 1
                     idx += 1

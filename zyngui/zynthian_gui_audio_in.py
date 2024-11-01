@@ -46,13 +46,13 @@ class zynthian_gui_audio_in(zynthian_gui_selector):
     def fill_list(self):
         self.list_data = []
 
-        for i, scp in enumerate(zynautoconnect.get_audio_capture_ports()):
+        for i in range(len(zynautoconnect.get_audio_capture_ports())):
             if i + 1 in self.chain.audio_in:
                 self.list_data.append(
-                    (i + 1, [i], f"\u2612 Audio input {i + 1}"))
+                    (i + 1, [f"input_{i}"], f"\u2612 Audio input {i + 1}"))
             else:
                 self.list_data.append(
-                    (i + 1, [i], f"\u2610 Audio input {i + 1}"))
+                    (i + 1, [f"input_{i}"], f"\u2610 Audio input {i + 1}"))
 
         super().fill_list()
 
@@ -67,10 +67,9 @@ class zynthian_gui_audio_in(zynthian_gui_selector):
             self.zyngui.state_manager.start_busy("alsa_input")
             zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
             ctrl_list = []
-            id = self.list_data[i][1]
             for symbol, zctrl in zctrls.items():
                 try:
-                    if zctrl.graph_path[4] == "input" and (zctrl.graph_path[1] == 0 and zctrl.graph_path[2] in id or zctrl.graph_path[1] in id and zctrl.graph_path[2] == 0):
+                    if zctrl.graph_path[4] in self.list_data[i][1]:
                         ctrl_list.append(symbol)
                 except:
                     pass
