@@ -3,9 +3,10 @@
 # ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian Control Device Driver
 #
-# Zynthian Control Device Driver for "Korg nanoKontrol-2"
+# Zynthian Control Device Driver for "Mackie Control Protocol"
 #
 # Copyright (C) 2024 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2024 Christopher Matthews <chris@matthewsnet.de>
 #
 # ******************************************************************************
 #
@@ -37,9 +38,13 @@ from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer
 
 # TODO list below
 """
-get dev_id
-
-
+Get dev_id and try and get a list of features
+Add Settings for different devices so that the code remains universal
+Add Zynthian dedicated "screen_*****" switches 
+Add the four Encoders when in editing screens
+Adding and Removing Chains are automatically updated in the controller
+Add transport controls
+Edit the chain parameters via the "Encoder Assigned" feature
 """
 
 
@@ -52,17 +57,17 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 	rec_mode = 0
 	shift = False  # TODO I don't think I need this, check...
 
-	arrow_left_ccnum = 98  # done
-	arrow_right_ccnum = 99  # done
-	arrow_up_ccnum = 96  # done
-	arrow__down_ccnum = 97  # done
-	arrow_middle_ccnum = 100  # done
+	arrow_left_ccnum = 98
+	arrow_right_ccnum = 99
+	arrow_up_ccnum = 96
+	arrow_down_ccnum = 97
+	arrow_middle_ccnum = 100
 	scroll_encoder = 60
-	scrub_ccnum = 101  # done
-	bank_left_ccnum = 46  # done
-	bank_right_ccnum = 47  # done
-	channel_left_ccnum = 48  # done
-	channel_right_ccnum = 49  # done
+	scrub_ccnum = 101
+	bank_left_ccnum = 46
+	bank_right_ccnum = 47
+	channel_left_ccnum = 48
+	channel_right_ccnum = 49
 
 	# Encoder Assign Buttons and (LEDs not used at the moment)
 	encoder_assign_dict = {
@@ -77,7 +82,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 	encoder_assign_dict_rev = {value: key for key, value in encoder_assign_dict.items()}
 
 
-	# TODO
+	# TODO transport not enabled
 	transport_frwd_ccnum = 91
 	transport_ffwd_ccnum = 92
 	transport_stop_ccnum = 93
@@ -99,8 +104,8 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 	xtouch = True  # change to False if standard Mackie Control Device
 	max_fader_value = 16383.0  # I think this is default Mackie
 	first_zyn_channel_fader = 0  # To be able to scroll around the channels
-	encoder_assign = 'global_view'
-	gui_screen = 'audio_mixer'
+	encoder_assign = 'global_view'  # Set as default
+	gui_screen = 'audio_mixer'  # Set as default
 
 	# Function to initialise class
 	def __init__(self, state_manager, idev_in, idev_out=None):
@@ -116,7 +121,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		msg = bytes.fromhex(f"F0 00 00 66 14 {data} f7")
 		lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
 
-	# This might be unnecessary, but sometimes the LCDs they were not showing when first initializing
+	# This is unnecessary, I've left it in just in case
 	def init_lcd_text(self,):
 		data_top = ['12', '00']
 		data_bottom = []
@@ -130,7 +135,6 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 				hex = letter.encode('utf-8').hex()
 				data_bottom.append(hex)
 		data = data_top + data_bottom
-		# logging.debug(f'Data: {data}')
 		self.send_syx(data=' '.join(data))
 
 	def update_lcd_text(self, pos, text):
@@ -138,7 +142,6 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		for letter in list(text.center(7)):
 			hex = letter.encode('utf-8').hex()
 			data.append(hex)
-		# logging.debug(f'Data: {data}')
 		self.send_syx(data=' '.join(data))
 
 	def update_top_lcd_text(self, channel, top_text=''):
@@ -149,25 +152,9 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		pos_bottom = ['38', '3f', '46', '4d', '54', '5b', '62', '69']
 		self.update_lcd_text(pos_bottom[channel], bottom_text)
 
-	def send_pitch_bend(self, value=8192, ch=1):
-		"""Send a 'Pitch Bend' message."""
-		lib_zyncore.dev_send_pitchbend_change(self.idev_out, ch, value)
-
-	# TODO not sure what this does
-	def cb_sysex_ack(self, sysex_answer):
-		self.sysex_answer_cb = None
-		if sysex_answer[8] == 0x23:
-			logging.debug("Received SysEx ACK. Data Load operation success.")
-		elif sysex_answer[8] == 0x24:
-			logging.error("Received SysEx NAK. Data Load operation failed.")
-		else:
-			logging.error(f"Unknown SysEx response => {sysex_answer.hex(' ')}")
 
 	def init(self):
-		# TODO think about what signals needs initializing
-		logging.debug('~~~ init start ~~~')
 		# Enable LED control
-		# self.set_mode_led_external()
 		# Register signals
 		zynsigman.register_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, self._on_gui_show_screen)
 		# zynsigman.register_queued(zynsigman.S_AUDIO_PLAYER, self.state_manager.SS_AUDIO_PLAYER_STATE, self.refresh_audio_transport)
@@ -175,12 +162,9 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		# zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_PLAYER_STATE, self.refresh_midi_transport)
 		# zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_RECORDER_STATE, self.refresh_midi_transport)
 		super().init()
-		logging.debug('~~~ init finish ~~~')
 
 	def end(self):
 		super().end()
-
-		# TODO Unregister
 		# Unregister signals
 		zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, self._on_gui_show_screen)
 		# zynsigman.unregister(zynsigman.S_AUDIO_PLAYER, self.state_manager.SS_AUDIO_PLAYER_STATE, self.refresh_audio_transport)
@@ -223,6 +207,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		else:
 			lib_zyncore.dev_send_ccontrol_change(self.idev_out, self.midi_chan, self.transport_play_ccnum, 0)
 	"""
+
 	def get_lcd_bottom_text(self, channel, chain):
 		logging.debug(f'get_lcd_bottom_text: channel:{channel}')
 		bottom_text = ''
@@ -275,7 +260,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		lib_zyncore.dev_send_ccontrol_change(self.idev_out, self.midi_chan, 75, int(left_led) + 48)
 		lib_zyncore.dev_send_ccontrol_change(self.idev_out, self.midi_chan, 74, int(right_led) + 48)
 
-		# Set correct select bottom led, if on the within the mixer range
+		# Set correct select led, if within the mixer range
 		for i in range(0, 8):
 			chain_id = self.chain_manager.get_chain_id_by_index(i + self.first_zyn_channel_fader)
 			sel = 0
@@ -331,7 +316,6 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 
 			# LCD-Displays
-			logging.debug(f'refresh - chain count: {self.chain_manager.get_chain_count()}')
 			if i + self.first_zyn_channel_fader < self.chain_manager.get_chain_count() - 1:  # Condense with others
 				top_text = f'CH {i + 1 + self.first_zyn_channel_fader}'
 			else:
@@ -365,7 +349,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		evtype = (ev[0] >> 4) & 0x0F
 
 		# Faders
-		if evtype == 14:  # I've put the faders at the top to speed up
+		if evtype == 14:
 			fader_channel = ev[0] - 0xE0
 			if self.fader_touch_active[fader_channel]:
 				mackie_vol_level = (ev[2] * 256 + ev[1])
@@ -384,6 +368,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 			ccval = ev[2] & 0x7F
 			logging.debug(f"midid_event - evtype:{evtype} ccnum:{ccnum} ccval:{ccval}")
 
+			# Encoders
 			if evtype == 11:
 				if ccnum in self.encoders_ccnum:
 					# Encoders
@@ -408,16 +393,14 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 				elif ccnum == self.scroll_encoder:
 					if ccval > 64:
-						# self.state_manager.send_cuia("ZYNPOT", params=[3, -(ccval - 64)])
 						for i in range(ccval - 64):
-							if self.gui_screen in ['audio_mixer']:
+							if self.gui_screen in ['audio_mixer']: # TODO After fresh boot gui_screen has no value
 								self.state_manager.send_cuia("ARROW_LEFT")
 							else:
 								self.state_manager.send_cuia('ARROW_UP')
 					else:
-						# self.state_manager.send_cuia("ZYNPOT", params=[3, ccval])
 						for i in range(ccval):
-							if self.gui_screen in ['audio_mixer']:
+							if self.gui_screen in ['audio_mixer']: # TODO After fresh boot gui_screen has no value
 								self.state_manager.send_cuia('ARROW_RIGHT')
 							else:
 								self.state_manager.send_cuia('ARROW_DOWN')
@@ -443,7 +426,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 				if ccval == 127:
 					self.state_manager.send_cuia("ARROW_UP")
 				return True
-			elif ccnum == self.arrow__down_ccnum:  # done
+			elif ccnum == self.arrow_down_ccnum:  # done
 				if ccval == 127:
 					self.state_manager.send_cuia("ARROW_DOWN")
 				return True
