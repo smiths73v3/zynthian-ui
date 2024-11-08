@@ -1136,9 +1136,9 @@ class zynthian_state_manager:
                             except:
                                 pass
                         # Need to reassign chains and processor ids
-                        chain_map = {} # Map of new chain id indexed by old id
-                        proc_map = {} # Map of new processor id indexed by old id
-                        mixer_map = {} # Map of new mixer chan idx indexed by old idx
+                        chain_map = {}  # Map of new chain id indexed by old id
+                        proc_map = {}   # Map of new processor id indexed by old id
+                        mixer_map = {}  # Map of new mixer chan idx indexed by old idx
                         # Don't import main chain
                         try:
                             del state["chains"]["0"]
