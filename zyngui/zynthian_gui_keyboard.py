@@ -58,9 +58,10 @@ class zynthian_gui_keyboard():
         self.ctrl_order = zynthian_gui_config.layout['ctrl_order']
 
         # Geometry vars
-        self.width = zynthian_gui_config.display_width
-        self.height = zynthian_gui_config.display_height - \
+        self.width = zynthian_gui_config.screen_width
+        self.height = zynthian_gui_config.screen_height - \
             zynthian_gui_config.topbar_height
+
 
         # Fonts
         self.font_button = (zynthian_gui_config.font_family,
@@ -68,8 +69,8 @@ class zynthian_gui_keyboard():
 
         # Create main frame
         self.main_frame = tkinter.Frame(zynthian_gui_config.top,
-                                        width=zynthian_gui_config.display_width,
-                                        height=zynthian_gui_config.display_height,
+                                        width=zynthian_gui_config.screen_width,
+                                        height=zynthian_gui_config.screen_height,
                                         bg=zynthian_gui_config.color_bg)
         self.main_frame.grid_propagate(False)
 
@@ -306,7 +307,7 @@ class zynthian_gui_keyboard():
             self.highlight(self.selected_button)
             self.setup_zynpots()
             self.refresh_keys()
-            self.main_frame.grid()
+            self.main_frame.grid(row=0, column=self.zyngui.main_screen_column)
             self.shown = True
 
     # Function to register encoders
