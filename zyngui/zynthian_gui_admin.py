@@ -405,9 +405,16 @@ class zynthian_gui_admin(zynthian_gui_selector):
 
 	def toggle_touchkeypad(self):
 		if zynthian_gui_config.touch_keypad:
-			zynconf.save_config({'ZYNTHIAN_TOUCH_KEYPAD': ''})
+			self.zyngui.show_confirm("Do you really want to restart UI with touch keypad off?", self.touchkeypad_off_confirmed)
 		else:
-			zynconf.save_config({'ZYNTHIAN_TOUCH_KEYPAD': 'V5'})
+			self.zyngui.show_confirm("Do you really want to restart UI with touch keypad on?", self.touchkeypad_on_confirmed)
+
+	def touchkeypad_off_confirmed(self, params=None):
+		zynconf.save_config({'ZYNTHIAN_TOUCH_KEYPAD': ''})
+		self.restart_gui()
+
+	def touchkeypad_on_confirmed(self, params=None):
+		zynconf.save_config({'ZYNTHIAN_TOUCH_KEYPAD': 'V5'})
 		self.restart_gui()
 
 	# -------------------------------------------------------------------------
