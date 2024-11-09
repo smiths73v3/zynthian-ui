@@ -253,7 +253,8 @@ class zynthian_engine_setbfree(zynthian_engine):
         self.show_favs_bank = False
 
         # Process command ...
-        if self.config_remote_display():
+        #if self.config_remote_display():
+        if False:
             self.command = "setBfreeUI"
             self.command_prompt = ""
         else:

@@ -911,6 +911,10 @@ class zynthian_gui:
                         self.modify_chain_status["audio_thru"],
                         zmop_index=zmop_index
                     )
+                    if chain_id is None:
+                        self.show_screen_reset("audio_mixer")
+                        self.show_info("Failed to create chain", 1500)
+                        return
                     processor = self.chain_manager.add_processor(
                         chain_id,
                         self.modify_chain_status["engine"]
@@ -1047,19 +1051,19 @@ class zynthian_gui:
         return self.alt_mode
 
     def clean_all(self):
-        if self.chain_manager.get_chain_count() > 0:
+        if self.chain_manager.get_chain_count() > 1:
             self.state_manager.save_last_state_snapshot()
         self.state_manager.clean_all()
         self.show_screen_reset('main_menu')
 
     def clean_chains(self):
-        if self.chain_manager.get_chain_count() > 0:
+        if self.chain_manager.get_chain_count() > 1:
             self.state_manager.save_last_state_snapshot()
         self.state_manager.clean_chains()
         self.show_screen_reset('main_menu')
 
     def clean_sequences(self):
-        if self.chain_manager.get_chain_count() > 0:
+        if self.chain_manager.get_chain_count() > 1:
             self.state_manager.save_last_state_snapshot()
         self.state_manager.clean_sequences()
         self.show_screen_reset('zynpad')
@@ -1158,12 +1162,20 @@ class zynthian_gui:
         self.state_manager.all_notes_off()
         sleep(0.1)
         self.state_manager.raw_all_notes_off()
+        try:
+            self.screens[self.current_screen].set_title("ALL NOTES OFF", None, None, 1)
+        except:
+            pass
 
     def cuia_all_sounds_off(self, params=None):
         self.state_manager.all_notes_off()
         self.state_manager.all_sounds_off()
         sleep(0.1)
         self.state_manager.raw_all_notes_off()
+        try:
+            self.screens[self.current_screen].set_title("ALL SOUNDS OFF", None, None, 1)
+        except:
+            pass
 
     def cuia_clean_all(self, params=None):
         if params == ['CONFIRM']:
@@ -2061,8 +2073,10 @@ class zynthian_gui:
             return True
 
         elif i == 2:
-            self.cuia_screen_zs3()
-            # self.cuia_screen_snapshot()
+            if self.current_screen == 'zs3':
+                self.cuia_screen_snapshot()
+            else:
+                self.cuia_screen_zs3()
             return True
 
         elif i == 3:

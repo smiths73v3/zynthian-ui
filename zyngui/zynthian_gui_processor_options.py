@@ -74,6 +74,9 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
         if hasattr(self.processor.engine, "save_preset"):
             self.list_data.append((self.save_preset, None, "Save Preset"))
 
+        if self.processor.eng_code.startswith("JV/"):
+            self.list_data.append((self.scan_presets, None, "Scan for new presets"))
+
         self.list_data.append((self.midi_clean, None, "Clean MIDI-learn"))
 
         super().fill_list()
@@ -127,6 +130,10 @@ class zynthian_gui_processor_options(zynthian_gui_selector, zynthian_gui_save_pr
 
     def save_preset(self):
         super().save_preset()
+
+    def scan_presets(self):
+        self.zyngui.chain_manager.reload_engine_preset_info(self.processor.eng_code)
+        self.zyngui.cuia_bank_preset(self.processor)
 
     def midi_clean(self):
         if self.processor:

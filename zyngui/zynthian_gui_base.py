@@ -442,7 +442,10 @@ class zynthian_gui_base(tkinter.Frame):
 
     # Default status bold touch action
     def status_bold_touch_action(self):
-        self.zyngui.callable_ui_action('screen_zs3')
+        if self.zyngui.current_screen == 'zs3':
+            self.zyngui.callable_ui_action('screen_snapshot')
+        else:
+            self.zyngui.callable_ui_action('screen_zs3')
 
     # Default status long touch action
     def status_long_touch_action(self):

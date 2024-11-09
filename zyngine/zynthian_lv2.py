@@ -566,8 +566,6 @@ def get_plugin_cat(plugin):
 # ------------------------------------------------------------------------------
 
 # workaround to fix segfault:
-
-
 def generate_presets_cache_workaround():
     start = int(round(time.time()))
     for plugin in world.get_all_plugins():
@@ -609,7 +607,8 @@ def _generate_plugin_presets_cache(plugin):
     for bank in banks:
         label = world.get(bank, world.ns.rdfs.label, None)
         if label is None:
-            logging.debug("Bank <{}> has no label!".format(bank))
+            label = bank.split('#')[-1]
+            logging.debug(f"Bank <{bank}> has no label! Using '{label}'")
 
         banks_dict[str(bank)] = str(label)
         presets_info[str(label)] = {
@@ -631,19 +630,30 @@ def _generate_plugin_presets_cache(plugin):
 
         label = world.get(preset, world.ns.rdfs.label, None)
         if label is None:
-            logging.debug("Preset <{}> has no label!".format(preset))
+            label = preset.split('#')[-1]
+            logging.debug(f"Preset <{preset}> has no label! Using '{label}'")
+        else:
+            label = str(label)
 
         bank = world.get(preset, world.ns.presets.bank, None)
         if bank is None:
-            logging.debug("Preset <{}> has no bank!".format(preset))
+            logging.debug(f"Preset <{preset}> has no bank!")
+            bank_label = str(bank)
         else:
             try:
-                bank = banks_dict[str(bank)]
+                bank_label = banks_dict[str(bank)]
             except:
-                logging.debug("Bank <{}> doesn't exist!".format(bank))
-                bank = None
+                logging.debug(f"Bank <{bank}> doesn't exist. Adding it!")
+                bank_label = str(bank).split('#')[-1]
+                banks_dict[str(bank)] = bank_label
+                presets_info[bank_label] = {
+                    'bank_url': str(bank),
+                    'presets': []
+                }
 
-        presets_info[str(bank)]['presets'].append({
+        if label.startswith(bank_label):
+            label = label[len(bank_label) + 1:].strip()
+        presets_info[bank_label]['presets'].append({
             'label': str(label),
             'url': str(preset)
         })
@@ -652,6 +662,16 @@ def _generate_plugin_presets_cache(plugin):
 
     for preset in presets:
         world.unload_resource(preset)
+
+    # Sort and Remove empty banks
+    presets_info = dict(sorted(presets_info.items()))
+    keys = list(presets_info.keys())
+    for k in keys:
+        if len(presets_info[k]['presets']) == 0:
+            del (presets_info[k])
+        else:
+            presets_info[k]['presets'] = sorted(
+                presets_info[k]['presets'], key=lambda k: k['label'])
 
     # Save cache file
     save_plugin_presets_cache(plugin_name, presets_info)
@@ -682,15 +702,6 @@ def get_plugin_presets(plugin_name):
 
 
 def save_plugin_presets_cache(plugin_name, presets_info):
-    # Sort and Remove empty banks
-    keys = list(presets_info.keys())
-    for k in keys:
-        if len(presets_info[k]['presets']) == 0:
-            del (presets_info[k])
-        else:
-            presets_info[k]['presets'] = sorted(
-                presets_info[k]['presets'], key=lambda k: k['label'])
-
     # Dump json to file
     fpath_cache = _get_plugin_preset_cache_fpath(plugin_name)
     try:

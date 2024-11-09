@@ -248,10 +248,12 @@ class zynthian_engine_jalv(zynthian_engine):
                 self.custom_gui_fpath = None
 
         # Get bank & presets info
-        self.preset_info = zynthian_lv2.get_plugin_presets_cache(
-            self.plugin_name)
+        self.load_preset_info()
 
         self.reset()
+
+    def load_preset_info(self):
+        self.preset_info = zynthian_lv2.get_plugin_presets_cache(self.plugin_name)
 
     # ---------------------------------------------------------------------------
     # Processor Management
