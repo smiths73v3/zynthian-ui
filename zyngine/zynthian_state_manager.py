@@ -1769,7 +1769,7 @@ class zynthian_state_manager:
                     fixed_processors[processor_id] = processor_state
                 state['processors'] = fixed_processors
         if 'last_zs3' not in zs3_state:
-            self.zs3['last_zs3'] = None
+            zs3_state['last_zs3'] = None
         return zs3_state
 
     def purge_zs3(self):

@@ -22,18 +22,19 @@
 #
 # ******************************************************************************
 
-import copy
 import os
 import re
+import sys
+import copy
 import shutil
 import logging
-from os.path import isfile
 from subprocess import check_output, STDOUT
 
 from . import zynthian_lv2
 from . import zynthian_engine
 from . import zynthian_controller
 from zyncoder.zyncore import lib_zyncore
+from zyngine.ctrlinfo import *
 
 # ------------------------------------------------------------------------------
 # Jalv Engine Class => Engine for LV2 plugins
@@ -134,43 +135,7 @@ class zynthian_engine_jalv(zynthian_engine):
             'Surge': ['modulation wheel', 'sustain pedal'],
             'padthv1': [],
             'Vex': [],
-            'amsynth': ['modulation wheel', 'sustain pedal'],
-            'Osirus': {
-                '_ctrls': {
-                    'volume': [7, 98],
-                    'panning': [10, 64],
-                    'modulation wheel': [1, 0],
-                    'sustain pedal': [64, 'off', ['off', 'on']],
-                    'LFO1 osc1 amount': [74, 64],
-                    'LFO1 symmetry': [71, 64],
-                    'LFO1 CC72': [72, 64],
-                    'LFO1 CC73': [73, 64]
-                },
-                'main': ['volume', 'panning', 'modulation wheel', 'sustain pedal'],
-                'LFO1': ['LFO1 osc1 amount', 'LFO1 symmetry', 'LFO1 CC72', 'LFO1 CC73']
-            },
-            'OsTIrus': {
-                '_ctrls': {
-                    'volume': [7, 98],
-                    'panning': [10, 64],
-                    'modulation wheel': [1, 0],
-                    'sustain pedal': [64, 'off', ['off', 'on']],
-                    'LFO1 osc1': [74, 64],
-                    'LFO1 waveform contour': [71, 64],
-                    'LFO1 keyfollow': [72, 0],
-                    'LFO1 trigger phase': [73, 0],
-                    'LFO2 osc1': [86, 64],
-                    'LFO2 waveform contour': [83, 64],
-                    'LFO2 keyfollow': [84, 0],
-                    'LFO2 trigger phase': [85, 0],
-                    'portamento time': [5, 0],
-                    'noise osc volume': [37, 0]
-                },
-                'main': ['volume', 'panning', 'modulation wheel', 'sustain pedal'],
-                'LFO1': ['LFO1 osc1', 'LFO1 waveform contour', 'LFO1 keyfollow', 'LFO1 trigger phase'],
-                'LFO2': ['LFO2 osc shape 1+2', 'LFO2 waveform contour', 'LFO2 keyfollow', 'LFO2 trigger phase'],
-                'Miscelanea': ['portamento time', 'noise osc volume']
-            },
+            'amsynth': ['modulation wheel', 'sustain pedal']
         }
     }
 
@@ -250,31 +215,42 @@ class zynthian_engine_jalv(zynthian_engine):
                         logging.debug("Jack Name => {}".format(self.jackname))
                         break
 
-            # Set MIDI Controllers from hardcoded plugin info
+            # Setup MIDI Controllers
             self._ctrls = []
             self._ctrl_screens = []
-            try:
-                if self.plugin_name in self.plugin_ctrl_info['ctrl_screens']:
-                    ctrl_screens = self.plugin_ctrl_info['ctrl_screens'][self.plugin_name]
-                elif self.type == 'MIDI Synth':
-                    logging.info("Using default MIDI controllers for '{}'.".format(self.plugin_name))
-                    ctrl_screens = self.plugin_ctrl_info['ctrl_screens']['_default_synth']
-                else:
-                    ctrl_screens = None
-                if isinstance(ctrl_screens, list):
-                    ctrl_screens = {'MIDI Controllers': copy.copy(ctrl_screens)}
-                if isinstance(ctrl_screens, dict):
-                    try:
-                        ctrls = ctrl_screens['_ctrls']
-                    except:
-                        ctrls = self.plugin_ctrl_info['ctrls']
-                    for scr_title, scr_ctrls in ctrl_screens.items():
-                        if isinstance(scr_ctrls, list):
-                            self._ctrl_screens.append([scr_title, copy.copy(scr_ctrls)])
-                            for ctrl_name in scr_ctrls:
-                                self._ctrls.append([ctrl_name] + ctrls[ctrl_name])
-            except Exception as e:
-                logging.error(f"Error setting MIDI controllers for '{self.plugin_name}' => {e}")
+
+            # Search for a custom controller config for this plugin
+            module_name = f"zyngine.ctrlinfo.ctrlinfo_{self.plugin_name}"
+            if module_name in sys.modules:
+                try:
+                    self._ctrls = getattr(sys.modules[module_name], "ctrls", None)
+                    self._ctrl_screens = getattr(sys.modules[module_name], "ctrl_screens", None)
+                    logging.info("Using custom MIDI controllers file for '{}'.".format(self.plugin_name))
+                except Exception as e:
+                    logging.error(f"Wrong ctrlinfo module => {e}")
+
+            # If not available or wrong, take from hardcoded controller configs
+            if not self._ctrls or not self._ctrl_screens:
+                self._ctrls = []
+                self._ctrl_screens = []
+                try:
+                    if self.plugin_name in self.plugin_ctrl_info['ctrl_screens']:
+                        logging.info("Using custom MIDI controllers for '{}'.".format(self.plugin_name))
+                        ctrl_screens = self.plugin_ctrl_info['ctrl_screens'][self.plugin_name]
+                    elif self.type == 'MIDI Synth':
+                        logging.info("Using default MIDI controllers for '{}'.".format(self.plugin_name))
+                        ctrl_screens = self.plugin_ctrl_info['ctrl_screens']['_default_synth']
+                    else:
+                        ctrl_screens = None
+                    if ctrl_screens:
+                        self._ctrl_screens = [['MIDI Controllers', copy.copy(ctrl_screens)]]
+                        for ctrl_name in ctrl_screens:
+                            self._ctrls.append([ctrl_name] + self.plugin_ctrl_info['ctrls'][ctrl_name])
+                except Exception as e:
+                    logging.error(f"Error setting MIDI controllers for '{self.plugin_name}' => {e}")
+
+            #logging.debug(f"CTRLS => {self._ctrls}")
+            #logging.debug(f"CTRL_SCREENS => {self._ctrl_screens}")
 
             # Generate LV2-Plugin Controllers
             self.lv2_monitors_dict = {}

@@ -52,6 +52,7 @@ from zyngui import zynthian_gui_keyboard
 from zyngui import zynthian_gui_keybinding
 from zyngui.multitouch import MultiTouch
 from zyngui.zynthian_gui_info import zynthian_gui_info
+from zyngui.zynthian_gui_help import zynthian_gui_help
 from zyngui.zynthian_gui_splash import zynthian_gui_splash
 from zyngui.zynthian_gui_loading import zynthian_gui_loading
 from zyngui.zynthian_gui_option import zynthian_gui_option
@@ -453,6 +454,7 @@ class zynthian_gui:
     def create_screens(self):
         # Create Core UI Screens
         self.screens['info'] = zynthian_gui_info()
+        self.screens['help'] = zynthian_gui_help()
         self.screens['splash'] = zynthian_gui_splash()
         self.screens['loading'] = zynthian_gui_loading()
         self.screens['confirm'] = zynthian_gui_confirm()
@@ -856,6 +858,14 @@ class zynthian_gui:
         self.screens['midi_config'].input = False
         self.show_screen('midi_config')
 
+    def show_help(self, topic=None):
+        if not topic:
+            topic = self.current_screen
+        if self.screens['help'].load_file(f"./help/{topic}.html"):
+            self.show_screen("help")
+        elif topic != "help":
+            logging.warning(f"No help for '{topic}'")
+
     # TODO: Rename - this is called for various chain manipulation purposes
     def modify_chain(self, status=None):
         """Manage the stages of adding or changing a processor or chain
@@ -1127,6 +1137,9 @@ class zynthian_gui:
             self.alt_mode = False
         else:
             self.alt_mode = True
+
+    def cuia_help(self, params=None):
+        self.show_help(params)
 
     def cuia_power_off(self, params=None):
         if params == ['CONFIRM']:
