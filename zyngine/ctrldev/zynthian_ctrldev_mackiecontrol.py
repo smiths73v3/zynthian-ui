@@ -243,7 +243,8 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		if self.idev_out is None:
 			return
 		chain_id = self.chain_manager.get_chain_id_by_mixer_chan(chan)
-		if chain_id:
+		logging.debug(f'chain_id: {chain_id}')
+		if chain_id is not None:
 			if chain_id == 0 and symbol == "level" and self.device_settings['masterfader']:  # Refresh Master Channel Fader
 				if not self.fader_touch_active[8]:
 					lib_zyncore.zmop_send_pitchbend_change(self.ZMOP_DEV0 + self.idev_out, 8, int(value * self.max_fader_value))
@@ -318,7 +319,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 			chain = self.chain_manager.get_chain_by_position(col0 + i, **self.fader_view)  # TODO Add Midi, Synth, Audio filters
 
-			if chain:
+			if chain is not None:
 				if chain.chain_id == 0 and self.device_settings['masterfader']:
 					zyn_volume_main = self.zynmixer.get_level(255)  # TODO review
 					lib_zyncore.zmop_send_pitchbend_change(self.ZMOP_DEV0 + self.idev_out, 8, int(zyn_volume_main * self.max_fader_value))
