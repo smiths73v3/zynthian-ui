@@ -897,16 +897,14 @@ class zynthian_gui:
                                 self.modify_chain_status["chain_id"], processor, force_bank_preset=True)
                 else:
                     # Adding processor to existing chain
-                    parallel = "parallel" in self.modify_chain_status and self.modify_chain_status[
-                        "parallel"]
-                    post_fader = "post_fader" in self.modify_chain_status and self.modify_chain_status[
-                        "post_fader"]
-                    processor = self.chain_manager.add_processor(
-                        self.modify_chain_status["chain_id"], self.modify_chain_status["engine"], parallel=parallel, post_fader=post_fader)
+                    parallel = "parallel" in self.modify_chain_status and self.modify_chain_status["parallel"]
+                    post_fader = "post_fader" in self.modify_chain_status and self.modify_chain_status["post_fader"]
+                    processor = self.chain_manager.add_processor(self.modify_chain_status["chain_id"],
+                                                                 self.modify_chain_status["engine"],
+                                                                 parallel=parallel, post_fader=post_fader)
                     if processor:
                         self.close_screen("loading")
-                        self.chain_control(
-                            self.modify_chain_status["chain_id"], processor, force_bank_preset=True)
+                        self.chain_control(self.modify_chain_status["chain_id"], processor, force_bank_preset=True)
                     else:
                         self.show_screen_reset("audio_mixer")
             else:

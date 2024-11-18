@@ -42,7 +42,7 @@ class zynthian_gui_help:
         self.shown = False
         self.zyngui = zynthian_gui_config.zyngui
         # Main Frame
-        self.main_frame = HtmlFrame(zynthian_gui_config.top)
+        self.main_frame = HtmlFrame(zynthian_gui_config.top, messages_enabled=False)
 
     def load_file(self, fpath):
         if os.path.isfile(fpath):
