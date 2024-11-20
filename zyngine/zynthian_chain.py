@@ -381,9 +381,9 @@ class zynthian_chain:
                 continue
             if i < len(self.audio_in) - 1:
                 b = self.audio_in[i + 1]
-                sources.append(f"{input_ports[a-1].name}|{input_ports[b-1].name}")
+                sources.append(f"^{input_ports[a-1].name}$|^{input_ports[b-1].name}$")
             else:
-                sources.append(input_ports[a-1].name)
+                sources.append(f"^{input_ports[a-1].name}$")
         return sources
 
     def rebuild_midi_graph(self):

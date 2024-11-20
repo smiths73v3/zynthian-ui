@@ -927,108 +927,109 @@ def audio_autoconnect():
     # Release Mutex Lock
     release_lock()
 
-
 def get_hw_audio_dst_ports():
-    return hw_audio_dst_ports
-
+    return jclient.get_ports("system:playback", is_input=True, is_audio=True, is_physical=True) + jclient.get_ports("zynaout", is_input=True, is_audio=True)
 
 def update_hw_audio_ports():
-	global alsa_audio_srcs, alsa_audio_dests
+    global alsa_audio_srcs, alsa_audio_dests
 
-	dirty = False
-	if zynthian_gui_config.hotplug_audio:
-		# Add new devices
-		for device in get_alsa_audio_devices(False):
-			dirty |= start_alsa_in(device)
-		for device in get_alsa_audio_devices(True):
-			dirty |= start_alsa_out(device)
+    dirty = False
+    if zynthian_gui_config.hotplug_audio:
+        # Add new devices
+        for device in get_alsa_audio_devices(False):
+            dirty |= start_alsa_in(device)
+        for device in get_alsa_audio_devices(True):
+            dirty |= start_alsa_out(device)
 
-		# Remove disconnected devices
-		for device in list(alsa_audio_srcs):
-			try:
-				while True:
-					proc = alsa_audio_srcs[device]
-					line = proc.readline()
-					if line.startswith("err"):
-						proc.terminate()
-						alsa_audio_srcs.pop(device)
-						dirty = True
-						break
-					elif not line:
-						break
-			except:
-				continue
-		for device in list(alsa_audio_dests):
-			try:
-				while True:
-					proc = alsa_audio_dests[device]
-					line = proc.readline()
-					if line.startswith("err"):
-						proc.terminate()
-						alsa_audio_dests.pop(device)
-						dirty = True
-						break
-					elif not line:
-						break
-			except:
-				continue
+        # Remove disconnected devices
+        for device in list(alsa_audio_srcs):
+            try:
+                while True:
+                    proc = alsa_audio_srcs[device]
+                    line = proc.readline()
+                    if line.startswith("err"):
+                        proc.terminate()
+                        alsa_audio_srcs.pop(device)
+                        dirty = True
+                        break
+                    elif not line:
+                        break
+            except:
+                continue
+        for device in list(alsa_audio_dests):
+            try:
+                while True:
+                    proc = alsa_audio_dests[device]
+                    line = proc.readline()
+                    if line.startswith("err"):
+                        proc.terminate()
+                        alsa_audio_dests.pop(device)
+                        dirty = True
+                        break
+                    elif not line:
+                        break
+            except:
+                continue
+    if dirty:
+        # Rebuild chain audio routes
+        try:
+            sleep(0.5) # Have to wait for jack to finish registering ports
+            for chain in chain_manager.chains.values():
+                chain.rebuild_audio_graph()
+        except Exception as e:
+            logging.error(e)
 
-		return dirty
+    return dirty
 
 
 def get_alsa_audio_devices(playback=True):
-	devices = []
-	for card in alsaaudio.pcms(alsaaudio.PCM_PLAYBACK if playback else alsaaudio.PCM_CAPTURE):
-		if card.startswith("hw:"):
-			devices.append(card[8:card.find(",")])
-	return devices
-
+    devices = []
+    for card in alsaaudio.pcms(alsaaudio.PCM_PLAYBACK if playback else alsaaudio.PCM_CAPTURE):
+        if card.startswith("hw:"):
+            devices.append(card[8:card.find(",")])
+    return devices
 
 def start_alsa_in(device):
-	global alsa_audio_srcs
-	if device in alsa_audio_srcs:
-		return False
-	proc = pexpect.spawn(f"alsa_in -d hw:{device} -j zynain_{device}", encoding="utf-8", timeout=0.1)
-	if proc.exitstatus:
-		return False
-	alsa_audio_srcs[device] = proc
-	return True
-
+    global alsa_audio_srcs
+    if device in alsa_audio_srcs:
+        return False
+    proc = pexpect.spawn(f"alsa_in -d hw:{device} -j zynain_{device}", encoding="utf-8", timeout=0.1)
+    if proc.exitstatus:
+        return False
+    alsa_audio_srcs[device] = proc
+    return True
 
 def stop_alsa_in(device):
-	global alsa_audio_srcs
-	if device not in alsa_audio_srcs:
-		return False
-	alsa_audio_srcs[device].terminate()
-	alsa_audio_srcs.pop(device)
-	return True
-
-
-def stop_all_alsa_in():
-	for device in get_alsa_audio_devices(False):
-		stop_alsa_in(device)
-
+    global alsa_audio_srcs
+    if device not in alsa_audio_srcs:
+        return False
+    alsa_audio_srcs[device].terminate()
+    alsa_audio_srcs.pop(device)
+    return True
 
 def start_alsa_out(device):
-	return False # TODO Disabled whilst getting hotplug audio inputs working.
-	global alsa_audio_dests
-	if device in alsa_audio_dests:
-		return False
-	proc = pexpect.spawn(f"alsa_out -d hw:{device} -j zynaout_{device}", encoding="utf-8", timeout=0.1)
-	if proc.exitstatus:
-		return False
-	alsa_audio_dests[device] = proc
-	return True
-
+    global alsa_audio_dests
+    if device in alsa_audio_dests:
+        return False
+    proc = pexpect.spawn(f"alsa_out -d hw:{device} -j zynaout_{device}", encoding="utf-8", timeout=0.1)
+    if proc.exitstatus:
+        return False
+    alsa_audio_dests[device] = proc
+    return True
 
 def stop_alsa_out(device):
-	global alsa_audio_dests
-	if device not in alsa_audio_dests:
-		return False
-	alsa_audio_dests[device].terminate()
-	alsa_audio_dests.pop(device)
-	return True
+    global alsa_audio_dests
+    if device not in alsa_audio_dests:
+        return False
+    alsa_audio_dests[device].terminate()
+    alsa_audio_dests.pop(device)
+    return True
 
+def stop_all_alsa_in_out():
+    for device in get_alsa_audio_devices(False):
+        stop_alsa_in(device)
+    for device in get_alsa_audio_devices(True):
+        stop_alsa_out(device)
 
 # Connect mixer to the ffmpeg recorder
 def audio_connect_ffmpeg(timeout=2.0):
@@ -1307,9 +1308,7 @@ def start(sm):
     init()
 
     # Get System Playback Ports
-    hw_audio_dst_ports = jclient.get_ports(
-        "system:playback", is_input=True, is_audio=True, is_physical=True)
-
+    hw_audio_dst_ports = get_hw_audio_dst_ports()
     try:
         with open(f"{zynconf.config_dir}/sidechain.json", "r") as file:
             sidechain_map = json.load(file)
@@ -1329,7 +1328,7 @@ def start(sm):
 def stop():
     """Reset state and stop autoconnect thread"""
 
-    global exit_flag, jclient, thread, lock
+    global exit_flag, jclient, thread, lock, hw_audio_dst_ports
     exit_flag = True
     if thread:
         thread.join()
@@ -1341,12 +1340,7 @@ def stop():
 
     hw_audio_dst_ports = []
 
-    for process in alsa_audio_srcs.values():
-        process.terminate()
-    alsa_audio_srcs = {}
-    for process in alsa_audio_dests.values():
-        process.terminate()
-    alsa_audio_dests = {}
+    stop_all_alsa_in_out()
 
     if jclient:
         jclient.deactivate()
