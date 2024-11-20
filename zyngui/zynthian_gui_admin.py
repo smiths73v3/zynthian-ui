@@ -410,7 +410,7 @@ class zynthian_gui_admin(zynthian_gui_selector):
         logging.info("STOPPING HOTPLUG AUDIO")
 
         zynthian_gui_config.hotplug_audio = 0
-        zynautoconnect.stop_all_alsa_in()
+        zynautoconnect.stop_all_alsa_in_out()
         # Update Config
         if save_config:
             zynconf.save_config({

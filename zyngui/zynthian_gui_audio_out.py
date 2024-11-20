@@ -42,7 +42,6 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
 
     def __init__(self):
         self.chain = None
-        self.playback_ports = zynautoconnect.get_hw_audio_dst_ports()
         super().__init__('Audio Out', True)
 
     def build_view(self):
@@ -74,8 +73,8 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
         if self.check_ports > 10:
             self.check_ports = 0
             ports = zynautoconnect.get_hw_audio_dst_ports()
-            if self.playback_ports != zynautoconnect.get_hw_audio_dst_ports() != ports:
-                self.capture_ports = ports
+            if self.playback_ports != ports:
+                self.playback_ports = ports
                 self.fill_list()
 
     def fill_list(self):
@@ -109,13 +108,11 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             # Direct physical outputs
             self.list_data.append((None, None, "> Direct Outputs"))
             port_count = len(self.playback_ports)
-            for i in range(1, port_count + 1, 2):
+            for i in range(0, port_count, 2):
+                port_names.append((f"Output {i + 1}", f"^{self.playback_ports[i].name}$"))
                 if i < port_count:
-                    port_names.append((f"Output {i}", f"system:playback_{i}$"))
-                    port_names.append((f"Output {i + 1}", f"system:playback_{i + 1}$"))
-                    port_names.append((f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$"))
-                else:
-                    port_names.append((f"Output {i}", f"system:playback_{i}$"))
+                    port_names.append((f"Output {i + 2}", f"^{self.playback_ports[i + 1].name}$"))
+                    port_names.append((f"Outputs {i + 1}+{i + 2}", f"^{self.playback_ports[i].name}$|^{self.playback_ports[i + 1].name}$"))
             for title, processor in port_names:
                 if processor in self.chain.audio_out:
                     self.list_data.append((processor, processor, "\u2612 " + title))
