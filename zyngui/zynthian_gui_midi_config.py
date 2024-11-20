@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 # ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian GUI
-# 
+#
 # Zynthian GUI MIDI config Class
-# 
+#
 # Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
 #                         Brian Walton <brian@riban.co.uk>
 #
 # ******************************************************************************
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of
@@ -21,7 +21,7 @@
 # GNU General Public License for more details.
 #
 # For a full copy of the GNU General Public License see the LICENSE.txt file.
-# 
+#
 # ******************************************************************************
 
 import os
@@ -59,9 +59,10 @@ class aubio_inputs():
 # Zynthian MIDI config GUI Class
 # ------------------------------------------------------------------------------
 
-ZMIP_MODE_CONTROLLER = "⌨" #\u2328
-ZMIP_MODE_ACTIVE = "⇥" #\u21e5
-ZMIP_MODE_MULTI = "⇶" #\u21f6
+
+ZMIP_MODE_CONTROLLER = "⌨"  # \u2328
+ZMIP_MODE_ACTIVE = "⇥"  # \u21e5
+ZMIP_MODE_MULTI = "⇶"  # \u21f6
 
 
 class zynthian_gui_midi_config(zynthian_gui_selector):
@@ -75,7 +76,8 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
     def build_view(self):
         # Enable background scan for MIDI devices
         self.midi_scan = True
-        self.thread = Thread(target=self.process_dynamic_ports, name="MIDI port scan")
+        self.thread = Thread(
+            target=self.process_dynamic_ports, name="MIDI port scan")
         self.thread.start()
         return super().build_view()
 
@@ -93,7 +95,7 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
         """Populate data list used for display and configuration.
         Different display mode for admin view (no chain) and chain view (i/o routing)
         List of lists, each consisting of elements based on the display mode and entry type.
-        
+
         Elements in jack port:
         0: Port UID (or service name if service disabled)
         0: For services this is the name of function to start/stop service
@@ -165,11 +167,11 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
         ble_devices = []    # BLE MIDI ports
         aubio_devices = []  # Aubio MIDI ports
         net_devices = {}    # Network MIDI ports, indexed by jack port name
-        for i in range(zynautoconnect.max_num_devs):
-            if self.input:
-                dev = zynautoconnect.devices_in[i]
-            else:
-                dev = zynautoconnect.devices_out[i]
+        if self.input:
+            devs = zynautoconnect.devices_in
+        else:
+            devs = zynautoconnect.devices_out
+        for i, dev in enumerate(devs):
             if dev and len(dev.aliases) > 1:
                 if dev.aliases[0].startswith("USB:"):
                     usb_devices.append((dev.aliases[1], i))
@@ -181,10 +183,27 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
                     net_devices[dev.name] = i
                 else:
                     int_devices.append(i)
-        if int_devices:
-            self.list_data.append((None, None, "Internal Devices"))
-            for i in int_devices:
-                append_port(i)
+
+        self.list_data.append((None, None, "Internal Devices"))
+        nint = len(self.list_data)
+
+        for i in int_devices:
+            append_port(i)
+
+        if self.input:
+            if not self.chain or zynthian_gui_config.midi_aubionotes_enabled:
+                if self.chain:
+                    for i in aubio_devices:
+                        append_port(i)
+                else:
+                    if aubio_devices:
+                        append_service_device("aubionotes", aubio_devices[0])
+                    else:
+                        append_service_device("aubionotes", "Aubionotes (Audio \u2794 MIDI)")
+
+        # Remove "Internal Devices" title if section is empty
+        if len(self.list_data) == nint:
+            self.list_data.pop()
 
         if usb_devices:
             self.list_data.append((None, None, "USB Devices"))
@@ -239,18 +258,6 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
                     else:
                         append_service_device("touchosc", "TouchOSC Bridge")
 
-        if self.input:
-            if not self.chain or zynthian_gui_config.midi_aubionotes_enabled:
-                self.list_data.append((None, None, "Aubionotes Audio\u2794MIDI"))
-                if self.chain:
-                    for i in aubio_devices:
-                        append_port(i)
-                else:
-                    if aubio_devices:
-                        append_service_device("aubionotes", aubio_devices[0])
-                    else:
-                        append_service_device("aubionotes", "Aubionotes")
-
         if not self.input and self.chain:
             self.list_data.append((None, None, "> Chain inputs"))
             for i, chain_id in enumerate(self.zyngui.chain_manager.ordered_chain_ids):
@@ -261,9 +268,11 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
                     else:
                         prefix = ""
                     if chain_id in self.chain.midi_out:
-                        self.list_data.append((chain_id, None, f"\u2612 {prefix}{chain.get_name()}"))
+                        self.list_data.append(
+                            (chain_id, None, f"\u2612 {prefix}{chain.get_name()}"))
                     else:
-                        self.list_data.append((chain_id, None, f"\u2610 {prefix}{chain.get_name()}"))
+                        self.list_data.append(
+                            (chain_id, None, f"\u2610 {prefix}{chain.get_name()}"))
 
         super().fill_list()
 
@@ -301,11 +310,13 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
                 if self.input:
                     if not self.zyngui.state_manager.ctrldev_manager.is_input_device_available_to_chains(idev):
                         return
-                    lib_zyncore.zmop_set_route_from(self.chain.zmop_index, idev, not lib_zyncore.zmop_get_route_from(self.chain.zmop_index, idev))
+                    lib_zyncore.zmop_set_route_from(
+                        self.chain.zmop_index, idev, not lib_zyncore.zmop_get_route_from(self.chain.zmop_index, idev))
                 else:
                     try:
                         if idev is not None:
-                            dev_id = zynautoconnect.get_midi_out_dev(idev).aliases[0]
+                            dev_id = zynautoconnect.get_midi_out_dev(
+                                idev).aliases[0]
                             self.chain.toggle_midi_out(dev_id)
                         elif isinstance(action, int):
                             self.chain.toggle_midi_out(action)
@@ -341,8 +352,9 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
                 if self.list_data[i][0].startswith("AUBIO:") or self.list_data[i][0].endswith("aubionotes"):
                     options["Select aubio inputs"] = "AUBIO_INPUTS"
                 options[f"Rename port '{port.aliases[0]}'"] = port
-                #options[f"Reset name to '{zynautoconnect.build_midi_port_name(port)[1]}'"] = port
-                self.zyngui.screens['option'].config("MIDI Input Device", options, self.menu_cb)
+                # options[f"Reset name to '{zynautoconnect.build_midi_port_name(port)[1]}'"] = port
+                self.zyngui.screens['option'].config(
+                    "MIDI Input Device", options, self.menu_cb)
                 self.zyngui.show_screen('option')
             except:
                 pass  # Port may have disappeared whilst building menu
@@ -350,7 +362,8 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
     def menu_cb(self, option, params):
         try:
             if option.startswith("Rename port"):
-                self.zyngui.show_keyboard(self.rename_device, params.aliases[1])
+                self.zyngui.show_keyboard(
+                    self.rename_device, params.aliases[1])
                 return
             elif option.startswith("Reset name"):
                 zynautoconnect.set_port_friendly_name(params)
@@ -386,12 +399,12 @@ class zynthian_gui_midi_config(zynthian_gui_selector):
             if last_fingerprint != fingerprint:
                 last_fingerprint = fingerprint
                 self.update_list()
-            
+
             sleep(2)  # Repeat every 2s
 
     def rename_device(self, name):
         """Set the friendly name of selected
-        
+
         name : New friendly name
         """
 
