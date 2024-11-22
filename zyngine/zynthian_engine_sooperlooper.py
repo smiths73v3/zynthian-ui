@@ -325,6 +325,12 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 
 		self.command = ["sooperlooper", "-q", "-l 0", "-D no", f"-p {self.osc_target_port}", f"-j{self.jackname}"]
 
+		# Load custom MIDI bindings
+		custom_slb_fpath = self.config_dir + "/sooperlooper/zynthian.slb"
+		if os.path.exists(custom_slb_fpath):
+			self.command += [f"-m {custom_slb_fpath}"]
+			logging.info(f"loading sooperlooper custom MIDI bindings: {custom_slb_fpath}")
+
 		self.state = [-1] * self.MAX_LOOPS  # Current SL state for each loop
 		self.next_state = [-1] * self.MAX_LOOPS  # Next SL state for each loop (-1 if no state change pending)
 		self.waiting = [0] * self.MAX_LOOPS  # 1 if a change of state is pending
@@ -332,7 +338,8 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		self.loop_count = 1
 		self.channels = 2
 
-		self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_sooperlooper.py"
+		ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
+		self.custom_gui_fpath = f"{ui_dir}/zyngui/zynthian_widget_sooperlooper.py"
 		self.monitors_dict = OrderedDict({
 			"state": 0,
 			"next_state": -1,
