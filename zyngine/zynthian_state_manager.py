@@ -2784,7 +2784,7 @@ class zynthian_state_manager:
                         local_hash = check_output(["git", "-C", path, "rev-parse", "HEAD"], encoding="utf-8",
                                                   stderr=STDOUT).strip()
                         remote_hash = check_output(["git", "-C", path, "ls-remote", "origin", branch], encoding="utf-8",
-                                                   stderr=STDOUT).strip().split('\t')[0]
+                                                   stderr=STDOUT).strip().split("\t")[0]
                         if local_hash != remote_hash:
                             self.update_available = True
                             break
@@ -2794,11 +2794,10 @@ class zynthian_state_manager:
 
         def get_repo_branch(path):
             res = check_output(["git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD"], encoding="utf-8",
-                               stderr=STDOUT).strip().split('/')
-            try:
+                               stderr=STDOUT).strip().split("/", 1)
+            if len(res) > 1 and res[0] == 'heads':
                 return res[1]
-            except:
-                return res[0]
+            return res[0]
 
         thread = Thread(target=update_thread, args=())
         thread.name = "Check update"
