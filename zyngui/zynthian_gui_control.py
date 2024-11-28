@@ -147,6 +147,8 @@ class zynthian_gui_control(zynthian_gui_selector):
 
     def cb_control_mode(self, mode):
         self.set_button_status(2, (mode == "select"))
+        if mode == "control":
+            self.set_mode_control()
 
     def configure_processors(self, curproc=None):
         if not curproc:
@@ -397,7 +399,7 @@ class zynthian_gui_control(zynthian_gui_selector):
         for i in range(0, len(self.zgui_controllers)):
             self.zgui_controllers[i].unset_hl()
         self.set_select_path()
-        zynsigman.send_queued(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, mode=self.mode)
+        #zynsigman.send_queued(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, mode=self.mode)
 
     def previous_page(self, wrap=False):
         i = self.index - 1
