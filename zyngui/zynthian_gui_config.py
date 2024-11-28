@@ -576,6 +576,7 @@ touch_keypad = None
 
 rbpi_headphones = int(os.environ.get('ZYNTHIAN_RBPI_HEADPHONES', 0))
 enable_dpm = int(os.environ.get('ZYNTHIAN_DPM', True))
+hotplug_audio = int(os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO', False))
 
 # ------------------------------------------------------------------------------
 # Networking Options
