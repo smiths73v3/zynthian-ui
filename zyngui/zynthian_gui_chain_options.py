@@ -68,8 +68,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector):
         if self.chain.is_midi():
             try:
                 if synth_proc_count == 0 or self.chain.synth_slots[0][0].engine.options["midi_chan"]:
-                    self.list_data.append(
-                        (self.chain_midi_chan, None, "MIDI Channel"))
+                    self.list_data.append((self.chain_midi_chan, None, "MIDI Channel"))
             except Exception as e:
                 logging.error(e)
 
@@ -84,8 +83,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector):
             self.list_data.append((self.chain_audio_capture, None, "Audio In"))
 
         if self.chain.is_audio():
-            self.list_data.append(
-                (self.chain_audio_routing, None, "Audio Out"))
+            self.list_data.append((self.chain_audio_routing, None, "Audio Out"))
 
         if self.chain.is_audio():
             self.list_data.append((self.audio_options, None, "Audio Options"))
@@ -93,11 +91,9 @@ class zynthian_gui_chain_options(zynthian_gui_selector):
         # TODO: Catch signal for Audio Recording status change
         if self.chain_id == 0 and not zynthian_gui_config.check_wiring_layout(["Z2", "V5"]):
             if self.zyngui.state_manager.audio_recorder.status:
-                self.list_data.append(
-                    (self.toggle_recording, None, "■ Stop Audio Recording"))
+                self.list_data.append((self.toggle_recording, None, "■ Stop Audio Recording"))
             else:
-                self.list_data.append(
-                    (self.toggle_recording, None, "⬤ Start Audio Recording"))
+                self.list_data.append((self.toggle_recording, None, "⬤ Start Audio Recording"))
 
         self.list_data.append((None, None, "> Processors"))
 
@@ -109,28 +105,23 @@ class zynthian_gui_chain_options(zynthian_gui_selector):
 
         if self.chain.is_audio():
             # Add Audio-FX options
-            self.list_data.append(
-                (self.audiofx_add, None, "Add Pre-fader Audio-FX"))
-            self.list_data.append(
-                (self.postfader_add, None, "Add Post-fader Audio-FX"))
+            self.list_data.append((self.audiofx_add, None, "Add Pre-fader Audio-FX"))
+            self.list_data.append((self.postfader_add, None, "Add Post-fader Audio-FX"))
 
         if self.chain_id != 0:
             if synth_proc_count * midi_proc_count + audio_proc_count == 0:
-                self.list_data.append(
-                    (self.remove_chain, None, "Remove Chain"))
+                self.list_data.append((self.remove_chain, None, "Remove Chain"))
             else:
                 self.list_data.append((self.remove_cb, None, "Remove..."))
             self.list_data.append((self.export_chain, None, "Export chain as snapshot..."))
         elif audio_proc_count > 0:
-            self.list_data.append(
-                (self.remove_all_audiofx, None, "Remove all Audio-FX"))
+            self.list_data.append((self.remove_all_audiofx, None, "Remove all Audio-FX"))
 
         self.list_data.append((None, None, "> GUI"))
         self.list_data.append((self.rename_chain, None, "Rename chain"))
         if self.chain_id:
             if len(self.zyngui.chain_manager.ordered_chain_ids) > 2:
-                self.list_data.append(
-                    (self.move_chain, None, "Move chain ⇦ ⇨"))
+                self.list_data.append((self.move_chain, None, "Move chain ⇦ ⇨"))
 
         super().fill_list()
 
