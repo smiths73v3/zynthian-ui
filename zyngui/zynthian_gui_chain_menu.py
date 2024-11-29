@@ -68,25 +68,25 @@ class zynthian_gui_chain_menu(zynthian_gui_selector_info):
             self.list_data.append((self.add_generator_chain, 0,
                                    "Add Audio Generator Chain",
                                    ["Create a new chain for audio generation. The chain doesn't receive any input and generates audio output. Internet radio, test signals, etc.",
-                                   None]))
+                                   "audio_generator.png"]))
             self.list_data.append((self.add_special_chain, 0,
                                    "Add Special Chain",
                                    ["Create a new chain for special processing. The chain receives audio & MIDI input and generates audio & MIDI output. use it for MOD-UI, puredata, etc.",
-                                   None]))
+                                   "special_chain.png"]))
 
         self.list_data.append((None, 0, "> REMOVE"))
         self.list_data.append((self.remove_sequences, 0,
                                "Remove Sequences",
                                ["Clean all sequencer data while keeping existing chains.",
-                                None]))
+                                "delete_sequences.png"]))
         self.list_data.append((self.remove_chains, 0,
                                "Remove Chains",
                                ["Clean all chains while keeping sequencer data.",
-                               None]))
+                               "delete_chains.png"]))
         self.list_data.append((self.remove_all, 0,
                                "Remove All",
                                ["Clean all chains and sequencer data. Start from scratch!",
-                               None]))
+                               "delete_all.png"]))
         super().fill_list()
 
     def select_action(self, i, t='S'):
