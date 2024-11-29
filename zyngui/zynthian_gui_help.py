@@ -38,11 +38,16 @@ class zynthian_gui_help:
 
     ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
 
-    def __init__(self):
+    def __init__(self, zyngui):
+        self.zyngui = zyngui
         self.shown = False
         self.zyngui = zynthian_gui_config.zyngui
         # Main Frame
         self.main_frame = HtmlFrame(zynthian_gui_config.top, messages_enabled=False)
+        self.main_frame.on_done_loading(self.done_loading)
+
+    def done_loading(self):
+        self.zyngui.show_screen("help")
 
     def load_file(self, fpath):
         if os.path.isfile(fpath):
