@@ -453,7 +453,7 @@ class zynthian_gui:
     def create_screens(self):
         # Create Core UI Screens
         self.screens['info'] = zynthian_gui_info()
-        self.screens['help'] = zynthian_gui_help()
+        self.screens['help'] = zynthian_gui_help(self)
         self.screens['splash'] = zynthian_gui_splash()
         self.screens['loading'] = zynthian_gui_loading()
         self.screens['confirm'] = zynthian_gui_confirm()
@@ -860,7 +860,8 @@ class zynthian_gui:
         if not topic:
             topic = self.current_screen
         if self.screens['help'].load_file(f"./help/{topic}.html"):
-            self.show_screen("help")
+            pass
+            #self.show_screen("help")
         elif topic != "help":
             logging.warning(f"No help for '{topic}'")
 

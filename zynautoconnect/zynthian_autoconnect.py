@@ -33,6 +33,7 @@ from time import sleep
 from threading import Thread, Lock
 from subprocess import check_output
 import pexpect
+import psutil
 
 # Zynthian specific modules
 from zyncoder.zyncore import lib_zyncore
@@ -55,7 +56,6 @@ logger.setLevel(log_level)
 # Fake port class
 # -------------------------------------------------------------------------------
 
-
 class fake_port:
     def __init__(self, name):
         self.name = name
@@ -67,7 +67,6 @@ class fake_port:
 
     def unset_alias(self, alias):
         pass
-
 
 # -------------------------------------------------------------------------------
 # Define some Constants and Global Variables
@@ -117,10 +116,22 @@ ctrl_fb_procs = []
 # Map of user friendly names indexed by device uid (alias[0])
 midi_port_names = {}
 
+# Get the main jack audio device
+jack_audio_device = ""
+for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+    try:
+        if 'jackd' in proc.info['name']:
+            cmdline = proc.info['cmdline']
+            for param in cmdline:
+                if param.startswith("hw:"):
+                    jack_audio_device = param[3:]
+                    break
+    except:
+        pass
+
 # ------------------------------------------------------------------------------
 
 # MIDI port helper functions
-
 
 def get_port_friendly_name(uid):
     """Get port friendly name
@@ -934,12 +945,14 @@ def update_hw_audio_ports():
     global alsa_audio_srcs, alsa_audio_dests
 
     dirty = False
-    if zynthian_gui_config.hotplug_audio:
+    if zynthian_gui_config.hotplug_audio_enabled:
         # Add new devices
-        for device in get_alsa_audio_devices(False):
-            dirty |= start_alsa_in(device)
-        for device in get_alsa_audio_devices(True):
-            dirty |= start_alsa_out(device)
+        for device in get_alsa_hotplug_audio_devices(False):
+            if device not in zynthian_gui_config.disabled_audio_in:
+                dirty |= start_alsa_in(device)
+        for device in get_alsa_hotplug_audio_devices(True):
+            if device not in zynthian_gui_config.disabled_audio_out:
+                dirty |= start_alsa_out(device)
 
         # Remove disconnected devices
         for device in list(alsa_audio_srcs):
@@ -981,12 +994,48 @@ def update_hw_audio_ports():
 
     return dirty
 
+def enable_hotplug():
+    zynthian_gui_config.hotplug_audio_enabled = True
+    zynconf.save_config({"ZYNTHIAN_HOTPLUG_AUDIO": str(zynthian_gui_config.hotplug_audio_enabled)})
+    update_hw_audio_ports()
+    audio_autoconnect()
 
-def get_alsa_audio_devices(playback=True):
+def disable_hotplug():
+    zynthian_gui_config.hotplug_audio_enabled = False
+    zynconf.save_config({"ZYNTHIAN_HOTPLUG_AUDIO": str(zynthian_gui_config.hotplug_audio_enabled)})
+    stop_all_alsa_in_out()
+
+def enable_audio_input_device(device, enable=True):
+    if enable:
+        if start_alsa_in(device):
+            if device in zynthian_gui_config.disabled_audio_in:
+                zynthian_gui_config.disabled_audio_in.remove(device)
+    else:
+        stop_alsa_in(device)
+        if device not in zynthian_gui_config.disabled_audio_in:
+            zynthian_gui_config.disabled_audio_in.append(device)
+    zynconf.save_config({"ZYNTHIAN_HOTPLUG_AUDIO_DISABLED_IN": ",".join(zynthian_gui_config.disabled_audio_in)})
+
+def enable_audio_output_device(device, enable=True):
+    if enable:
+        if start_alsa_out(device):
+            if device in zynthian_gui_config.disabled_audio_out:
+                zynthian_gui_config.disabled_audio_out.remove(device)
+    else:
+        stop_alsa_out(device)
+        if device not in zynthian_gui_config.disabled_audio_out:
+            zynthian_gui_config.disabled_audio_out.append(device)
+    zynconf.save_config({"ZYNTHIAN_HOTPLUG_AUDIO_DISABLED_OUT": ",".join(zynthian_gui_config.disabled_audio_out)})
+
+def get_alsa_hotplug_audio_devices(playback=True):
     devices = []
     for card in alsaaudio.pcms(alsaaudio.PCM_PLAYBACK if playback else alsaaudio.PCM_CAPTURE):
+        if card == jack_audio_device:
+            continue
         if card.startswith("hw:"):
-            devices.append(card[8:card.find(",")])
+            device = card[8:card.find(",")]
+            if device != jack_audio_device:
+                devices.append(device)
     return devices
 
 def start_alsa_in(device):
@@ -1026,9 +1075,9 @@ def stop_alsa_out(device):
     return True
 
 def stop_all_alsa_in_out():
-    for device in get_alsa_audio_devices(False):
+    for device in get_alsa_hotplug_audio_devices(False):
         stop_alsa_in(device)
-    for device in get_alsa_audio_devices(True):
+    for device in get_alsa_hotplug_audio_devices(True):
         stop_alsa_out(device)
 
 # Connect mixer to the ffmpeg recorder

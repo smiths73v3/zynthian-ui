@@ -91,10 +91,11 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
         self.icon_image = self.icon_canvas.create_image(self.side_width // 2, 0, anchor="n")
 
         # Info text layout
-        info_fs = int(0.8 * zynthian_gui_config.font_size)
+        info_fs = min(int(0.8 * zynthian_gui_config.font_size), self.side_width // 16)
         xpos = int(0.8 * info_fs)
+        ypos = int(-0.3 * info_fs)
         self.description_label = self.info_canvas.create_text(
-            xpos, 0,
+            xpos, ypos,
             anchor=tkinter.NW,
             justify=tkinter.LEFT,
             width=self.side_width - xpos,
