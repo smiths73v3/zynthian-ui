@@ -176,10 +176,7 @@ class zynthian_gui_admin(zynthian_gui_selector):
                 self.list_data.append(
                     (self.start_rbpi_headphones, 0, "\u2610 RBPi Headphones"))
 
-        if zynthian_gui_config.hotplug_audio:
-            self.list_data.append((self.stop_hotplug_audio, 0, "\u2612 Hotplug USB Audio"))
-        else:
-            self.list_data.append((self.start_hotplug_audio, 0, "\u2610 Hotplug USB Audio"))
+        self.list_data.append((self.hotplug_audio_menu, 0, "Hotplug USB Audio"))
 
         if zynthian_gui_config.snapshot_mixer_settings:
             self.list_data.append(
@@ -394,36 +391,55 @@ class zynthian_gui_admin(zynthian_gui_selector):
         else:
             self.stop_rbpi_headphones(False)
 
-    def start_hotplug_audio(self, save_config=True):
-        logging.info("STARTING HOTPLUG AUDIO")
-        zynthian_gui_config.hotplug_audio = 1
-        # Update Config
-        if save_config:
-            zynconf.save_config({
-                "ZYNTHIAN_HOTPLUG_AUDIO": str(zynthian_gui_config.hotplug_audio)
-            })
-        # Call autoconnect after a little time
-        zynautoconnect.request_audio_connect()
-        self.update_list()
 
-    def stop_hotplug_audio(self, save_config=True):
-        logging.info("STOPPING HOTPLUG AUDIO")
-
-        zynthian_gui_config.hotplug_audio = 0
-        zynautoconnect.stop_all_alsa_in_out()
-        # Update Config
-        if save_config:
-            zynconf.save_config({
-                "ZYNTHIAN_HOTPLUG_AUDIO": str(int(zynthian_gui_config.hotplug_audio))
-            })
-        self.update_list()
-
-    # Start/Stop Hotplug Audio depending on configuration
-    def default_hotplug_audio(self):
-        if zynthian_gui_config.hotplug_audio:
-            self.start_hotplug_audio(False)
+    def get_hotplug_menu_options(self):
+        options = {}
+        if zynthian_gui_config.hotplug_audio_enabled:
+            options[f"\u2612 Hotplug Audio"] = "disable_hotplug"
+            options["Input Devices"] = None
+            for device in zynautoconnect.get_alsa_hotplug_audio_devices(False):
+                if device in zynthian_gui_config.disabled_audio_in:
+                    options[f"\u2610 {device} in"] = "enable_input"
+                else:
+                    options[f"\u2612 {device} in"] = "disable_input"
+            options["Output Devices"] = None
+            for device in zynautoconnect.get_alsa_hotplug_audio_devices(True):
+                if device in zynthian_gui_config.disabled_audio_out:
+                    options[f"\u2610 {device} out"] = "enable_output"
+                else:
+                    options[f"\u2612 {device} out"] = "disable_output"
         else:
-            self.stop_hotplug_audio(False)
+            options[f"\u2610 Hotplug Audio"] = "enable_hotplug"
+        return options
+
+    def hotplug_audio_menu(self):
+        self.zyngui.screens['option'].config("Hotplug Audio", self.get_hotplug_menu_options(), self.hotplug_audio_cb, False)
+        self.zyngui.show_screen('option')
+
+    def hotplug_audio_cb(self, option, value):
+        zynautoconnect.pause()
+        match(value):
+            case "enable_hotplug":
+                self.zyngui.state_manager.start_busy("hotplug", "Enabling hotplug audio")
+                zynautoconnect.enable_hotplug()
+            case "disable_hotplug":
+                self.zyngui.state_manager.start_busy("hotplug", "Disabling hotplug audio")
+                zynautoconnect.disable_hotplug()
+            case "enable_input":
+                self.zyngui.state_manager.start_busy("hotplug", f"Enabling {option[2:]}")
+                zynautoconnect.enable_audio_input_device(option[2:-3])
+            case "disable_input":
+                self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
+                zynautoconnect.enable_audio_input_device(option[2:-3], False)
+            case "enable_output":
+                self.zyngui.state_manager.start_busy("hotplug", f"Enabling {option[2:]}")
+                zynautoconnect.enable_audio_output_device(option[2:-4])
+            case "disable_output":
+                self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
+                zynautoconnect.enable_audio_output_device(option[2:-4], False)
+        self.zyngui.screens['option'].options = self.get_hotplug_menu_options()
+        self.zyngui.state_manager.end_busy("hotplug")
+        zynautoconnect.resume()
 
     def toggle_dpm(self):
         zynthian_gui_config.enable_dpm = not zynthian_gui_config.enable_dpm

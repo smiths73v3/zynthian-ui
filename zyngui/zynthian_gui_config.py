@@ -571,7 +571,9 @@ power_save_secs = 60 * \
 
 rbpi_headphones = int(os.environ.get('ZYNTHIAN_RBPI_HEADPHONES', 0))
 enable_dpm = int(os.environ.get('ZYNTHIAN_DPM', True))
-hotplug_audio = int(os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO', False))
+hotplug_audio_enabled = os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO', False) == "True"
+disabled_audio_in = os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO_DISABLED_IN', "").split(',')
+disabled_audio_out = os.environ.get('ZYNTHIAN_HOTPLUG_AUDIO_DISABLED_OUT', 'headphones,b1,b2').split(',')
 
 # ------------------------------------------------------------------------------
 # Networking Options
