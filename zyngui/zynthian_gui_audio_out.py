@@ -109,10 +109,18 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
             self.list_data.append((None, None, "> Direct Outputs"))
             port_count = len(self.playback_ports)
             for i in range(0, port_count, 2):
-                port_names.append((f"Output {i + 1}", f"^{self.playback_ports[i].name}$"))
+                if self.playback_ports[i].aliases:
+                    suffix = f" ({self.playback_ports[i].aliases[0]})"
+                else:
+                    suffix = ""
+                port_names.append((f"Output {i + 1}{suffix}", f"^{self.playback_ports[i].name}$"))
                 if i < port_count:
-                    port_names.append((f"Output {i + 2}", f"^{self.playback_ports[i + 1].name}$"))
-                    port_names.append((f"Outputs {i + 1}+{i + 2}", f"^{self.playback_ports[i].name}$|^{self.playback_ports[i + 1].name}$"))
+                    if self.playback_ports[i + 1].aliases:
+                        suffix = f" ({self.playback_ports[i + 1].aliases[0]})"
+                    else:
+                        suffix = ""
+                    port_names.append((f"Output {i + 2}{suffix}", f"^{self.playback_ports[i + 1].name}$"))
+                    port_names.append((f"Outputs {i + 1}+{i + 2} (stereo)", f"^{self.playback_ports[i].name}$|^{self.playback_ports[i + 1].name}$"))
             for title, processor in port_names:
                 if processor in self.chain.audio_out:
                     self.list_data.append((processor, processor, "\u2612 " + title))
