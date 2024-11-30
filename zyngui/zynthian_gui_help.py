@@ -43,7 +43,8 @@ class zynthian_gui_help:
         self.shown = False
         self.zyngui = zynthian_gui_config.zyngui
         # Main Frame
-        self.main_frame = HtmlFrame(zynthian_gui_config.top, messages_enabled=False)
+        self.main_frame = HtmlFrame(zynthian_gui_config.top, width=zynthian_gui_config.screen_width, height=zynthian_gui_config.screen_height, messages_enabled=False)
+        self.main_frame.grid_propagate(False)
         self.main_frame.on_done_loading(self.done_loading)
 
     def done_loading(self):
@@ -71,7 +72,8 @@ class zynthian_gui_help:
             logging.warning("TEST_MODE: {}".format(self.__class__.__module__))
         if not self.shown:
             self.shown = True
-            self.main_frame.grid()
+            self.main_frame.grid_propagate(False)
+            self.main_frame.grid(row=0, column=self.zyngui.main_screen_column)
 
     def zynpot_cb(self, i, dval):
         if i == 3:
