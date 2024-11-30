@@ -854,7 +854,8 @@ class zynthian_gui:
         if not topic:
             topic = self.current_screen
         if self.screens['help'].load_file(f"./help/{topic}.html"):
-            self.show_screen("help")
+            pass
+            #self.show_screen("help")
         elif topic != "help":
             logging.warning(f"No help for '{topic}'")
 
