@@ -62,12 +62,16 @@ class zynthian_gui_audio_in(zynthian_gui_selector):
         self.list_data = []
 
         for i, scp in enumerate(self.capture_ports):
+            if scp.aliases:
+                suffix = f" ({scp.aliases[0]})"
+            else:
+                suffix = ""
             if i + 1 in self.chain.audio_in:
                 self.list_data.append(
-                    (i + 1, scp.name, f"\u2612 Audio input {i + 1}"))
+                    (i + 1, scp.name, f"\u2612 Audio input {i + 1}{suffix}"))
             else:
                 self.list_data.append(
-                    (i + 1, scp.name, f"\u2610 Audio input {i + 1}"))
+                    (i + 1, scp.name, f"\u2610 Audio input {i + 1}{suffix}"))
 
         super().fill_list()
 

@@ -453,7 +453,7 @@ class zynthian_gui:
     def create_screens(self):
         # Create Core UI Screens
         self.screens['info'] = zynthian_gui_info()
-        self.screens['help'] = zynthian_gui_help(self)
+        self.screens['help'] = zynthian_gui_help()
         self.screens['splash'] = zynthian_gui_splash()
         self.screens['loading'] = zynthian_gui_loading()
         self.screens['confirm'] = zynthian_gui_confirm()
