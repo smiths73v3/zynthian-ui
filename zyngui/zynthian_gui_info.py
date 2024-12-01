@@ -90,7 +90,7 @@ class zynthian_gui_info:
         self.set(text)
         if not self.shown:
             self.shown = True
-            self.main_frame.grid(row=0, column=self.zyngui.main_screen_column)
+            self.main_frame.grid(row=0, column=zynthian_gui_config.main_screen_column)
 
     def zynpot_cb(self, i, dval):
         return True

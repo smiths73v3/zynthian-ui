@@ -113,10 +113,9 @@ class zynthian_gui_control_xy():
     def show(self):
         if not self.shown:
             if self.zyngui.test_mode:
-                logging.warning("TEST_MODE: {}".format(
-                    self.__class__.__module__))
+                logging.warning("TEST_MODE: {}".format(self.__class__.__module__))
             self.shown = True
-            self.main_frame.grid(row=0, column=self.zyngui.main_screen_column)
+            self.main_frame.grid(row=0, column=zynthian_gui_config.main_screen_column)
             self.get_controller_values()
             self.refresh()
 

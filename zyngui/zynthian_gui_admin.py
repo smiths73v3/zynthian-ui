@@ -213,12 +213,11 @@ class zynthian_gui_admin(zynthian_gui_selector):
             self.list_data.append((self.show_cv_config, 0, "CV Settings"))
         self.list_data.append(
             (self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen"))
-
-        self.list_data.append((None, 0, "> TOUCH KEYPAD"))
-        if zynthian_gui_config.touch_keypad:
-            self.list_data.append((self.toggle_touchkeypad, 0, "\u2612 V5 Touch Keypad"))
-        else:
-            self.list_data.append((self.toggle_touchkeypad, 0, "\u2610 V5 Touch Keypad"))
+        if not zynthian_gui_config.wiring_layout.startswith("V5"):
+            if zynthian_gui_config.touch_keypad:
+                self.list_data.append((self.toggle_touchkeypad, 0, "\u2612 V5 Touch Keypad"))
+            else:
+                self.list_data.append((self.toggle_touchkeypad, 0, "\u2610 V5 Touch Keypad"))
 
         self.list_data.append((None, 0, "> TEST"))
         self.list_data.append((self.test_audio, 0, "Test Audio"))
@@ -397,7 +396,6 @@ class zynthian_gui_admin(zynthian_gui_selector):
         else:
             self.stop_rbpi_headphones(False)
 
-
     def get_hotplug_menu_options(self):
         options = {}
         if zynthian_gui_config.hotplug_audio_enabled:
@@ -487,9 +485,9 @@ class zynthian_gui_admin(zynthian_gui_selector):
 
     def toggle_touchkeypad(self):
         if zynthian_gui_config.touch_keypad:
-            self.zyngui.show_confirm("Do you really want to restart UI with touch keypad off?", self.touchkeypad_off_confirmed)
+            self.zyngui.show_confirm("Do you really want to restart UI with touch-keypad disabled?", self.touchkeypad_off_confirmed)
         else:
-            self.zyngui.show_confirm("Do you really want to restart UI with touch keypad on?", self.touchkeypad_on_confirmed)
+            self.zyngui.show_confirm("Do you really want to restart UI with touch-keypad enabled?", self.touchkeypad_on_confirmed)
 
     def touchkeypad_off_confirmed(self, params=None):
         zynconf.save_config({'ZYNTHIAN_TOUCH_KEYPAD': ''})

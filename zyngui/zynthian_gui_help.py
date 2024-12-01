@@ -55,7 +55,11 @@ class zynthian_gui_help:
 
         # Main Frame
 
-        self.main_frame = HtmlFrame(zynthian_gui_config.top, width=zynthian_gui_config.screen_width, height=zynthian_gui_config.screen_height, messages_enabled=False)
+        self.main_frame = HtmlFrame(zynthian_gui_config.top,
+                                    width=zynthian_gui_config.screen_width,
+                                    height=zynthian_gui_config.screen_height,
+                                    vertical_scrollbar=False,
+                                    messages_enabled=False)
         self.main_frame.grid_propagate(False)
         # Patch HtmlFrame widget
         self.main_frame.event_generate = self.main_frame.html.event_generate
@@ -91,7 +95,7 @@ class zynthian_gui_help:
         if not self.shown:
             self.shown = True
             self.main_frame.grid_propagate(False)
-            self.main_frame.grid(row=0, column=self.zyngui.main_screen_column)
+            self.main_frame.grid(row=0, column=zynthian_gui_config.main_screen_column)
 
     def zynpot_cb(self, i, dval):
         if i == 3:

@@ -161,16 +161,13 @@ class zynthian_gui:
         self.capture_log_fname = None
         self.capture_ffmpeg_proc = None
 
-        self.main_screen_column = 1 if zynthian_gui_config.touch_keypad_side_left else 0
-
         # Init LEDs
         self.wsleds = None
         self.init_wsleds()
 
         # Init multitouch driver
         if os.environ.get('DISPLAY_ROTATION', 'None') == 'Inverted' or zynthian_gui_config.check_wiring_layout(["Z2", "V5"]):
-            self.multitouch = MultiTouch(
-                invert_x_axis=True, invert_y_axis=True)
+            self.multitouch = MultiTouch(invert_x_axis=True, invert_y_axis=True)
         else:
             self.multitouch = MultiTouch()
 
