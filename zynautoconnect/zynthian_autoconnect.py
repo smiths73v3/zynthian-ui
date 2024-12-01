@@ -336,6 +336,19 @@ def reset_midi_in_dev_all():
 # ------------------------------------------------------------------------------
 # Audio port helpers
 
+def update_system_audio_aliases():
+    for dir in (False, True):
+        ports = jclient.get_ports("system:", is_audio=True, is_input=dir, is_output=not dir)
+        for i, port in enumerate(ports):
+            if port.aliases:
+                parts = port.aliases[0].split(":")
+                if len(parts) != 4 or parts[0] != "alsa_pcm" and parts[1] != "hw":
+                    continue
+                alias = f"{parts[2]} {i + 1}"
+                for a in port.aliases:
+                    port.unset_alias(a)
+                port.set_alias(alias)
+
 def add_sidechain_ports(jackname):
     """Add ports that should be treated as sidechain inputs
 
@@ -1046,6 +1059,14 @@ def start_alsa_in(device):
     if proc.exitstatus:
         return False
     alsa_audio_srcs[device] = proc
+    for i in range(10):
+        ports = jclient.get_ports(f"zynain_{device}")
+        if ports:
+            for i, port in enumerate(ports):
+                port.set_alias(f"{device} {i + 1}")
+            return True
+        sleep(0.1)
+    logging.warning(f"Failed to set {device} aliases")
     return True
 
 def stop_alsa_in(device):
@@ -1064,6 +1085,14 @@ def start_alsa_out(device):
     if proc.exitstatus:
         return False
     alsa_audio_dests[device] = proc
+    for i in range(10):
+        ports = jclient.get_ports(f"zynaout_{device}")
+        if ports:
+            for i, port in enumerate(ports):
+                port.set_alias(f"{device} {i + 1}")
+            return True
+        sleep(0.1)
+    logging.warning(f"Failed to set {device} aliases")
     return True
 
 def stop_alsa_out(device):
@@ -1329,7 +1358,7 @@ def init():
         devices_out_name.append(None)
 
     update_midi_in_dev_mode_all()
-
+    update_system_audio_aliases()
 
 def start(sm):
     """Initialise autoconnect and start MIDI port checker
