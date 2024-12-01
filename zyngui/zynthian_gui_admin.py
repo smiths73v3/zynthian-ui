@@ -391,7 +391,6 @@ class zynthian_gui_admin(zynthian_gui_selector):
         else:
             self.stop_rbpi_headphones(False)
 
-
     def get_hotplug_menu_options(self):
         options = {}
         if zynthian_gui_config.hotplug_audio_enabled:
