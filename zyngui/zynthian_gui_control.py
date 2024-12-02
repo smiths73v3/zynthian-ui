@@ -766,8 +766,8 @@ class zynthian_gui_control(zynthian_gui_selector):
 
         now = monotonic()
         dts = now - self.listbox_push_ts
-        rdts = now - self.last_release
-        self.last_release = now
+        rdts = now - self.last_release_ts
+        self.last_release_ts = now
         if self.swiping:
             self.swipe_nudge(dts)
         else:
