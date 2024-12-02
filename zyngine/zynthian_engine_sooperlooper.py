@@ -173,6 +173,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 	]
 
 	SL_STATES = {
+		# Dictionary of SL states with indication of which controllers are on/off in this SL state
 		SL_STATE_UNKNOWN: {
 			'name': 'unknown',
 			'ctrl_off': [],
@@ -182,7 +183,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		},
 		SL_STATE_OFF: {
 			'name': 'off',
-			'ctrl_off': [],
+			'ctrl_off': ['mute'],
 			'ctrl_on': [],
 			'next_state': False,
 			'icon': ''
@@ -349,17 +350,14 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			custom_slb_fpath = None
 
 		# Build SL command line
-		if self.config_remote_display():
-			self.command = ["slgui", "-l 0", f"-P {self.osc_target_port}", f"-J {self.jackname}"]
-		else:
-			self.command = ["sooperlooper", "-q", "-l 0", "-D no", f"-p {self.osc_target_port}", f"-j {self.jackname}"]
+		self.command = ["sooperlooper", "-q", "-D no", f"-p {self.osc_target_port}", f"-j {self.jackname}"]
 		if custom_slb_fpath:
 			self.command += ["-m", custom_slb_fpath]
 
 		self.state = [-1] * self.MAX_LOOPS  # Current SL state for each loop
 		self.next_state = [-1] * self.MAX_LOOPS  # Next SL state for each loop (-1 if no state change pending)
 		self.waiting = [0] * self.MAX_LOOPS  # 1 if a change of state is pending
-		self.selected_loop = 0
+		self.selected_loop = None
 		self.loop_count = 1
 		self.channels = 2
 		self.global_cc_binding = True # True for MIDI CC to control selected loop. False to target individual loops
@@ -462,6 +460,11 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		# Request current quantity of loops
 		self.osc_server.send(self.osc_target, '/ping', ('s', self.osc_server_url), ('s', '/info'))
 
+		if self.config_remote_display():
+			self.proc_gui = Popen("slgui", stdout=DEVNULL, stderr=DEVNULL, env=self.command_env, cwd=self.command_cwd)
+		else:
+			self.proc_gui = None
+
 	def stop(self):
 		if self.proc:
 			try:
@@ -471,6 +474,17 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 					self.proc.wait(0.2)
 				except:
 					self.proc.kill()
+				self.proc = None
+			except Exception as err:
+				logging.error(f"Can't stop engine {self.name} => {err}")
+		if self.proc_gui:
+			try:
+				logging.info("Stoping SLGUI")
+				self.proc_gui.terminate()
+				try:
+					self.proc_gui.wait(0.2)
+				except:
+					self.proc_gui.kill()
 				self.proc = None
 			except Exception as err:
 				logging.error(f"Can't stop engine {self.name} => {err}")
@@ -696,7 +710,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			return
 		try:
 			processor = self.processors[0]
-			#logging.debug(f"Rx OSC => {path} {args}")
+			logging.warning(f"Rx OSC => {path} {args}")
 			if path == '/state':
 				# args: i:Loop index, s:control, f:value
 				logging.debug("Loop State: %d %s=%0.1f", args[0], args[1], args[2])
@@ -723,7 +737,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 					self.monitors_dict['state'] = self.state[loop]
 					self.monitors_dict['next_state'] = self.next_state[loop]
 					self.monitors_dict['waiting'] = self.waiting[loop]
-					self.update_state()
+				self.update_state(loop)
 
 			elif path == '/info':
 				# args: s:hosturl  s:version  i:loopcount
@@ -752,8 +766,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 							if self.loop_count > 1:
 								# Set defaults for new loops
 								self.osc_server.send(self.osc_target, f"/sl/{self.loop_count - 1 - i}/set", ('s', 'sync'), ('f', 1))
-						if self.loop_count > 1:
-							self.select_loop(self.loop_count - 1, True)
+						self.select_loop(self.loop_count - 1, True)
 
 					self.osc_server.send(self.osc_target, '/get', ('s', 'sync_source'), ('s', self.osc_server_url), ('s', '/control'))
 					if self.selected_loop > self.loop_count:
@@ -800,55 +813,64 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 	# Specific functions
 	# ---------------------------------------------------------------------------
 
-	# Update 'state' controllers to match state of selected loop
-	def update_state(self):
+	# Update 'state' controllers of loop
+	def update_state(self, loop):
 		try:
 			processor = self.processors[0]
 		except:
 			return
 		try:
-			current_state = self.state[self.selected_loop]
+			current_state = self.state[loop]
+			logging.warning(f"loop: {loop} state: {current_state}")
+			# Turn off all controllers that are off in this state
 			for symbol in self.SL_STATES[current_state]['ctrl_off']:
 				if symbol in self.SL_LOOP_SEL_PARAM:
-					symbol += f":{self.selected_loop}"
-				processor.controllers_dict[symbol].set_readonly(False)
-				processor.controllers_dict[symbol].set_value(0, False)
+					symbol += f":{loop}"
+					processor.controllers_dict[symbol].set_readonly(False)
+					processor.controllers_dict[symbol].set_value(0, False)
+			# Turn on all controllers that are on in this state
 			for symbol in self.SL_STATES[current_state]['ctrl_on']:
 				if symbol in self.SL_LOOP_SEL_PARAM:
-					symbol += f":{self.selected_loop}"
-				processor.controllers_dict[symbol].set_readonly(False)
-				processor.controllers_dict[symbol].set_value(1, False)
-			next_state = self.next_state[self.selected_loop]
+					symbol += f":{loop}"
+					processor.controllers_dict[symbol].set_readonly(False)
+					processor.controllers_dict[symbol].set_value(1, False)
+			next_state = self.next_state[loop]
+			# Set next_state for controllers that are part of logical sequence
 			if self.SL_STATES[next_state]['next_state']:
 				for symbol in self.SL_STATES[next_state]['ctrl_on']:
 					if symbol in self.SL_LOOP_SEL_PARAM:
-						symbol += f":{self.selected_loop}"
-					processor.controllers_dict[symbol].set_value(1, False)
-					processor.controllers_dict[symbol].set_readonly(True)
-			self._ctrl_screens[0][1] = [f'record:{self.selected_loop}', f'overdub:{self.selected_loop}', f'multiply:{self.selected_loop}', 'undo/redo']
-			self._ctrl_screens[1][1] = [f'replace:{self.selected_loop}', f'substitute:{self.selected_loop}', f'insert:{self.selected_loop}', 'undo/redo']
-			self._ctrl_screens[2][1] = [f'trigger:{self.selected_loop}', f'oneshot:{self.selected_loop}', f'mute:{self.selected_loop}', f'pause:{self.selected_loop}']
-			self._ctrl_screens[3][1] = [f'reverse:{self.selected_loop}', 'rate', 'stretch_ratio', 'pitch_shift']
-			processor.refresh_controllers()
+						symbol += f":{loop}"
+						processor.controllers_dict[symbol].set_value(1, False)
+						processor.controllers_dict[symbol].set_readonly(True)
 
 		except Exception as e:
 			logging.error(e)
 		#self.processors[0].status = self.SL_STATES[self.state]['icon']
 
 	def select_loop(self, loop, send=False):
+		try:
+			processor = self.processors[0]
+		except:
+			return
 		if loop < 0 or loop >= self.loop_count:
 			return  # TODO: Handle -1 == all loops
 		self.selected_loop = int(loop)
+		"""
 		self.monitors_dict['state'] = self.state[self.selected_loop]
 		self.monitors_dict['next_state'] = self.next_state[self.selected_loop]
 		self.monitors_dict['waiting'] = self.waiting[self.selected_loop]
 		self.update_state()
-		try:
-			self.processors[0].controllers_dict['selected_loop_num'].set_value(loop + 1, False)
-		except:
-			pass
+		"""
+		processor.controllers_dict['selected_loop_num'].set_value(loop + 1, False)
 		if send and self.osc_server:
 			self.osc_server.send(self.osc_target, '/set', ('s', 'selected_loop_num'), ('f', self.selected_loop))
+
+		self._ctrl_screens[0][1] = [f'record:{self.selected_loop}', f'overdub:{self.selected_loop}', f'multiply:{self.selected_loop}', 'undo/redo']
+		self._ctrl_screens[1][1] = [f'replace:{self.selected_loop}', f'substitute:{self.selected_loop}', f'insert:{self.selected_loop}', 'undo/redo']
+		self._ctrl_screens[2][1] = [f'trigger:{self.selected_loop}', f'oneshot:{self.selected_loop}', f'mute:{self.selected_loop}', f'pause:{self.selected_loop}']
+		self._ctrl_screens[3][1] = [f'reverse:{self.selected_loop}', 'rate', 'stretch_ratio', 'pitch_shift']
+		processor.refresh_controllers()
+
 		zynsigman.send_queued(zynsigman.S_GUI, SS_GUI_CONTROL_MODE, mode='control')
 
 	def prev_loop(self):
