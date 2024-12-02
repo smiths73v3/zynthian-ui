@@ -471,7 +471,7 @@ class zynthian_gui_admin(zynthian_gui_selector):
                                      self.touch_navigation_cb_confirmed, value)
 
     def touch_navigation_cb_confirmed(self, value=""):
-        zynconf.save_config({"ZYNTHIAN_UI_TOUCH_NAVIGATION": value})
+        zynconf.save_config({"ZYNTHIAN_UI_TOUCH_NAVIGATION2": value})
         self.restart_gui()
 
     # -------------------------------------------------------------------------

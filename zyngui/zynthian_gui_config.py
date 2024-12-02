@@ -510,15 +510,17 @@ font_family = os.environ.get('ZYNTHIAN_UI_FONT_FAMILY', "Audiowide")
 # Touch Options
 # ------------------------------------------------------------------------------
 
-touch_navigation = os.environ.get('ZYNTHIAN_UI_TOUCH_NAVIGATION', '')
+touch_navigation = os.environ.get('ZYNTHIAN_UI_TOUCH_NAVIGATION2', '_UNDEF_')
 
 # Backward compatibility
-if touch_navigation == "1":
-    touch_navigation = "touch_widgets"
-elif touch_navigation == "0":
-    touch_keypad = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD', '')
-    if touch_keypad == "V5":
-        touch_navigation = "v5_keypad_left"
+if touch_navigation == "_UNDEF_":
+    touch_navigation = os.environ.get('ZYNTHIAN_UI_TOUCH_NAVIGATION', '')
+    if touch_navigation == "1":
+        touch_navigation = "touch_widgets"
+    elif touch_navigation == "0":
+        touch_keypad = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD', '')
+        if touch_keypad == "V5":
+            touch_navigation = "v5_keypad_left"
 
 match touch_navigation:
     case "touch_widgets":
