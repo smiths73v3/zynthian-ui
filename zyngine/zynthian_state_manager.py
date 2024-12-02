@@ -1464,7 +1464,11 @@ class zynthian_state_manager:
                         try:
                             chain.audio_out.append(f"{self.chain_manager.processors[out[0]].jackname}:{out[1]}")
                         except:
-                            chain.audio_out.append(out)
+                            # Nasty temporary fix for change of output routing
+                            if out.startswith("system:playback_["):
+                                chain.audio_out.append("^system:playback_1$|^system:playback_2$")
+                            elif out not in chain.audio_out:
+                                chain.audio_out.append(out)
 
                 if "audio_thru" in chain_state:
                     chain.audio_thru = chain_state["audio_thru"]
