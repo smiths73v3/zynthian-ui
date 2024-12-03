@@ -553,6 +553,12 @@ try:
 except:
     force_enable_cursor = 0
 
+# Configure switch actions for touch only configuration so it works with touch-keypad
+if touch_keypad_option == "V5" and wiring_layout == "DUMMIES":
+    config_dir = os.environ.get("ZYNTHIAN_CONFIG_DIR", "/zynthian/config")
+    zynconf.load_config(True, f"{config_dir}/wiring-profiles/v5")
+    os.environ["ZYNTHIAN_WIRING_SWITCHES"] = ",".join(36 * ["-1"])
+
 # ------------------------------------------------------------------------------
 # UI Options
 # ------------------------------------------------------------------------------
