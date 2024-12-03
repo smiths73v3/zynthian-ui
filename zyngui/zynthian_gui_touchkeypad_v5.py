@@ -208,7 +208,7 @@ class zynthian_gui_touchkeypad_v5:
             height= 1,
             bg=zynthian_gui_config.color_bg,
             fg=zynthian_gui_config.color_header_tx,
-            activebackground=zynthian_gui_config.color_panel_bg,
+            activebackground=zynthian_gui_config.color_bg,
             activeforeground=zynthian_gui_config.color_header_tx,
             highlightbackground=zynthian_gui_config.color_panel_bg,
             highlightcolor=zynthian_gui_config.color_bg,
@@ -300,7 +300,7 @@ class zynthian_gui_touchkeypad_v5:
             # plain text labels may just change the color and possibly also its label if a special label 
             # is associated with the requested mode (<=color) in the button definition
             self.refresh_button_label(n, mode)
-            self.buttons[n].config(fg=color)
+            self.buttons[n].config(fg=color, activeforeground=color)
 
     def refresh_button_label(self, n, mode):
             text = self.btndefs[n][0].get(mode, self.btndefs[n][0]['default']).replace('/', "\n")
