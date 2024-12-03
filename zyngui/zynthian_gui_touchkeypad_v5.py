@@ -123,7 +123,8 @@ class zynthian_gui_touchkeypad_v5:
         self.side_frame_col = 0 if left_side else 1
         self.bottom_frame_col = 1 if left_side else 0
         self.font_size = zynthian_gui_config.font_size
-        self.bg_color = zynthian_gui_config.color_variant(zynthian_gui_config.color_panel_bg, -26)
+        self.bg_color = zynthian_gui_config.color_variant(zynthian_gui_config.color_panel_bg, -28)
+        self.bg_color_over = zynthian_gui_config.color_variant(zynthian_gui_config.color_panel_bg, -22)
         self.border_color = zynthian_gui_config.color_bg
         self.text_color = zynthian_gui_config.color_header_tx
 
@@ -212,9 +213,9 @@ class zynthian_gui_touchkeypad_v5:
             height=1,
             bg=self.bg_color,
             fg=self.text_color,
-            activebackground=self.border_color,
+            activebackground=self.bg_color_over,
             activeforeground=self.border_color,
-            highlightbackground=self.border_color,
+            highlightbackground=self.bg_color_over,
             highlightcolor=self.border_color,
             highlightthickness=1,
             bd=0,
