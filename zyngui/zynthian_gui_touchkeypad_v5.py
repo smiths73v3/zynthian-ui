@@ -25,8 +25,9 @@
 
 import os
 import tkinter
-from PIL import Image, ImageTk
 from io import BytesIO
+from PIL import Image, ImageTk
+
 try:
     import cairosvg
 except:
@@ -68,14 +69,14 @@ BUTTONS = {
     'F4': ({'default': 'F4', 'alt': 'F8'}, 23, 19)
 }
 
-FKEY2SWITCH = [ BUTTONS['F1'][1], BUTTONS['F2'][1], BUTTONS['F3'][1], BUTTONS['F4'][1]]
+FKEY2SWITCH = [BUTTONS['F1'][1], BUTTONS['F2'][1], BUTTONS['F3'][1], BUTTONS['F4'][1]]
 
 LED2BUTTON = {btn[2]: btn[1]-4 for btn in BUTTONS.values()}
 
 # Layout definitions
 
 LAYOUT_RIGHT = {
-    'SIDE' : (
+    'SIDE': (
         ('OPT_ADMIN', 'MIX_LEVEL'),
         ('CTRL_PRESET', 'ZS3_SHOT'),
         ('METRONOME', 'PAD_STEP'),
@@ -87,7 +88,7 @@ LAYOUT_RIGHT = {
 }
 
 LAYOUT_LEFT = {
-    'SIDE' : (
+    'SIDE': (
         ('OPT_ADMIN', 'MIX_LEVEL'),
         ('CTRL_PRESET', 'ZS3_SHOT'),
         ('METRONOME', 'PAD_STEP'),
@@ -101,6 +102,7 @@ LAYOUT_LEFT = {
 # ------------------------------------------------------------------------------
 # Zynthian Touchscreen Keypad V5 Class
 # ------------------------------------------------------------------------------
+
 
 class zynthian_gui_touchkeypad_v5:
 
@@ -163,8 +165,8 @@ class zynthian_gui_touchkeypad_v5:
                 zynswitch = btn[1]
                 n = zynswitch - 4
                 label = btn[0]['default']
-                pady = (1,0) if row == 5 else (0,0) if row == 4 else (0,1)
-                padx = (0,1) if left_side else (1,0)
+                pady = (1, 0) if row == 5 else (0, 0) if row == 4 else (0, 1)
+                padx = (0, 1) if left_side else (1, 0)
                 self.btndefs[n] = btn
                 self.buttons[n] = self.add_button(n, self.side_frame, row, col, zynswitch, label, padx, pady)
         # create bottom frame buttons
@@ -173,13 +175,12 @@ class zynthian_gui_touchkeypad_v5:
             zynswitch = btn[1]
             n = zynswitch - 4
             label = btn[0]['default']
-            padx = (0,0) if col == 7 else (0,1)
+            padx = (0, 0) if col == 7 else (0, 1)
             self.btndefs[n] = btn
-            self.buttons[n] = self.add_button(n, self.bottom_frame, 0, col, zynswitch, label, padx, (1,0))
+            self.buttons[n] = self.add_button(n, self.bottom_frame, 0, col, zynswitch, label, padx, (1, 0))
 
         # update with user settings from the environment
         self.apply_user_config()
-
 
     def add_button(self, n, parent, row, column, zynswitch, label, padx, pady):
         """
@@ -202,16 +203,20 @@ class zynthian_gui_touchkeypad_v5:
         pady : (int, int)
             Button padding
         """
+        bg_color = "#282C30"
+        #border_color = zynthian_gui_config.color_variant(bg_color, 30)
+        border_color = zynthian_gui_config.color_bg
+        text_color = zynthian_gui_config.color_header_tx
         button = tkinter.Button(
             parent,
-            width= 1,
-            height= 1,
-            bg=zynthian_gui_config.color_bg,
-            fg=zynthian_gui_config.color_header_tx,
-            activebackground=zynthian_gui_config.color_panel_bg,
-            activeforeground=zynthian_gui_config.color_header_tx,
-            highlightbackground=zynthian_gui_config.color_panel_bg,
-            highlightcolor=zynthian_gui_config.color_bg,
+            width=1,
+            height=1,
+            bg=bg_color,
+            fg=text_color,
+            activebackground=border_color,
+            activeforeground=border_color,
+            highlightbackground=border_color,
+            highlightcolor=border_color,
             highlightthickness=1,
             bd=0,
             relief='flat')
@@ -219,32 +224,43 @@ class zynthian_gui_touchkeypad_v5:
         self.btnstate[n] = zynthian_gui_config.color_header_tx
         if label.startswith('_'):
             # button contains an icon/image instead of a label
+            img_width = int(1.8 * zynthian_gui_config.font_size)
             img_name = label[1:]
             if img_name.endswith('.svg'):
                 # convert SVG icon into PNG of appropriate size
                 if cairosvg:
                     png = BytesIO()
-                    cairosvg.svg2png(url=img_name, write_to=png, output_width=int(1.2*zynthian_gui_config.font_size))
+                    cairosvg.svg2png(url=img_name, write_to=png, output_width=img_width)
+                    image = Image.open(png)
                 else:
                     png = img_name[:-4]+".png"
-                image = Image.open(png)
-            else:
+                    image = Image.open(png)
+                    img_height = int(img_width * image.size[1] / image.size[0])
+                    image = image.resize((img_width, img_height), Image.Resampling.LANCZOS)
+
+            elif img_name.endswith('.png'):
                 # PNG icons can be imported directly
                 image = Image.open(img_name)
-            # store the original image for the purpose of later changes of color (useful for image icons)
-            self.images[n] = image
-            tkimage = ImageTk.PhotoImage(image)
-            # if we don't keep the image in the object,
-            # it will be discarded by garbage collection at the end of this method!
-            self.tkimages[n] = tkimage
-            button.config(image=tkimage, text='')
+                img_height = int(img_width * image.size[1] / image.size[0])
+                image = image.resize((img_width, img_height), Image.Resampling.LANCZOS)
+            else:
+                image = None
+            if image:
+                # store the original image for the purpose of later changes of color (useful for image icons)
+                self.images[n] = image
+                tkimage = ImageTk.PhotoImage(image)
+                # if we don't keep the image in the object,
+                # it will be discarded by garbage collection at the end of this method!
+                self.tkimages[n] = tkimage
+                button.config(image=tkimage, text='')
         else:
             # button has a simple text label: either standard text
             # or an icon included in the "forkawesome" font (unicode char >= \uf000)
-            button.config(font=("forkawesome", 
-                                int(1*zynthian_gui_config.font_size)) if label[0] >= '\uf000' 
-                                else (zynthian_gui_config.font_family, int(0.9*zynthian_gui_config.font_size)),
-            text=label.replace('/', "\n"))
+            if label[0] >= '\uf000':
+                font = ("forkawesome", int(1.0 * zynthian_gui_config.font_size))
+            else:
+                font = (zynthian_gui_config.font_family, int(0.9 * zynthian_gui_config.font_size))
+            button.config(font=font, text=label.replace('/', "\n"))
         button.grid_propagate(False)
         button.grid(row=row, column=column, sticky='nswe', padx=padx, pady=pady)
         button.bind('<ButtonPress-1>', lambda e: self.cb_button_push(zynswitch, e))
@@ -291,7 +307,7 @@ class zynthian_gui_touchkeypad_v5:
             image = self.images[n]
             mask = image.convert("LA")
             bgimage = Image.new("RGBA", image.size, color)
-            fgimage = Image.new("RGBA", image.size, (0,0,0,0))
+            fgimage = Image.new("RGBA", image.size, (0, 0, 0, 0))
             composed = Image.composite(bgimage, fgimage, mask)
             tkimage = ImageTk.PhotoImage(composed)
             self.tkimages[n] = tkimage
@@ -340,7 +356,7 @@ class zynthian_gui_touchkeypad_v5:
         if n >= 4:
             mode = 'alt'
             n -= 4
-        return (FKEY2SWITCH[n]-4, mode)
+        return FKEY2SWITCH[n]-4, mode
 
     def set_fkey_label(self, n, label):
         btn, mode = self._fkey2btn(n)

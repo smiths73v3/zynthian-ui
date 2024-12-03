@@ -686,6 +686,7 @@ if "zynthian_main.py" in sys.argv[0]:
         if not font_size:
             font_size = int(display_width / 40)
 
+        touch_keypad = None
         # Touch Keypad enabled =>
         if touch_keypad_option == 'V5':
             # Screen dimensions < Display dimensions
@@ -694,17 +695,20 @@ if "zynthian_main.py" in sys.argv[0]:
             screen_width = display_width - touch_keypad_side_width
             screen_height = display_height - touch_keypad_bottom_height
             # Create touch keypad frame and show it!
-            from zyngui.zynthian_gui_touchkeypad_v5 import zynthian_gui_touchkeypad_v5
-            touch_keypad = zynthian_gui_touchkeypad_v5(top, side_width=touch_keypad_side_width, left_side=touch_keypad_side_left)
-            touch_keypad.show()
-        # Touch Keypad disabled =>
-        else:
+            try:
+                from zyngui.zynthian_gui_touchkeypad_v5 import zynthian_gui_touchkeypad_v5
+                touch_keypad = zynthian_gui_touchkeypad_v5(top, side_width=touch_keypad_side_width, left_side=touch_keypad_side_left)
+                touch_keypad.show()
+            except Exception as e:
+                logging.error(f"Can't start touch keypad {touch_keypad_option} => {e}")
+
+        # Touch Keypad disabled or failed to start =>
+        if not touch_keypad:
             # Screen dimensions = Display dimensions
             touch_keypad_side_width = 0
             touch_keypad_bottom_height = 0
             screen_width = display_width
             screen_height = display_height
-            touch_keypad = None
 
         # Geometric params
         button_width = screen_width // 4
