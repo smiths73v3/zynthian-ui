@@ -50,7 +50,7 @@ BUTTONS = {
     'ZS3_SHOT': ({'default': 'ZS3/SHOT'}, 7, 3),
     'METRONOME': ({'default': '_icons/metronome.svg'}, 9, 6),
     'PAD_STEP': ({'default': 'PAD/STEP'}, 10, 5),
-    'ALT': ({'default': 'Alt'}, 8, 4),
+    'ALT': ({'default': 'ALT'}, 8, 4),
 
     'REC': ({'default': '\uf111'}, 12, 8),
     'STOP': ({'default': '\uf04d'}, 13, 9),
@@ -123,6 +123,9 @@ class zynthian_gui_touchkeypad_v5:
         self.side_frame_col = 0 if left_side else 1
         self.bottom_frame_col = 1 if left_side else 0
         self.font_size = zynthian_gui_config.font_size
+        self.bg_color = zynthian_gui_config.color_variant(zynthian_gui_config.color_panel_bg, -26)
+        self.border_color = zynthian_gui_config.color_bg
+        self.text_color = zynthian_gui_config.color_header_tx
 
         # configure side frame for 2x6 buttons
         self.side_frame = tkinter.Frame(parent,
@@ -203,28 +206,24 @@ class zynthian_gui_touchkeypad_v5:
         pady : (int, int)
             Button padding
         """
-        bg_color = "#282C30"
-        #border_color = zynthian_gui_config.color_variant(bg_color, 30)
-        border_color = zynthian_gui_config.color_bg
-        text_color = zynthian_gui_config.color_header_tx
         button = tkinter.Button(
             parent,
             width=1,
             height=1,
-            bg=bg_color,
-            fg=text_color,
-            activebackground=border_color,
-            activeforeground=border_color,
-            highlightbackground=border_color,
-            highlightcolor=border_color,
+            bg=self.bg_color,
+            fg=self.text_color,
+            activebackground=self.border_color,
+            activeforeground=self.border_color,
+            highlightbackground=self.border_color,
+            highlightcolor=self.border_color,
             highlightthickness=1,
             bd=0,
             relief='flat')
         # set default button state (<=color)
-        self.btnstate[n] = zynthian_gui_config.color_header_tx
+        self.btnstate[n] = self.text_color
         if label.startswith('_'):
             # button contains an icon/image instead of a label
-            img_width = int(1.8 * zynthian_gui_config.font_size)
+            img_width = int(1.8 * self.font_size)
             img_name = label[1:]
             if img_name.endswith('.svg'):
                 # convert SVG icon into PNG of appropriate size
@@ -257,9 +256,9 @@ class zynthian_gui_touchkeypad_v5:
             # button has a simple text label: either standard text
             # or an icon included in the "forkawesome" font (unicode char >= \uf000)
             if label[0] >= '\uf000':
-                font = ("forkawesome", int(1.0 * zynthian_gui_config.font_size))
+                font = ("forkawesome", int(1.0 * self.font_size))
             else:
-                font = (zynthian_gui_config.font_family, int(0.9 * zynthian_gui_config.font_size))
+                font = (zynthian_gui_config.font_family, int(0.9 * self.font_size))
             button.config(font=font, text=label.replace('/', "\n"))
         button.grid_propagate(False)
         button.grid(row=row, column=column, sticky='nswe', padx=padx, pady=pady)
@@ -316,7 +315,7 @@ class zynthian_gui_touchkeypad_v5:
             # plain text labels may just change the color and possibly also its label if a special label 
             # is associated with the requested mode (<=color) in the button definition
             self.refresh_button_label(n, mode)
-            self.buttons[n].config(fg=color)
+            self.buttons[n].config(fg=color, activeforeground=color)
 
     def refresh_button_label(self, n, mode):
             text = self.btndefs[n][0].get(mode, self.btndefs[n][0]['default']).replace('/', "\n")
