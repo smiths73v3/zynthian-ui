@@ -51,8 +51,9 @@ logging.info("ZYNTHIAN-UI CONFIG ...")
 # Wiring layout
 # ------------------------------------------------------------------------------
 
-wiring_layout = os.environ.get('ZYNTHIAN_WIRING_LAYOUT', "DUMMIES")
-if wiring_layout == "DUMMIES":
+wiring_layout = os.environ.get('ZYNTHIAN_WIRING_LAYOUT', "TOUCH_ONLY")
+if wiring_layout in ("TOUCH_ONLY", "DUMMIES"):
+    wiring_layout = "TOUCH_ONLY"
     logging.info("No Wiring Layout configured. Only touch interface is available.")
 else:
     logging.info("Wiring Layout %s" % wiring_layout)
@@ -555,10 +556,11 @@ except:
     force_enable_cursor = 0
 
 # Configure switch actions for touch only configuration so it works with touch-keypad
-if touch_keypad_option == "V5" and wiring_layout == "DUMMIES":
-    config_dir = os.environ.get("ZYNTHIAN_CONFIG_DIR", "/zynthian/config")
-    zynconf.load_plain_envars(f"{config_dir}/wiring-profiles/v5", True)
-    os.environ["ZYNTHIAN_WIRING_SWITCHES"] = ",".join(36 * ["-1"])
+if touch_keypad_option == "V5" and wiring_layout =="TOUCH_ONLY":
+    if os.environ.get("ZYNTHIAN_WIRING_LAYOUT_CUSTOM_PROFILE", "") != "v5":
+        config_dir = os.environ.get("ZYNTHIAN_CONFIG_DIR", "/zynthian/config")
+        zynconf.load_plain_envars(f"{config_dir}/wiring-profiles/v5", True)
+        os.environ["ZYNTHIAN_WIRING_SWITCHES"] = ",".join(36 * ["-1"])
 
 # ------------------------------------------------------------------------------
 # UI Options
@@ -732,7 +734,7 @@ if "zynthian_main.py" in sys.argv[0]:
         top.minsize(display_width, display_height)
 
         # Disable cursor for real Zynthian Boxes
-        if force_enable_cursor or wiring_layout == "EMULATOR" or wiring_layout == "DUMMIES":
+        if force_enable_cursor or wiring_layout == "EMULATOR" or wiring_layout == "TOUCH_ONLY":
             top.config(cursor="arrow")
         else:
             top.config(cursor="none")
