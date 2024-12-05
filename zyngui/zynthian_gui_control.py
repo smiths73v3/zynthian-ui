@@ -663,28 +663,30 @@ class zynthian_gui_control(zynthian_gui_selector):
             zctrl = self.zgui_controllers[i].zctrl
             if zctrl is None:
                 return
+            mcparams = self.zyngui.chain_manager.get_midi_learn_from_zctrl(zctrl)
             if not unlearn_only:
                 title = "Control options"
-                options["X-Y touchpad"] = None
-                # Only show X-Y if both zctrl are valid
-                if self.zyngui.state_manager.zctrl_x and self.zyngui.state_manager.zctrl_y:
-                    options["Control"] = True
-                if self.zyngui.state_manager.zctrl_x:
-                    xinfo = f" => {self.zyngui.state_manager.zctrl_x.name}"
-                else:
-                    xinfo = ""
-                if zctrl == self.zyngui.state_manager.zctrl_x:
-                    options[f"\u2612 X-axis{xinfo}"] = False
-                else:
-                    options[f"\u2610 X-axis{xinfo}"] = zctrl
-                if self.zyngui.state_manager.zctrl_y:
-                    yinfo = f" => {self.zyngui.state_manager.zctrl_y.name}"
-                else:
-                    yinfo = ""
-                if zctrl == self.zyngui.state_manager.zctrl_y:
-                    options[f"\u2612 Y-axis{yinfo}"] = False
-                else:
-                    options[f"\u2610 Y-axis{yinfo}"] = zctrl
+                if not zctrl.is_toggle:
+                    options["X-Y touchpad"] = None
+                    # Only show X-Y if both zctrl are valid
+                    if self.zyngui.state_manager.zctrl_x and self.zyngui.state_manager.zctrl_y:
+                        options["Control"] = True
+                    if self.zyngui.state_manager.zctrl_x:
+                        xinfo = f" => {self.zyngui.state_manager.zctrl_x.name}"
+                    else:
+                        xinfo = ""
+                    if zctrl == self.zyngui.state_manager.zctrl_x:
+                        options[f"\u2612 X-axis{xinfo}"] = False
+                    else:
+                        options[f"\u2610 X-axis{xinfo}"] = zctrl
+                    if self.zyngui.state_manager.zctrl_y:
+                        yinfo = f" => {self.zyngui.state_manager.zctrl_y.name}"
+                    else:
+                        yinfo = ""
+                    if zctrl == self.zyngui.state_manager.zctrl_y:
+                        options[f"\u2612 Y-axis{yinfo}"] = False
+                    else:
+                        options[f"\u2610 Y-axis{yinfo}"] = zctrl
 
                 options["MIDI learn"] = None
                 if zctrl.is_toggle:
@@ -692,7 +694,7 @@ class zynthian_gui_control(zynthian_gui_selector):
                         options["\u2612 Momentary => Latch"] = i
                     else:
                         options["\u2610 Momentary => Latch"] = i
-                else:
+                elif mcparams:
                     if zctrl.midi_cc_mode == 0:
                         options["\u2610 Relative Mode"] = i
                     else:
@@ -702,10 +704,9 @@ class zynthian_gui_control(zynthian_gui_selector):
             else:
                 title = "Control unlearn"
 
-            params = self.zyngui.chain_manager.get_midi_learn_from_zctrl(zctrl)
-            if params:
-                if params[1]:
-                    dev_name = zynautoconnect.get_midi_in_devid(params[0] >> 24)
+            if mcparams:
+                if mcparams[1]:
+                    dev_name = zynautoconnect.get_midi_in_devid(mcparams[0] >> 24)
                     options[f"Unlearn '{zctrl.name}' from {dev_name}"] = zctrl
                 else:
                     options[f"Unlearn '{zctrl.name}'"] = zctrl
