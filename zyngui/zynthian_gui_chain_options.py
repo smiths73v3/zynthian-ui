@@ -152,7 +152,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                     text = "  " * indent + "├─ " + name
 
                 res.append((self.processor_options, processor, text,
-                            [f"MIDI processor options for '{name}'", "midi_processor.png"]))
+                            [f"Options for MIDI processor '{name}'", "midi_processor.png"]))
 
             indent += 1
         # Add synth processor
@@ -161,7 +161,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                 name = processor.get_name()
                 text = "  " * indent + "╰━ " + name
                 res.append((self.processor_options, processor, text,
-                            [f"Synth processor options for '{name}'", "synth_processor.png"]))
+                            [f"Options for synth processor '{name}'", "synth_processor.png"]))
                 indent += 1
         # Build pre-fader audio effects chain
         for slot in range(self.chain.fader_pos):
@@ -176,7 +176,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                 else:
                     text = "  " * indent + "┣━ " + name
                 res.append((self.processor_options, processor, text,
-                            [f"Pre-fader audio processor options for '{name}'", "audio_processor.png"]))
+                            [f"Options for pre-fader audio processor '{name}'", "audio_processor.png"]))
             indent += 1
         # Add FADER mark
         if self.chain.audio_thru or self.chain.synth_slots:
@@ -193,7 +193,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                 else:
                     text = "  " * indent + "┣━ " + name
                 res.append((self.processor_options, processor, text,
-                            [f"Post-fader audio processor options for '{name}'", "audio_processor.png"]))
+                            [f"Options for post-fader audio processor '{name}'", "audio_processor.png"]))
             indent += 1
         return res
 
