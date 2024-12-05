@@ -614,6 +614,12 @@ class zynthian_controller:
         #logging.debug(f"CC val={val} => current mode={self.midi_cc_mode}, detecting mode {self.midi_cc_mode_detecting}"
         #              f" (count {self.midi_cc_mode_detecting_count}, zero {self.midi_cc_mode_detecting_zero})\n")
 
+        # Always use absolute mode with toggle controllers
+        if self.is_toggle:
+            self.midi_cc_mode = 0
+            self.midi_cc_mode_detecting = 0
+            return
+
         # Mode autodetection timeout
         now = monotonic()
         if now - self.midi_cc_mode_detecting_ts > MIDI_CC_MODE_DETECT_TIMEOUT:
