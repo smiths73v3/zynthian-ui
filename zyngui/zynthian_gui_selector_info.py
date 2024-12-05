@@ -114,7 +114,7 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
         try:
             return self.list_data[self.index][3]
         except:
-            return None
+            return ["", ""]
 
     def update_info(self):
         info = self.get_info()
