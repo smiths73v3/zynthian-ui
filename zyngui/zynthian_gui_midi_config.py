@@ -64,6 +64,9 @@ class aubio_inputs():
 ZMIP_MODE_CONTROLLER = "⌨"  # \u2328
 ZMIP_MODE_ACTIVE = "⇥"  # \u21e5
 ZMIP_MODE_MULTI = "⇶"  # \u21f6
+SERVICE_ICONS = {
+    "aubionotes": "midi_audio.png"
+}
 
 
 class zynthian_gui_midi_config(zynthian_gui_selector_info):
@@ -127,28 +130,32 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                 mode = get_mode_str(idev)
                 input_mode_info = f"\n{ZMIP_MODE_ACTIVE} - Active Chain\n{ZMIP_MODE_MULTI} - Multitimbral\n{ZMIP_MODE_CONTROLLER} - Device Controller"
                 if self.chain is None:
-                    self.list_data.append((port.aliases[0], idev, f"{mode}{port.aliases[1]}", [f"Bold press to show options for MIDI input '{port.aliases[1]}'.{input_mode_info}", None]))
+                    self.list_data.append((port.aliases[0], idev, f"{mode}{port.aliases[1]}", [f"Bold press to show options for MIDI input '{port.aliases[1]}'.{input_mode_info}", "midi_input.png"]))
                 elif not self.zyngui.state_manager.ctrldev_manager.is_input_device_available_to_chains(idev):
-                    self.list_data.append((port.aliases[0], idev, f"    {mode}{port.aliases[1]}", [f"Enable MIDI input '{port.aliases[1]}' for this chain. Bold press to show options for this MIDI input port.{input_mode_info}", None]))
+                    self.list_data.append((port.aliases[0], idev, f"    {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to this chain's MIDI input. Bold press to show options for this MIDI input port.{input_mode_info}", None]))
                 else:
                     if lib_zyncore.zmop_get_route_from(self.chain.zmop_index, idev):
-                        self.list_data.append((port.aliases[0], idev, f"\u2612 {mode}{port.aliases[1]}", [f"Disconnect '{port.aliases[1]}' from the MIDI input of this chain. Bold press to show options for this MIDI input port.{input_mode_info}", None]))
+                        self.list_data.append((port.aliases[0], idev, f"\u2612 {mode}{port.aliases[1]}", [f"Disconnect '{port.aliases[1]}' from this chain's MIDI input. Bold press to show options for this MIDI input port.{input_mode_info}", "midi_input.png"]))
                     else:
-                        self.list_data.append((port.aliases[0], idev, f"\u2610 {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to the MIDI input of this chain. Bold press to show options for this MIDI input port.{input_mode_info}", None]))
+                        self.list_data.append((port.aliases[0], idev, f"\u2610 {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to this chain's MIDI input. Bold press to show options for this MIDI input port.{input_mode_info}", "midi_input.png"]))
             else:
                 port = zynautoconnect.devices_out[idev]
                 if self.chain is None:
-                    self.list_data.append((port.aliases[0], idev, f"{port.aliases[1]}", [f"Bold press to show options for MIDI output '{port.aliases[1]}'.", None]))
+                    self.list_data.append((port.aliases[0], idev, f"{port.aliases[1]}", [f"Bold press to show options for MIDI output '{port.aliases[1]}'.", "midi_output.png"]))
                 elif port.aliases[0] in self.chain.midi_out:
-                    self.list_data.append((port.aliases[0], idev, f"\u2612 {port.aliases[1]}", [f"Disconnect this chain's MIDI output from '{port.aliases[1]}'. Bold press to show options for this MIDI output port.", None]))
+                    self.list_data.append((port.aliases[0], idev, f"\u2612 {port.aliases[1]}", [f"Disconnect this chain's MIDI output from '{port.aliases[1]}'. Bold press to show options for this MIDI output port.", "midi_output.png"]))
                 else:
-                    self.list_data.append((port.aliases[0], idev, f"\u2610 {port.aliases[1]}", [f"Connect this chain's MIDI output to '{port.aliases[1]}'. Bold press to show options for this MIDI output port.", None]))
+                    self.list_data.append((port.aliases[0], idev, f"\u2610 {port.aliases[1]}", [f"Connect this chain's MIDI output to '{port.aliases[1]}'. Bold press to show options for this MIDI output port.", "midi_output.png"]))
 
         def append_service(service, name, help_info=""):
-            if zynconf.is_service_active(service):
-                self.list_data.append((f"stop_{service}", None, f"\u2612 {name}", [f"Disable {help_info}.", None]))
+            if service in SERVICE_ICONS:
+                icon = SERVICE_ICONS[service]
             else:
-                self.list_data.append((f"start_{service}", None, f"\u2610 {name}", [f"Enable {help_info}.", None]))
+                icon = "midi_logo.png"
+            if zynconf.is_service_active(service):
+                self.list_data.append((f"stop_{service}", None, f"\u2612 {name}", [f"Disable {help_info}.", icon]))
+            else:
+                self.list_data.append((f"start_{service}", None, f"\u2610 {name}", [f"Enable {help_info}.", icon]))
 
         def atoi(text):
             return int(text) if text.isdigit() else text
@@ -238,10 +245,10 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                         prefix = ""
                     if chain_id in self.chain.midi_out:
                         self.list_data.append(
-                            (chain_id, None, f"\u2612 {prefix}{chain.get_name()}", [f"Disconnect this chain's MIDI output from the MIDI input of chain '{prefix}{chain.get_name()}'.", None]))
+                            (chain_id, None, f"\u2612 {prefix}{chain.get_name()}", [f"Disconnect this chain's MIDI output from the MIDI input of chain '{prefix}{chain.get_name()}'.", "midi_output.png"]))
                     else:
                         self.list_data.append(
-                            (chain_id, None, f"\u2610 {prefix}{chain.get_name()}", [f"Connect this chain's MIDI output to the MIDI input of chain '{prefix}{chain.get_name()}'.", None]))
+                            (chain_id, None, f"\u2610 {prefix}{chain.get_name()}", [f"Connect this chain's MIDI output to the MIDI input of chain '{prefix}{chain.get_name()}'.", "midi_output.png"]))
 
         super().fill_list()
 
