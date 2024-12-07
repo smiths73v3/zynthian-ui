@@ -130,22 +130,22 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                 mode = get_mode_str(idev)
                 input_mode_info = f"\n{ZMIP_MODE_ACTIVE} - Active Chain\n{ZMIP_MODE_MULTI} - Multitimbral\n{ZMIP_MODE_CONTROLLER} - Device Controller"
                 if self.chain is None:
-                    self.list_data.append((port.aliases[0], idev, f"{mode}{port.aliases[1]}", [f"Bold press to show options for MIDI input '{port.aliases[1]}'.{input_mode_info}", "midi_input.png"]))
+                    self.list_data.append((port.aliases[0], idev, f"{mode}{port.aliases[1]}", [f"Bold select to show options for MIDI input '{port.aliases[1]}'.{input_mode_info}", "midi_input.png"]))
                 elif not self.zyngui.state_manager.ctrldev_manager.is_input_device_available_to_chains(idev):
-                    self.list_data.append((port.aliases[0], idev, f"    {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to this chain's MIDI input. Bold press to show options for this MIDI input port.{input_mode_info}", None]))
+                    self.list_data.append((port.aliases[0], idev, f"    {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to this chain's MIDI input. Bold select to show options for this MIDI input port.{input_mode_info}", None]))
                 else:
                     if lib_zyncore.zmop_get_route_from(self.chain.zmop_index, idev):
-                        self.list_data.append((port.aliases[0], idev, f"\u2612 {mode}{port.aliases[1]}", [f"Disconnect '{port.aliases[1]}' from this chain's MIDI input. Bold press to show options for this MIDI input port.{input_mode_info}", "midi_input.png"]))
+                        self.list_data.append((port.aliases[0], idev, f"\u2612 {mode}{port.aliases[1]}", [f"Disconnect '{port.aliases[1]}' from this chain's MIDI input. Bold select to show options for this MIDI input port.{input_mode_info}", "midi_input.png"]))
                     else:
-                        self.list_data.append((port.aliases[0], idev, f"\u2610 {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to this chain's MIDI input. Bold press to show options for this MIDI input port.{input_mode_info}", "midi_input.png"]))
+                        self.list_data.append((port.aliases[0], idev, f"\u2610 {mode}{port.aliases[1]}", [f"Connect '{port.aliases[1]}' to this chain's MIDI input. Bold select to show options for this MIDI input port.{input_mode_info}", "midi_input.png"]))
             else:
                 port = zynautoconnect.devices_out[idev]
                 if self.chain is None:
-                    self.list_data.append((port.aliases[0], idev, f"{port.aliases[1]}", [f"Bold press to show options for MIDI output '{port.aliases[1]}'.", "midi_output.png"]))
+                    self.list_data.append((port.aliases[0], idev, f"{port.aliases[1]}", [f"Bold select to show options for MIDI output '{port.aliases[1]}'.", "midi_output.png"]))
                 elif port.aliases[0] in self.chain.midi_out:
-                    self.list_data.append((port.aliases[0], idev, f"\u2612 {port.aliases[1]}", [f"Disconnect this chain's MIDI output from '{port.aliases[1]}'. Bold press to show options for this MIDI output port.", "midi_output.png"]))
+                    self.list_data.append((port.aliases[0], idev, f"\u2612 {port.aliases[1]}", [f"Disconnect this chain's MIDI output from '{port.aliases[1]}'. Bold select to show options for this MIDI output port.", "midi_output.png"]))
                 else:
-                    self.list_data.append((port.aliases[0], idev, f"\u2610 {port.aliases[1]}", [f"Connect this chain's MIDI output to '{port.aliases[1]}'. Bold press to show options for this MIDI output port.", "midi_output.png"]))
+                    self.list_data.append((port.aliases[0], idev, f"\u2610 {port.aliases[1]}", [f"Connect this chain's MIDI output to '{port.aliases[1]}'. Bold select to show options for this MIDI output port.", "midi_output.png"]))
 
         def append_service(service, name, help_info=""):
             if service in SERVICE_ICONS:
