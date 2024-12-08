@@ -93,8 +93,8 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                                    ["Manage audio output routing.", "audio_output.png"]))
 
         if self.chain.is_audio():
-            self.list_data.append((self.audio_options, None, "Audio Options",
-                                   ["Manage audio ouput options.", "audio_options.png"]))
+            self.list_data.append((self.audio_options, None, "Mixer Options",
+                                   ["Extra audio mixer options.", "audio_options.png"]))
 
         # TODO: Catch signal for Audio Recording status change
         if self.chain_id == 0 and not zynthian_gui_config.check_wiring_layout(["Z2", "V5"]):
@@ -326,35 +326,39 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
         self.zyngui.screens['audio_out'].set_chain(self.chain)
         self.zyngui.show_screen('audio_out')
 
-    def audio_options(self):
+    def audio_options(self, index = 0):
         options = {}
         if self.zyngui.state_manager.zynmixer.get_mono(self.chain.mixer_chan):
-            options['\u2612 Mono'] = 'mono'
+            options['\u2612 Mono'] = ['mono', ["Chain is mono.\n\nLeft and right inputs are summed and fed as mono to left and right outputs", None]]
         else:
-            options['\u2610 Mono'] = 'mono'
+            options['\u2610 Mono'] = ['mono', ["Chain is stereo.\n\nLeft input feeds left output and right input feeds right output.", None]]
         if self.zyngui.state_manager.zynmixer.get_phase(self.chain.mixer_chan):
-            options['\u2612 Phase reverse'] = 'phase'
+            options['\u2612 Phase reverse'] = ['phase', ["Chain is phase reversed.\n\nRight output is inverted, making it 180° out of phase with its input.", None]]
         else:
-            options['\u2610 Phase reverse'] = 'phase'
+            options['\u2610 Phase reverse'] = ['phase', ["Chain is not phase reversed.\n\nLeft and right inputs feed left and right outputs without phase modification.", None]]
         if self.zyngui.state_manager.zynmixer.get_ms(self.chain.mixer_chan):
-            options['\u2612 M+S'] = 'ms'
+            options['\u2612 M+S'] = ['ms', ["Mid/Side mode is enabled.\n\nLeft output carries the 'Mid' signal. Right output carries the 'Side' signal.", None]]
         else:
-            options['\u2610 M+S'] = 'ms'
+            options['\u2610 M+S'] = ['ms', ["Mid/Side mode is disabled.\n\nLeft and right inputs feed left and right outputs.", None]]
 
         self.zyngui.screens['option'].config(
-            "Audio options", options, self.audio_menu_cb)
+            "Mixer options", options, self.audio_menu_cb, False)
+        self.zyngui.screens["option"].index = index
         self.zyngui.show_screen('option')
 
     def audio_menu_cb(self, options, params):
+        index = 0
         if params == 'mono':
             self.zyngui.state_manager.zynmixer.toggle_mono(
                 self.chain.mixer_chan)
-        elif params == 'ms':
-            self.zyngui.state_manager.zynmixer.toggle_ms(self.chain.mixer_chan)
         elif params == 'phase':
             self.zyngui.state_manager.zynmixer.toggle_phase(
                 self.chain.mixer_chan)
-        self.audio_options()
+            index = 1
+        elif params == 'ms':
+            self.zyngui.state_manager.zynmixer.toggle_ms(self.chain.mixer_chan)
+            index = 2
+        self.audio_options(index)
 
     def chain_audio_capture(self):
         self.zyngui.screens['audio_in'].set_chain(self.chain)
