@@ -168,6 +168,11 @@ standalone_engine_info = {
     'MD': ["MOD-UI", "MOD-UI - Plugin Host", "Special", "Language", True]
 }
 
+rpi5_plugins = [
+    "http://theusualsuspects.lv2.Osirus",
+    "http://theusualsuspects.lv2.OsTIrus"
+]
+
 ENGINE_DEFAULT_CONFIG_FILE = "{}/config/engine_config.json".format(
     os.environ.get('ZYNTHIAN_SYS_DIR'))
 ENGINE_CONFIG_FILE = "{}/engine_config.json".format(
@@ -333,6 +338,11 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
     global engines, engines_mtime
     genengines = {}
 
+    try:
+        rbpi_version_number = int(os.environ.get('RBPI_VERSION_NUMBER', '4'))
+    except:
+        rbpi_version_number = 4
+
     hash = hashlib.new('sha1')
     start = int(round(time.time()))
     try:
@@ -397,6 +407,10 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
         # Add LV2 plugins
         for plugin in world.get_all_plugins():
             engine_name = str(plugin.get_name())
+            engine_uri = str(plugin.get_uri())
+            # Skip plugins that doesn't work in the detected RBPi version
+            if rbpi_version_number < 5 and engine_uri in rpi5_plugins:
+                continue
             key = f"JV/{engine_name}"
             try:
                 engine_id = engines[key]['ID']
@@ -442,7 +456,7 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
                 'CAT': engine_cat,
                 'ENABLED': is_engine_enabled(key, False),
                 'INDEX': engine_index,
-                'URL': str(plugin.get_uri()),
+                'URL': engine_uri,
                 'UI': is_plugin_ui(plugin),
                 'DESCR': engine_descr,
                 "QUALITY": engine_quality,
@@ -566,8 +580,6 @@ def get_plugin_cat(plugin):
 # ------------------------------------------------------------------------------
 
 # workaround to fix segfault:
-
-
 def generate_presets_cache_workaround():
     start = int(round(time.time()))
     for plugin in world.get_all_plugins():
@@ -609,7 +621,8 @@ def _generate_plugin_presets_cache(plugin):
     for bank in banks:
         label = world.get(bank, world.ns.rdfs.label, None)
         if label is None:
-            logging.debug("Bank <{}> has no label!".format(bank))
+            label = str(bank).split('#')[-1]
+            logging.debug(f"Bank <{bank}> has no label! Using '{label}'")
 
         banks_dict[str(bank)] = str(label)
         presets_info[str(label)] = {
@@ -631,19 +644,30 @@ def _generate_plugin_presets_cache(plugin):
 
         label = world.get(preset, world.ns.rdfs.label, None)
         if label is None:
-            logging.debug("Preset <{}> has no label!".format(preset))
+            label = preset.split('#')[-1]
+            logging.debug(f"Preset <{preset}> has no label! Using '{label}'")
+        else:
+            label = str(label)
 
         bank = world.get(preset, world.ns.presets.bank, None)
         if bank is None:
-            logging.debug("Preset <{}> has no bank!".format(preset))
+            logging.debug(f"Preset <{preset}> has no bank!")
+            bank_label = str(bank)
         else:
             try:
-                bank = banks_dict[str(bank)]
+                bank_label = banks_dict[str(bank)]
             except:
-                logging.debug("Bank <{}> doesn't exist!".format(bank))
-                bank = None
+                logging.debug(f"Bank <{bank}> doesn't exist. Adding it!")
+                bank_label = str(bank).split('#')[-1]
+                banks_dict[str(bank)] = bank_label
+                presets_info[bank_label] = {
+                    'bank_url': str(bank),
+                    'presets': []
+                }
 
-        presets_info[str(bank)]['presets'].append({
+        if label.startswith(bank_label):
+            label = label[len(bank_label) + 1:].strip()
+        presets_info[bank_label]['presets'].append({
             'label': str(label),
             'url': str(preset)
         })
@@ -652,6 +676,16 @@ def _generate_plugin_presets_cache(plugin):
 
     for preset in presets:
         world.unload_resource(preset)
+
+    # Sort and Remove empty banks
+    presets_info = dict(sorted(presets_info.items()))
+    keys = list(presets_info.keys())
+    for k in keys:
+        if len(presets_info[k]['presets']) == 0:
+            del (presets_info[k])
+        else:
+            presets_info[k]['presets'] = sorted(
+                presets_info[k]['presets'], key=lambda k: k['label'])
 
     # Save cache file
     save_plugin_presets_cache(plugin_name, presets_info)
@@ -682,15 +716,6 @@ def get_plugin_presets(plugin_name):
 
 
 def save_plugin_presets_cache(plugin_name, presets_info):
-    # Sort and Remove empty banks
-    keys = list(presets_info.keys())
-    for k in keys:
-        if len(presets_info[k]['presets']) == 0:
-            del (presets_info[k])
-        else:
-            presets_info[k]['presets'] = sorted(
-                presets_info[k]['presets'], key=lambda k: k['label'])
-
     # Dump json to file
     fpath_cache = _get_plugin_preset_cache_fpath(plugin_name)
     try:

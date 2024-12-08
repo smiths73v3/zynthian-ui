@@ -147,12 +147,13 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
 
     # Function to name selected sequence
     def rename_sequence(self, params=None):
-        self.zyngui.show_keyboard(self.do_rename_sequence, self.zynseq.get_sequence_name(
-            self.bank, self.selected_pad), 16)
+        current_name = self.zynseq.get_sequence_name(self.bank, self.selected_pad)
+        self.zyngui.show_keyboard(self.do_rename_sequence, current_name, 16)
 
     # Function to rename selected sequence
     def do_rename_sequence(self, name):
         self.zynseq.set_sequence_name(self.bank, self.selected_pad, name)
+        self.refresh_pad(self.selected_pad)
 
     def update_layout(self):
         super().update_layout()
@@ -328,7 +329,7 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
         midi_chan = self.zynseq.libseq.getChannel(self.bank, pad, 0)
         title = self.zynseq.get_sequence_name(self.bank, pad)
         try:
-            str(int(title))  # Test for default (integer index)
+            int(title)  # Test for default (integer index)
             title = self.chain_manager.get_synth_preset_name(midi_chan)
         except:
             pass
@@ -554,7 +555,6 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
             self.zynseq.libseq.setBeatsPerBar(zctrl.value)
         elif zctrl.symbol == 'playmode':
             self.set_play_mode(zctrl.value)
-            # self.refresh_pad(self.selected_pad, force=True) #TODO Is this required?
         elif zctrl.symbol == 'midi_chan':
             self.zynseq.set_midi_channel(
                 self.bank, self.selected_pad, 0, zctrl.value)
