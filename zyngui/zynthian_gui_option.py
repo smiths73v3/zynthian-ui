@@ -5,7 +5,7 @@
 #
 # Zynthian GUI Option Selector Class
 #
-# Copyright (C) 2015-2020 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -29,14 +29,14 @@ import logging
 from os.path import basename, splitext
 
 # Zynthian specific modules
-from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 # ------------------------------------------------------------------------------
 # Zynthian Option Selection GUI Class
 # ------------------------------------------------------------------------------
 
 
-class zynthian_gui_option(zynthian_gui_selector):
+class zynthian_gui_option(zynthian_gui_selector_info):
 
     def __init__(self):
         self.title = ""
@@ -45,7 +45,7 @@ class zynthian_gui_option(zynthian_gui_selector):
         self.cb_select = None
         self.click_type = False
         self.close_on_select = True
-        super().__init__("Option", True)
+        super().__init__("Menu")
 
     def config(self, title, options, cb_select, close_on_select=True, click_type=False):
         self.title = title
@@ -93,7 +93,10 @@ class zynthian_gui_option(zynthian_gui_selector):
         if self.options_cb:
             self.options = self.options_cb()
         for k, v in self.options.items():
-            self.list_data.append((v, i, k))
+            if isinstance(v, list):
+                self.list_data.append((v[0], i, k, v[1]))
+            else:
+                self.list_data.append((v, i, k))
             i += 1
         super().fill_list()
 

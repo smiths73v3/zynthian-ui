@@ -309,25 +309,25 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                 options = {}
                 if self.input:
                     options["MIDI Input Mode"] = None
+                    mode_info = f"Toggle input mode.\n\n{ZMIP_MODE_ACTIVE} Active mode. This input will only control the active chain.\n{ZMIP_MODE_MULTI} Multitimbral mode. Only MIDI input on this chain's MIDI  channel will control this chain."
                     if zynautoconnect.get_midi_in_dev_mode(idev):
-                        options[f'\u2610 {ZMIP_MODE_ACTIVE} Multitimbral mode '] = "MULTI"
+                        options[f'{ZMIP_MODE_ACTIVE} Active mode '] = ["MULTI", [mode_info, None]]
                     else:
-                        options[f'\u2612 {ZMIP_MODE_MULTI} Multitimbral mode '] = "ACTI"
-
+                        options[f'{ZMIP_MODE_MULTI} Multitimbral mode '] = ["ACTI", [mode_info, None]]
                     options["Configuration"] = None
                     dev_id = zynautoconnect.get_midi_in_devid(idev)
                     if dev_id in self.zyngui.state_manager.ctrldev_manager.available_drivers:
                         # TODO: Offer list of profiles
                         if idev in self.zyngui.state_manager.ctrldev_manager.drivers:
-                            options[f"\u2612 {ZMIP_MODE_CONTROLLER} Controller driver"] = "UNLOAD_DRIVER"
+                            options[f"\u2612 {ZMIP_MODE_CONTROLLER} Controller driver"] = ["UNLOAD_DRIVER", ["Device controller enabled. MIDI input and output is processed to integrate the connected device.", None]]
                         else:
-                            options[f"\u2610 {ZMIP_MODE_CONTROLLER} Controller driver"] = "LOAD_DRIVER"
+                            options[f"\u2610 {ZMIP_MODE_CONTROLLER} Controller driver"] = ["LOAD_DRIVER", ["Device controller disabled. Use normal, unprocessed MIDI input from this device.", None]]
                     port = zynautoconnect.devices_in[idev]
                 else:
                     port = zynautoconnect.devices_out[idev]
                 if self.list_data[i][0].startswith("AUBIO:") or self.list_data[i][0].endswith("aubionotes"):
-                    options["Select aubio inputs"] = "AUBIO_INPUTS"
-                options[f"Rename port '{port.aliases[0]}'"] = port
+                    options["Select aubio inputs"] = ["AUBIO_INPUTS", ["Select which audio inputs are connected to aubionotes Audio \u2794 MIDI.", "midi_audio.png"]]
+                options[f"Rename port '{port.aliases[0]}'"] = [port, ["Rename the MIDI port.\nClear name to reset to default name.", None]]
                 # options[f"Reset name to '{zynautoconnect.build_midi_port_name(port)[1]}'"] = port
                 self.zyngui.screens['option'].config(
                     "MIDI Input Device", options, self.menu_cb)
