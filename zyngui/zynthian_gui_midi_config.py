@@ -128,7 +128,7 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
             if self.input:
                 port = zynautoconnect.devices_in[idev]
                 mode = get_mode_str(idev)
-                input_mode_info = f"\n\n{ZMIP_MODE_ACTIVE} Active Chain\n{ZMIP_MODE_MULTI} Multitimbral\n{ZMIP_MODE_CONTROLLER} Driver loaded"
+                input_mode_info = f"\n\n{ZMIP_MODE_ACTIVE} Active mode\n{ZMIP_MODE_MULTI} Multitimbral mode\n{ZMIP_MODE_CONTROLLER} Driver loaded"
                 if self.chain is None:
                     self.list_data.append((port.aliases[0], idev, f"{mode}{port.aliases[1]}",
                                            [f"Bold select to show options for '{port.aliases[1]}'.{input_mode_info}", "midi_input.png"]))
