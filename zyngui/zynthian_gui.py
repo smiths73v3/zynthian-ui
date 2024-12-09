@@ -1398,6 +1398,13 @@ class zynthian_gui:
     def cuia_screen_calibrate(self, params=None):
         self.calibrate_touchscreen()
 
+    def cuia_screen_clean(self, params=None):
+        self.state_manager.start_busy("clean_screen", "Clean screen")
+        for i in range(10, 0, -1):
+            self.state_manager.set_busy_details(f"Closing in {i}s")
+            sleep(1)
+        self.state_manager.end_busy("clean_screen")
+
     def cuia_chain_control(self, params=None):
         try:
             # Select chain by index
