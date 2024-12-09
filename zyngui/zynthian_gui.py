@@ -2350,7 +2350,9 @@ class zynthian_gui:
                 for i, ts in enumerate(zynswitch_cuia_ts):
                     if ts is not None and ts < long_ts:
                         zynswitch_cuia_ts[i] = None
-                        self.zynswitch_long(i)
+                        zpi = zynthian_gui_config.zynpot2switch.index(i)
+                        if self.zynpot_pr_state[zpi] <= 1:
+                            self.zynswitch_long(i)
                 event = self.cuia_queue.get(True, repeat_interval)
                 params = None
                 if isinstance(event, str):
