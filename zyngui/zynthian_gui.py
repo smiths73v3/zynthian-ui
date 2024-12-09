@@ -2384,6 +2384,7 @@ class zynthian_gui:
                         pr = 0
                         if zynthian_gui_config.num_zynpots > 0:
                             try:
+                                zynswitch_cuia_ts[i] = monotonic()
                                 zpi = zynthian_gui_config.zynpot2switch.index(i)
                                 self.zynpot_pr_state[zpi] = 1
                                 pr = 1
