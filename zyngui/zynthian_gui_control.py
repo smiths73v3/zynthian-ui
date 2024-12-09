@@ -479,7 +479,7 @@ class zynthian_gui_control(zynthian_gui_selector):
                 if self.mode == 'control':
                     return False
             elif t == 'B':
-                if self.midi_learning and self.zyngui.state_manager.midi_learn_cc:
+                if self.midi_learning and self.zyngui.state_manager.midi_learn_zctrl:
                     self.midi_unlearn_action()
                     return True
 
@@ -493,7 +493,13 @@ class zynthian_gui_control(zynthian_gui_selector):
             elif self.mode == 'select':
                 self.click_listbox()
         elif t == 'B':
-            self.zyngui.cuia_chain_options()
+            if self.midi_learning and self.zyngui.state_manager.midi_learn_zctrl:
+                for i, zgctrl in enumerate(self.zgui_controllers):
+                    if zgctrl and zgctrl.zctrl == self.zyngui.state_manager.midi_learn_zctrl:
+                        self.midi_learn_options(i)
+                        return True
+            else:
+                self.zyngui.cuia_chain_options()
 
         return True
 
