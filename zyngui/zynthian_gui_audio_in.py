@@ -69,11 +69,11 @@ class zynthian_gui_audio_in(zynthian_gui_selector_info):
             if i + 1 in self.chain.audio_in:
                 self.list_data.append(
                     (i + 1, scp.name, f"\u2612 Audio input {i + 1}{suffix}",
-                    [f"Audio input {i + 1} is connected to this chain.", "audio_in.png"]))
+                    [f"Audio input {i + 1} is connected to this chain.", "audio_input.png"]))
             else:
                 self.list_data.append(
                     (i + 1, scp.name, f"\u2610 Audio input {i + 1}{suffix}", 
-                    [f"Audio input {i + 1} is disconnected from this chain.", "audio_in.png"]))
+                    [f"Audio input {i + 1} is disconnected from this chain.", "audio_input.png"]))
 
         super().fill_list()
 

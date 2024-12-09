@@ -333,7 +333,7 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
             options[f"Rename port '{port.aliases[0]}'"] = [port, ["Rename the MIDI port.\nClear name to reset to default name.", None]]
             # options[f"Reset name to '{zynautoconnect.build_midi_port_name(port)[1]}'"] = port
             self.zyngui.screens['option'].config(
-                "MIDI Input Device", options, self.menu_cb, False)
+                "MIDI Input Device", options, self.menu_cb, False, False, None)
             self.zyngui.show_screen('option')
         except:
             pass  # Port may have disappeared whilst building menu
@@ -354,11 +354,12 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                 ain = aubio_inputs(self.zyngui.state_manager)
                 self.zyngui.screens['audio_in'].set_chain(ain)
                 self.zyngui.show_screen('audio_in')
+                return
             elif self.input:
                 idev = self.list_data[self.index][1]
                 lib_zyncore.zmip_set_flag_active_chain(idev, params == "ACTI")
                 zynautoconnect.update_midi_in_dev_mode(idev)
-                self.show_options()
+            self.show_options()
             self.update_list()
         except:
             pass  # Ports may have changed since menu opened

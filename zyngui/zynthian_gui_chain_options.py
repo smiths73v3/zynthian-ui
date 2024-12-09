@@ -326,7 +326,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
         self.zyngui.screens['audio_out'].set_chain(self.chain)
         self.zyngui.show_screen('audio_out')
 
-    def audio_options(self, index = 0):
+    def audio_options(self):
         options = {}
         if self.zyngui.state_manager.zynmixer.get_mono(self.chain.mixer_chan):
             options['\u2612 Mono'] = ['mono', ["Chain is mono.\n\nLeft and right inputs are summed and fed as mono to left and right outputs", None]]
@@ -342,23 +342,19 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
             options['\u2610 M+S'] = ['ms', ["Mid/Side mode is disabled.\n\nLeft and right inputs feed left and right outputs.", None]]
 
         self.zyngui.screens['option'].config(
-            "Mixer options", options, self.audio_menu_cb, False)
-        self.zyngui.screens["option"].index = index
+            "Mixer options", options, self.audio_menu_cb, False, False, None)
         self.zyngui.show_screen('option')
 
     def audio_menu_cb(self, options, params):
-        index = 0
         if params == 'mono':
             self.zyngui.state_manager.zynmixer.toggle_mono(
                 self.chain.mixer_chan)
         elif params == 'phase':
             self.zyngui.state_manager.zynmixer.toggle_phase(
                 self.chain.mixer_chan)
-            index = 1
         elif params == 'ms':
             self.zyngui.state_manager.zynmixer.toggle_ms(self.chain.mixer_chan)
-            index = 2
-        self.audio_options(index)
+        self.audio_options()
 
     def chain_audio_capture(self):
         self.zyngui.screens['audio_in'].set_chain(self.chain)
