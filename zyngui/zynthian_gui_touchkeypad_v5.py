@@ -213,7 +213,7 @@ class zynthian_gui_touchkeypad_v5:
             height=1,
             bg=self.bg_color,
             fg=self.text_color,
-            activebackground=self.bg_color_over,
+            activebackground=self.bg_color,
             activeforeground=self.border_color,
             highlightbackground=self.border_color,
             highlightcolor=self.border_color,
