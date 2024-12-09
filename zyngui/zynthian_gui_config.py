@@ -261,7 +261,7 @@ def config_zynpot2switch():
 
         # Default configuration for "classic layouts" => It discards V5 partial configurations!
         if len(zynpot2switch) < num_zynpots:
-            zynpot2switch = []
+            zynpot2switch = [0, 1, 2, 3]
 
         logging.info(f"zynpot2switch => {zynpot2switch}")
 
