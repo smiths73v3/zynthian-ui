@@ -27,18 +27,18 @@ import logging
 
 # Zynthian specific modules
 import zynautoconnect
-from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 # ------------------------------------------------------------------------------
 # Zynthian Audio-In Selection GUI Class
 # ------------------------------------------------------------------------------
 
 
-class zynthian_gui_audio_in(zynthian_gui_selector):
+class zynthian_gui_audio_in(zynthian_gui_selector_info):
 
     def __init__(self):
         self.chain = None
-        super().__init__('Audio In', True)
+        super().__init__('Audio In')
 
     def set_chain(self, chain):
         self.chain = chain
@@ -68,10 +68,12 @@ class zynthian_gui_audio_in(zynthian_gui_selector):
                 suffix = ""
             if i + 1 in self.chain.audio_in:
                 self.list_data.append(
-                    (i + 1, scp.name, f"\u2612 Audio input {i + 1}{suffix}"))
+                    (i + 1, scp.name, f"\u2612 Audio input {i + 1}{suffix}",
+                    [f"Audio input {i + 1} is connected to this chain.", "audio_input.png"]))
             else:
                 self.list_data.append(
-                    (i + 1, scp.name, f"\u2610 Audio input {i + 1}{suffix}"))
+                    (i + 1, scp.name, f"\u2610 Audio input {i + 1}{suffix}", 
+                    [f"Audio input {i + 1} is disconnected from this chain.", "audio_input.png"]))
 
         super().fill_list()
 

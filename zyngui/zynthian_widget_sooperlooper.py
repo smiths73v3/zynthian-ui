@@ -63,7 +63,7 @@ class zynthian_widget_sooperlooper(zynthian_widget_base.zynthian_widget_base):
 
         self.tri_size = int(0.5 * zynthian_gui_config.font_size)
         # int(0.70 * self.font_size_sl)
-        txt_y = zynthian_gui_config.display_height // 22
+        txt_y = zynthian_gui_config.screen_height // 22
         self.txt_x = 4
 
         self.pos_canvas = []

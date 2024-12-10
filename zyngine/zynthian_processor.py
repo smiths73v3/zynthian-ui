@@ -612,10 +612,23 @@ class zynthian_processor:
                     logging.error("Controller %s is not defined" % k)
         return zctrls
 
+    def send_controller_values(self):
+        """Send all controller values to engines
+
+           It should be called once when creating some processors that don't give controller feedback
+           or when loading presets that modify these controller values without giving feedback.
+           => fluidsynth, zynaddsubfx, linuxsampler, ...
+        """
+
+        for k, zctrl in self.controllers_dict.items():
+            zctrl.send_value()
+
     def send_ctrl_midi_cc(self):
         """Send MIDI CC for all controllers
 
         TODO: When is this required? Fluidsynth, linuxsampler and others calls this during set_preset
+        => It's used for setting MIDI controllers to a known value, avoiding "jumps" when moving knobs
+        => It should be replaced by send_controllers() (see above) and called one-time when creating the processor
         """
 
         for k, zctrl in self.controllers_dict.items():

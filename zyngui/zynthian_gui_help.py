@@ -54,7 +54,13 @@ class zynthian_gui_help:
         self.touch_last_release_ts = 0
 
         # Main Frame
-        self.main_frame = HtmlFrame(zynthian_gui_config.top, messages_enabled=False)
+
+        self.main_frame = HtmlFrame(zynthian_gui_config.top,
+                                    width=zynthian_gui_config.screen_width,
+                                    height=zynthian_gui_config.screen_height,
+                                    vertical_scrollbar=False,
+                                    messages_enabled=False)
+        self.main_frame.grid_propagate(False)
         # Patch HtmlFrame widget
         self.main_frame.event_generate = self.main_frame.html.event_generate
         # Bind events
@@ -88,7 +94,8 @@ class zynthian_gui_help:
             logging.warning("TEST_MODE: {}".format(self.__class__.__module__))
         if not self.shown:
             self.shown = True
-            self.main_frame.grid()
+            self.main_frame.grid_propagate(False)
+            self.main_frame.grid(row=0, column=zynthian_gui_config.main_screen_column)
 
     def zynpot_cb(self, i, dval):
         if i == 3:
