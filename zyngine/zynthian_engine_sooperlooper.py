@@ -414,7 +414,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['loop_count', {'name': 'loop count', 'value': 1, 'value_min': 1, 'value_max': self.MAX_LOOPS}],
 			['selected_loop_num', {'name': 'selected loop', 'value': 1, 'value_min': 1, 'value_max': 6}],
 			['single_pedal', {'name': 'single pedal', 'value': 0, 'value_max': 1, 'labels': ['>', '<'], 'is_toggle': True}],
-			['global_cc', {'name': 'midi cc to selected loop', 'value': 1, 'labels':['off', 'on']}]
+			['global_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}]
 		]
 
 		# Controller Screens
@@ -574,13 +574,9 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 					for i in range(self.MAX_LOOPS):
 						zctrl = zynthian_controller(self, f"{ctrl[0]}:{i}", ctrl[1])
 						processor.controllers_dict[zctrl.symbol] = zctrl
-						if midi_chan is not None and len(ctrl) > 2:
-							self.state_manager.chain_manager.add_midi_learn(midi_chan, ctrl[2], zctrl)
 				else:
 					zctrl = zynthian_controller(self, ctrl[0], ctrl[1])
 					processor.controllers_dict[zctrl.symbol] = zctrl
-					if midi_chan is not None and len(ctrl) > 2:
-						self.state_manager.chain_manager.add_midi_learn(midi_chan, ctrl[2], zctrl)
 		return processor.controllers_dict
 
 	def send_controller_value(self, zctrl):
