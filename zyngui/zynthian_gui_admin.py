@@ -5,7 +5,7 @@
 #
 # Zynthian GUI Admin Class
 #
-# Copyright (C) 2015-2023 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -196,6 +196,7 @@ class zynthian_gui_admin(zynthian_gui_selector):
         if "cv_config" in self.zyngui.screens:
             self.list_data.append((self.show_cv_config, 0, "CV Settings"))
         self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen"))
+        self.list_data.append((self.zyngui.cuia_screen_clean, 0, "Clean Screen"))
         self.list_data.append((self.bluetooth, 0, "Bluetooth"))
 
         self.list_data.append((None, 0, "> TEST"))

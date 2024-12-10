@@ -149,10 +149,10 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                                            [f"Bold select to show options for '{port.aliases[1]}'.", "midi_output.png"]))
                 elif port.aliases[0] in self.chain.midi_out:
                     self.list_data.append((port.aliases[0], idev, f"\u2612 {port.aliases[1]}",
-                                           [f"'{port.aliases[1]}' connected to chain's MIDI output.\nBold select to show more options.", "midi_output.png"]))
+                                           [f"Chain's MIDI output connected to '{port.aliases[1]}'.\nBold select to show more options.", "midi_output.png"]))
                 else:
                     self.list_data.append((port.aliases[0], idev, f"\u2610 {port.aliases[1]}",
-                                           [f"'{port.aliases[1]}' disconnected from chain's MIDI output.\nBold select to show more options.", "midi_output.png"]))
+                                           [f"Chain's MIDI output disconnected from '{port.aliases[1]}'.\nBold select to show more options.", "midi_output.png"]))
 
         def append_service(service, name, help_info=""):
             if service in SERVICE_ICONS:
@@ -257,11 +257,11 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                         prefix = ""
                     if chain_id in self.chain.midi_out:
                         self.list_data.append((chain_id, None, f"\u2612 {prefix}{chain.get_name()}",
-                                              [f"Chain '{prefix}{chain.get_name()}' connected to chain's MIDI output.",
+                                              [f"Chain's MIDI output connected to chain '{prefix}{chain.get_name()}'.",
                                                "midi_output.png"]))
                     else:
                         self.list_data.append((chain_id, None, f"\u2610 {prefix}{chain.get_name()}",
-                                              [f"Chain '{prefix}{chain.get_name()}' disconnected from chain's MIDI output.",
+                                              [f"Chain's MIDI output disconnected from chain '{prefix}{chain.get_name()}'.",
                                                "midi_output.png"]))
 
         super().fill_list()

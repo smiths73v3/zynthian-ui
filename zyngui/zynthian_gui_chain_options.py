@@ -124,15 +124,15 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                 self.list_data.append((self.remove_chain, None, "Remove Chain", ["Remove this chain and all its processors.", "delete.png"]))
             else:
                 self.list_data.append((self.remove_cb, None, "Remove...", ["Remove chain or processors.", "delete.png"]))
-            self.list_data.append((self.export_chain, None, "Export chain as snapshot..."))
+            self.list_data.append((self.export_chain, None, "Export chain as snapshot...", ["Save the selected chain as a snapshot which may then be imported into another snapshot.", None]))
         elif audio_proc_count > 0:
             self.list_data.append((self.remove_all_audiofx, None, "Remove all Audio-FX", ["Remove all audio-FX processors in this chain.", "delete.png"]))
 
         self.list_data.append((None, None, "> GUI"))
-        self.list_data.append((self.rename_chain, None, "Rename chain"))
+        self.list_data.append((self.rename_chain, None, "Rename chain", ["Rename the chain. Clear name to reset to default name.", None]))
         if self.chain_id:
             if len(self.zyngui.chain_manager.ordered_chain_ids) > 2:
-                self.list_data.append((self.move_chain, None, "Move chain ⇦ ⇨"))
+                self.list_data.append((self.move_chain, None, "Move chain ⇦ ⇨", ["Reposition the chain in the mixer view.", None]))
 
         super().fill_list()
 
@@ -392,7 +392,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
         for dir in dirs:
             if dir.startswith(".") or not os.path.isdir(f"{self.zyngui.state_manager.snapshot_dir}/{dir}"):
                 continue
-            options[dir] = dir
+            options[dir] = [dir, ["Choose folder to store snapshot.", "folder.png"]]
         self.zyngui.screens['option'].config(
             "Select location for export", options, self.name_export)
         self.zyngui.show_screen('option')
