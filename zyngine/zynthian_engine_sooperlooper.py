@@ -360,7 +360,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		self.selected_loop = None
 		self.loop_count = 1
 		self.channels = 2
-		self.global_cc_binding = True # True for MIDI CC to control selected loop. False to target individual loops
+		self.selected_loop_cc_binding = True # True for MIDI CC to control selected loop. False to target all loops
 
 		ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
 		self.custom_gui_fpath = f"{ui_dir}/zyngui/zynthian_widget_sooperlooper.py"
@@ -414,7 +414,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['loop_count', {'name': 'loop count', 'value': 1, 'value_min': 1, 'value_max': self.MAX_LOOPS}],
 			['selected_loop_num', {'name': 'selected loop', 'value': 1, 'value_min': 1, 'value_max': 6}],
 			['single_pedal', {'name': 'single pedal', 'value': 0, 'value_max': 1, 'labels': ['>', '<'], 'is_toggle': True}],
-			['global_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}]
+			['selected_loop_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}]
 		]
 
 		# Controller Screens
@@ -428,7 +428,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['Global levels', ['rec_thresh', 'input_gain']],
 			['Global quantize', ['quantize', 'mute_quantized', 'overdub_quantized', 'replace_quantized']],
 			['Global sync 1', ['sync_source', 'sync', 'playback_sync', 'relative_sync']],
-			['Global sync 2', ['round', 'use_feedback_play', 'global_cc']]
+			['Global sync 2', ['round', 'use_feedback_play', 'selected_loop_cc']]
 		]
 
 		self.start()
@@ -580,12 +580,12 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		return processor.controllers_dict
 
 	def send_controller_value(self, zctrl):
-		if zctrl.symbol == "global_cc":
-			self.global_cc_binding = zctrl.value != 0
+		if zctrl.symbol == "selected_loop_cc":
+			self.selected_loop_cc_binding = zctrl.value != 0
 			return
 		if ":" in zctrl.symbol:
 			symbol, chan = zctrl.symbol.split(":")
-			if not self.global_cc_binding:
+			if self.selected_loop_cc_binding:
 				if int(chan) != self.selected_loop:
 					return
 				chan = -3
