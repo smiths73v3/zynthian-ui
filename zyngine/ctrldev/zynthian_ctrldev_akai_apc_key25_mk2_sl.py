@@ -25,14 +25,18 @@ from .zynthian_ctrldev_base_extended import (
 from .zynthian_ctrldev_akai_apc_key25_mk2_feedback_leds import FeedbackLEDs
 from .zynthian_ctrldev_akai_apc_key25_mk2_colors import *
 from .zynthian_ctrldev_akai_apc_key25_mk2_brights import *
+from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import *
+
+from typing import Dict, Any, Callable
 from itertools import chain, islice
-from collections import defaultdict
-import importlib
+# from collections import defaultdict
+
 import functools
 
-BUTTONS = importlib.import_module(".zythian_ctrldev_akai_apc_key25_mk2_buttons")
 COLS = 8
 ROWS = 5
+# LED states
+LED_ON = 1
 
 TRACK_COMMANDS = [2, 6, 7, 8, 13, 12, 16, 14]
 TRACK_LEVELS = [
@@ -187,20 +191,20 @@ SETTINGCOLORS = [
 ]
 PATH_LOOP_OFFSET = ["device", "loopoffset"]
 DEVICEMODES = ["loops", "sessionsave", "sessionload"]
-CHARS  = {
-  1: ["_._", ".._", "_._", "_._", "..."],
-  2: ["_._", "._.", "__.", "_._", "..."],
-  3: ["...", "__.", "_._", "__.", ".._"],
-  4: [".__", "._.", "...", "__.", "__."],
-  5: ["...", ".__", "...", "__.", "..."],
-  6: ["_._", ".__", "...", "._.", "..."],
-  7: ["...", "__.", "_._", "_._", ".__"],
-  8: ["...", "._.", "...", "._.", "..."],
-  9: ["_._", "._.", "...", "__.", "..."],
-  0: ["_._", "._.", "._.", "._.", "_._"],
+CHARS = {
+    1: ["_._", ".._", "_._", "_._", "..."],
+    2: ["_._", "._.", "__.", "_._", "..."],
+    3: ["...", "__.", "_._", "__.", ".._"],
+    4: [".__", "._.", "...", "__.", "__."],
+    5: ["...", ".__", "...", "__.", "..."],
+    6: ["_._", ".__", "...", "._.", "..."],
+    7: ["...", "__.", "_._", "_._", ".__"],
+    8: ["...", "._.", "...", "._.", "..."],
+    9: ["_._", "._.", "...", "__.", "..."],
+    0: ["_._", "._.", "._.", "._.", "_._"],
 }
-matrixPadLedmode = { ".": LED_BRIGHT_100, "_": LED_BRIGHT_10 }
-matrixPadColor = { ".": COLOR_WHITE, "_": COLOR_DARK_GREY }
+matrixPadLedmode = {".": LED_BRIGHT_100, "_": LED_BRIGHT_10}
+matrixPadColor = {".": COLOR_WHITE, "_": COLOR_DARK_GREY}
 
 # Variables we do not want to store in state
 
@@ -304,7 +308,7 @@ def panPads(value):
 
 
 def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
-    def cond_fn(track):
+    def cond_fn(track, y):
         # Check for device pan
         if "device" in state and "pan" in state["device"]:
             if track["channel_count"] == 2:
@@ -331,7 +335,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
                     padBrightnessForLevel(5, TRACK_LEVELS[xpad])(4 - i)
                 )
 
-            return track_level_fn(track, 0)  # Example index
+            return track_level_fn(track, y)  # NO Example index
 
         # Check for device levels
         if "device" in state and "levels" in state["device"]:
@@ -339,11 +343,12 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
         # Default case
         state_value = track.get("state", SL_STATE_UNKNOWN)
-        pos = 8 * (track["loop_pos"] / track["loop_len"])
+        
+        pos = 0 if track.get("loop_len", 0) == 0 else 8 * (track.get("loop_pos", 0) / track.get("loop_len", 1))
         rounded_pos = int(pos)
-        last = LED_BRIGHTS[
-            min(3, int(7 * (pos - rounded_pos)))
-        ]  # Ensure index is within bounds
+        # last = LED_BRIGHTS[
+        #     min(3, int(7 * (pos - rounded_pos)))
+        # ]  # Ensure index is within bounds
         led_mode = SL_STATES[state_value]["ledmode"]
 
         return lambda x: (
@@ -404,6 +409,7 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
 
     return cond_fn
 
+
 def make_loopnum_overlay(char, col=0):
     spec = CHARS.get(char)
     if not spec:
@@ -417,6 +423,7 @@ def make_loopnum_overlay(char, col=0):
             overlay.extend([matrixPadLedmode[boolish], pad, matrixPadColor[boolish]])
 
     return overlay
+
 
 def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
     matrix = []
@@ -563,9 +570,13 @@ def getLoopoffset(state):
 
 
 def showTrackLevels(state):
-    return 1 < getDeviceSetting("levels", state) and -2 < getGlob(
-        "selected_loop_num", state
-    )
+    level_mode = getDeviceSetting("levels", state)
+    if not level_mode:
+        return False
+    selected_loop_num = getGlob("selected_loop_num", state)
+    if selected_loop_num is None:
+        return False
+    return 1 < level_mode and -2 < selected_loop_num
 
 
 def syncMode(state):
@@ -574,9 +585,9 @@ def syncMode(state):
 
 # Reduce function
 def on_update_track(action, state):
-    track = action.track
-    ctrl = action.ctrl
-    value = action.value
+    track = action.get("track")
+    ctrl = action.get("ctrl")
+    value = action.get("value")
     return assoc_path(state, ["tracks", track, ctrl], value)
 
 
@@ -590,13 +601,13 @@ def createAllPads(state):
     panmode = getDeviceSetting("pan", state) or 0
 
     def ctrl_btn(btn):
-        if btn == BUTTONS.BTN_KNOB_CTRL_VOLUME:
+        if btn == BTN_KNOB_CTRL_VOLUME:
             return [0x90, btn, levelmode]
-        if btn == BUTTONS.BTN_KNOB_CTRL_PAN:
+        if btn == BTN_KNOB_CTRL_PAN:
             return [0x90, btn, panmode]  # @check Used to have to convert this to num
-        if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
+        if btn == BTN_KNOB_CTRL_SEND:
             return [0x90, btn, (set_syncs and 1) or 0]
-        if btn == BUTTONS.BTN_KNOB_CTRL_DEVICE:
+        if btn == BTN_KNOB_CTRL_DEVICE:
             return [0x90, btn, devicemode]
         return []
 
@@ -624,12 +635,12 @@ def createAllPads(state):
         emptycells = functools.reduce(emptyrowreducer, range(0, ROWS), [])
         return overlay(sessionnums, emptycells) + ctrl_keys
 
-    tracks = getattr(state, "tracks") or []
+    tracks = state.get("tracks", [])
     toprow = (
         []
         if (set_syncs or showTrackLevels(state))
         else [
-            [LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]].color]
+            [LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
     )
@@ -639,7 +650,7 @@ def createAllPads(state):
     eighths = get_eighths(show8ths, state)
 
     pads = matrix + overlay(soft_keys, ctrl_keys)
-    if pads.length:
+    if len(pads):
         if shifted:
             firstLoop = 2 - loopoffset
             if firstLoop > 9 and firstLoop < 100:
@@ -727,9 +738,22 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         print("APC Key 25 mk2 SL __init__ completed")
         print("=================================================================\n")
 
+        self._state_manager = state_manager
+        self._init_complete = False
+        self._shutting_down = False
+        self._leds = None
+        self.osc_server = None
+        self.osc_target = None
+        self._loop_states = {}
+        self._init_time = 0
+
         self._leds = FeedbackLEDs(idev_out)
         self.loopcount = 0
         self.state = {}
+        # Light up first button in each row
+        self._leds.led_state(82, LED_ON)  # First snapshot
+        self._leds.led_state(64, LED_ON)  # First zs3
+
         # if self._leds is None:
         #     print("Initializing LED controller...")
         #     self._leds = FeedbackLEDs(idev_out)
@@ -770,10 +794,10 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                 # Register OSC methods
                 print("Registering OSC methods...")
                 self.osc_server.add_method("/error", "s", self._cb_osc_error)
-                self.osc_server.add_method("/pong", "sf", self._cb_osc_pong)
+                self.osc_server.add_method("/pong", "ssf", self._cb_osc_pong)
                 self.osc_server.add_method("/info", "ssi", self._cb_osc_info)
-                self.osc_server.add_method("/update", "sf", self._cb_osc_update)
-                self.osc_server.add_method("/glob", "sf", self._cb_osc_glob)
+                self.osc_server.add_method("/update", "isf", self._cb_osc_update)
+                self.osc_server.add_method("/glob", "isf", self._cb_osc_glob)
                 # self.osc_server.add_method("/sessions", "sf", self._cb_osc_sessions)
                 self.osc_server.add_method(None, None, self._cb_osc_fallback)
 
@@ -820,7 +844,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
     def _cb_osc_pong(self, path, args):
         """Callback for info messages from SooperLooper"""
-        self.requestFeedback("/register", "/info")
+        self.request_feedback("/register", "/info")
         self.handleInfo(args)
         self.register_update(self.range(0))
         self.just_send("/set", "smart_eighths", 0)
@@ -867,6 +891,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return state
 
         if action["type"] == "track":
+            print(f"action {action}")
             return on_update_track(action, state)
         elif action["type"] == "empty-track":
             return assoc_path(state, ["tracks", action["value"]], {})
@@ -897,7 +922,9 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         print(f"type {type}; action {action}")
         self.state = self.reducer(self.state, action)
         pads = createAllPads(self.state)
-        print(pads)
+        print(pads, len(pads))
+        msg = bytes(pads)
+        lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
         # NOW RENDER
 
     def register_update(self, range):
@@ -954,13 +981,15 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             self.osc_target = liblo.Address(self.SL_PORT)
             print("Successfully connected to SooperLooper via OSC")
             print("Registering for automatic updates...")
-            self._register_auto_updates()
+
+            self.request_feedback("/ping", "/pong")
             self._init_complete = True
+
             return True
         except Exception as e:
             print(f"Failed to connect to SooperLooper: {e}")
             # Retry after delay if still within reasonable time
-            if elapsed < 30:  # Try for up to 30 seconds
+            if elapsed < 300:  # Try for up to 300 seconds
                 print("Scheduling retry...")
                 Timer(2.0, self._try_connect_to_sooperlooper).start()
             return False
