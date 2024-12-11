@@ -177,7 +177,7 @@ FN_CLEAR_PATTERN = 0x11
 # --------------------------------------------------------------------------
 class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
 
-    dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
+    dev_ids = ["APC Key 25 mk2 MIDI 1", "APC Key 25 mk2 IN 1"]
 
     @classmethod
     def get_autoload_flag(cls):
