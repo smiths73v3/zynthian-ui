@@ -410,9 +410,13 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
         # Check for track levels
         if showTrackLevels(state):
 
+            tracknum = getGlob("selected_loop_num", state)
+            theTrack = state.glob if tracknum == -1 else state.get('tracks', {}).get(tracknum, {})
+             # level = theTrack[key]
+
             def track_level_fn(track, i):
                 return lambda xpad: (
-                    padBrightnessForLevel(ROWS, track.get(TRACK_LEVELS[xpad], 0))(
+                    padBrightnessForLevel(ROWS, theTrack.get(TRACK_LEVELS[xpad], 0))(
                         ROWS - 1 - i
                     )
                 )
@@ -1261,9 +1265,10 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
         if level_mode != 0:
             if level_mode == 2:
-                self.register_selected(
-                    ["in_peak_meter"]
-                )  # Assuming register_selected is a method of self
+                pass
+                # self.register_selected(
+                #     ["in_peak_meter"]
+                # )  # Assuming register_selected is a method of self
 
             self.dispatch(
                 batchAction(
