@@ -93,7 +93,7 @@ SL_STATE_REDO = 18
 SL_STATE_REDO_ALL = 19
 SL_STATE_OFF_MUTED = 20
 SL_STATES = {
-    SL_STATE_UNKNOWN: {"name": "unknown", "color": COLOR_DARK_GREY, "ledmode": LED_OFF},
+    SL_STATE_UNKNOWN: {"name": "unknown", "color": COLOR_BLACK, "ledmode": LED_OFF},
     SL_STATE_OFF: {"name": "off", "color": COLOR_WHITE, "ledmode": LED_BRIGHT_100},
     SL_STATE_REC_STARTING: {
         "name": "waitstart",
@@ -358,7 +358,7 @@ def shiftedTrack(track, offset):
 # Pad coloring
 def padBrightnessForLevel(num, level):
     pos = num * level
-    print(f"{pos}--{num}--{level}")
+    # print(f"{pos}--{num}--{level}")
     roundedpos = pos // 1
     index = (num - 1) * (pos - roundedpos) // 1
     last = LED_BRIGHTS[int(index)]
@@ -409,10 +409,13 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
         # Check for track levels
         if showTrackLevels(state):
-
             tracknum = getGlob("selected_loop_num", state)
-            theTrack = state.glob if tracknum == -1 else state.get('tracks', {}).get(tracknum, {})
-             # level = theTrack[key]
+            theTrack = (
+                state.glob
+                if tracknum == -1
+                else state.get("tracks", {}).get(tracknum, {})
+            )
+            # level = theTrack[key]
 
             def track_level_fn(track, i):
                 return lambda xpad: (
@@ -421,7 +424,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
                     )
                 )
 
-            return track_level_fn(track, y)  # NO Example index
+            return track_level_fn(None, y)  # NO Example index
 
         # Check for device levels
         if getDeviceSetting("levels", state):
@@ -429,12 +432,14 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
         # Default case
         state_value = track.get("state", SL_STATE_UNKNOWN)
-
+        if state_value == SL_STATE_UNKNOWN:
+            return lambda x: 0x80
         pos = (
             0
             if track.get("loop_len", 0) == 0
             else 8 * (track.get("loop_pos", 0) / track.get("loop_len", 1))
         )
+
         rounded_pos = int(pos)
         # last = LED_BRIGHTS[
         #     min(3, int(7 * (pos - rounded_pos)))
@@ -477,7 +482,7 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
                 )
             return lambda x: SL_STATES[track_state]["color"]
 
-        # Check for track levels
+        # Check for selected loop levels
         if showTrackLevels(state):
 
             def track_level_fn(track, i):
@@ -485,7 +490,7 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
 
             return track_level_fn(track, 0)  # Example index
 
-        # Check for device levels
+        # Check for wet for loops on page
         if getDeviceSetting("levels", state):
             state_value = track.get("state", SL_STATE_UNKNOWN)
             return lambda x: (
@@ -498,7 +503,10 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
 
         # Default case
         state_value = track.get("state", SL_STATE_UNKNOWN)
-        return lambda x: SL_STATES[state_value]["color"]
+        statespec = SL_STATES[state_value]
+        print(f"spec: {statespec} {track}")
+        statecolor = statespec["color"]
+        return lambda x: statecolor
 
     return cond_fn
 
@@ -539,7 +547,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
 
         if not (set_syncs or showTrackLevels(storeState)) and y == 0:
             matrix.extend(toprow)
-            print(f"matrci with top row {matrix}")
+            # print(f"matrci with top row {matrix}")
             continue
         if set_syncs and y == 0:
             padnums = range(32, 38)  # rowPads(y)
@@ -769,11 +777,14 @@ def createAllPads(state):
     )
     toprow = list(chain.from_iterable(toprow))
     matrix = matrix_function(toprow, loopoffset, tracks, state, set_syncs)
+    mlen = len(matrix) / 3
+    print(f"{mlen}")
+    #return matrix
     soft_keys = get_soft_keys(loopoffset, state)
     eighths = get_eighths(show8ths, state)
     # print(f"softkeys{soft_keys}")
     # print(f"ctrl_keys{ctrl_keys}")
-    print(f"matrix{matrix}")
+    # print(f"matrix{matrix}")
     pads = matrix + overlay(soft_keys, ctrl_keys)
     if len(pads):
         if shifted:
@@ -1193,10 +1204,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                     [
                         deviceAction("levels", 0),
                         deviceAction("pan", dopan),
-                        deviceAction(
-                            "sync",
-                            False
-                        ),
+                        deviceAction("sync", False),
                         deviceAction("mode", -1 if dopan else 0),
                     ]
                 )
@@ -1207,8 +1215,8 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         if button == BTN_KNOB_CTRL_SEND:
             if evtype == EV_NOTE_OFF:
                 return
-            dosync = not getDeviceSetting('sync', self.state)
-            self.dispatch(#
+            dosync = not getDeviceSetting("sync", self.state)
+            self.dispatch(  #
                 batchAction(
                     [
                         deviceAction("levels", 0),
@@ -1242,9 +1250,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                     deviceAction(
                         "pan", self._auto_latch.feed(BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
                     ),
-                    deviceAction(
-                        "sync", False
-                    ),
+                    deviceAction("sync", False),
                     deviceAction("mode", devicemode),
                 ]
             )
@@ -1277,12 +1283,8 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                         deviceAction(
                             "pan", self._auto_latch.feed(BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
                         ),
-                        deviceAction(
-                            "sync",
-                           False
-                        ),
+                        deviceAction("sync", False),
                         deviceAction("mode", -1),
-                        
                     ]
                 )
             )
@@ -1566,7 +1568,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
     def _cb_osc_glob(self, path, args):
         [_, ctrl, value] = args[:3]
-        if ctrl == 'selected_loop_num':
+        if ctrl == "selected_loop_num":
             self.dispatch(globAction(ctrl, int(value)))
         elif ctrl == "sync_source":
             self.dispatch(globAction(ctrl, int(value)))
@@ -1586,7 +1588,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return state
 
         if action["type"] == "track":
-            print(f"action {action}")
+            # print(f"action {action}")
             return on_update_track(action, state)
         elif action["type"] == "empty-track":
             return assoc_path(state, ["tracks", action["value"]], {})
@@ -1616,9 +1618,18 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return state
 
     def dispatch(self, action):
-        print(f"type {type}; action {action}")
+        # print(f"type {type}; action {action}")
         self.state = self.reducer(self.state, action)
         pads = createAllPads(self.state)
+        notes = split_every(3, pads)
+        for pad in notes:
+            if pad[0] == 0x80:
+                # For some reason simply sending a note off does not work.
+                # lib_zyncore.dev_send_midi_event(self.idev_out, bytes(pad), 3)
+                # The following does work, but something tells me to stay with they ctrldev_base way
+                # lib_zyncore.dev_send_note_on(self.idev, 0, pad[1], 0)
+                self._leds.led_off(pad[1], False)
+        # @todo remove those off pads from the bulk message.
         # print(pads, len(pads))
         msg = bytes(pads)
         lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
@@ -1675,7 +1686,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
         # Check if enough time has passed since initialization
         elapsed = time.time() - self._init_time
-        if elapsed < 20:
+        if elapsed < 10:
             print(f"Waiting for sooperlooper to start... ({elapsed:.1f}s)")
             # Schedule next attempt
             Timer(1.0, self._try_connect_to_sooperlooper).start()
@@ -1689,12 +1700,14 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             print(f"Attempting to connect to SooperLooper on port {self.SL_PORT}...")
             self.osc_target = liblo.Address(self.SL_PORT)
             # print("Successfully connected to SooperLooper via OSC")
-            print("Pinging SLGoed.                                                                                                                                                                                                                                    ...")
+            print(
+                "Pinging SLGoed.                                                                                                                                                                                                                                    ..."
+            )
             self.request_feedback("/ping", "/pong")
             # self._init_complete = True
             Timer(2.0, self._try_connect_to_sooperlooper).start()
             return True
-        
+
         except Exception as e:
             print(f"Failed to connect to SooperLooper: {e}")
             # Retry after delay if still within reasonable time
