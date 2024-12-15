@@ -376,9 +376,9 @@ def panPads(value):
     extrapad = roundedpos % 2
     firstpad = (roundedpos / 2) // 1
     # Step 3: Remove duplicates based on the second element
-    if firstpad == extrapad:
+    if firstpad == extrapad + firstpad:
         return [firstpad]
-    return [firstpad, extrapad]
+    return [firstpad, firstpad + extrapad]
     # unique = {tuple(item): item for item in [firstpad, firstpad + extrapad]}.values()
     # return unique
 
@@ -403,7 +403,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
                     if x in any_pads
                     else LED_BRIGHT_25
                 )
-            pads = panPads(track["pan_1"])
+            pads = panPads(track.get("pan_1", []))
             return lambda x: LED_BRIGHT_100 if x in pads else LED_BRIGHT_25
 
         # Check for track levels
@@ -1099,6 +1099,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         row = padRow(pad)
         numpad = pad % COLS
         if set_syncs:
+            # @todo: numpad 6 and row 2 and 3 would be better to get multiples of 8
             if row == 1 and numpad >= 6:
                 show8ths = evtype == EV_NOTE_ON
                 self.dispatch(deviceAction("show8ths", show8ths))
