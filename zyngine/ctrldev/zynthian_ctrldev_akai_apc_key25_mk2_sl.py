@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+from os import listdir
+from os.path import isfile, join
 import time
 import signal
 import random
@@ -1342,7 +1344,9 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
     def get_sessions(self):
         # @todo: implement
-        pass
+        mypath = zynthian_ctrldev_akai_apc_key25_mk2_sl.SL_SESSION_PATH
+        onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.slsess')]
+        self.dispatch(deviceAction("sessions", onlyfiles))
 
     def load_session(self, pad):
         # Create the URI
