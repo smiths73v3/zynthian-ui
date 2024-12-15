@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
+import logging
 from os import listdir
 from os.path import isfile, join
 import time
@@ -280,15 +281,15 @@ def split_every(n, iterable):
 
 
 def overlay(*arrays):
-    # print(f"arrays {arrays}")
+    # logging.debug(f"arrays {arrays}")
 
     # Step 1: Split each array into chunks of 3
     split_arrays = [list(split_every(3, array)) for array in arrays]
-    # print(f"split {split_arrays}")
+    # logging.debug(f"split {split_arrays}")
 
     # Step 2: Concatenate all the arrays into a single list
     concatenated = list(chain.from_iterable(split_arrays))
-    # print(f"concatenated {concatenated}")
+    # logging.debug(f"concatenated {concatenated}")
 
     # Step 3: Remove duplicates based on the second element
     # unique = {tuple(item): item for item in concatenated}.values()
@@ -301,7 +302,7 @@ def overlay(*arrays):
             unique.append(item)
             seen.add(second_item)
 
-    # print(f"unique {unique}")
+    # logging.debug(f"unique {unique}")
     # Step 4: Sort by the second element
     sorted_unique = sorted(unique, key=lambda x: x[1])
 
@@ -354,7 +355,7 @@ def shiftedTrack(track, offset):
 # Pad coloring
 def padBrightnessForLevel(num, level):
     pos = num * level
-    # print(f"{pos}--{num}--{level}")
+    # logging.debug(f"{pos}--{num}--{level}")
     roundedpos = pos // 1
     index = (num - 1) * (pos - roundedpos) // 1
     last = LED_BRIGHTS[int(index)]
@@ -542,7 +543,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
 
         if not (set_syncs or showTrackLevels(storeState)) and y == 0:
             matrix.extend(toprow)
-            # print(f"matrci with top row {matrix}")
+            # logging.debug(f"matrci with top row {matrix}")
             continue
         if set_syncs and y == 0:
             padnums = range(32, 38)  # rowPads(y)
@@ -604,7 +605,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                 matrix.extend(cell)
 
         except Exception as e:
-            print("Caught an exception:", e)
+            logging.debug("Caught an exception:", e)
             raise
             return []
 
@@ -769,13 +770,13 @@ def createAllPads(state):
     toprow = list(chain.from_iterable(toprow))
     matrix = matrix_function(toprow, loopoffset, tracks, state, set_syncs)
     # mlen = len(matrix) / 3
-    # print(f"{mlen}")
+    # logging.debug(f"{mlen}")
     #return matrix
     soft_keys = get_soft_keys(loopoffset, state)
     eighths = get_eighths(state)
-    # print(f"softkeys{soft_keys}")
-    # print(f"ctrl_keys{ctrl_keys}")
-    # print(f"matrix{matrix}")
+    # logging.debug(f"softkeys{soft_keys}")
+    # logging.debug(f"ctrl_keys{ctrl_keys}")
+    # logging.debug(f"matrix{matrix}")
     pads = matrix + overlay(soft_keys, ctrl_keys)
     if len(pads):
         if getDeviceSetting("shifted", state):
@@ -891,21 +892,21 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         self, state_manager=None, idev_in=None, idev_out=None, *args, **kwargs
     ):
         """Initialize the controller with required parameters"""
-        print("\n=================================================================")
-        print("APC Key 25 mk2 SL __init__ starting...")
-        print(f"state_manager: {state_manager}")
-        print(f"idev_in: {idev_in}, type: {type(idev_in)}")
-        print(f"idev_out: {idev_out}, type: {type(idev_out)}")
+        logging.debug("\n=================================================================")
+        logging.debug("APC Key 25 mk2 SL __init__ starting...")
+        logging.debug(f"state_manager: {state_manager}")
+        logging.debug(f"idev_in: {idev_in}, type: {type(idev_in)}")
+        logging.debug(f"idev_out: {idev_out}, type: {type(idev_out)}")
 
-        print("Calling parent class __init__...")
+        logging.debug("Calling parent class __init__...")
         # Call parent class initializer explicitly
         #        zynthian_ctrldev_base.__init__(self, state_manager, idev_in, idev_out)
         super().__init__(state_manager, idev_in, idev_out)
 
-        print("Parent class __init__ completed")
-        print(f"self.idev_out after parent init: {self.idev_out}")
-        print("APC Key 25 mk2 SL __init__ completed")
-        print("=================================================================\n")
+        logging.debug("Parent class __init__ completed")
+        logging.debug(f"self.idev_out after parent init: {self.idev_out}")
+        logging.debug("APC Key 25 mk2 SL __init__ completed")
+        logging.debug("=================================================================\n")
         self._knobs_ease = KnobSpeedControl()
         self._auto_latch = ButtonAutoLatch()
         self._state_manager = state_manager
@@ -931,9 +932,9 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         # self._leds.led_state(64, LED_ON)  # First zs3
 
         # if self._leds is None:
-        #     print("Initializing LED controller...")
+        #     logging.debug("Initializing LED controller...")
         #     self._leds = FeedbackLEDs(idev_out)
-        #     print("LED controller initialized")
+        #     logging.debug("LED controller initialized")
 
     def refresh(self):
         """Refresh device state"""
@@ -941,34 +942,34 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         #     self.update_loop_states()
 
     def init(self):
-        print("Starting APC Key 25 mk2 sl init sequence")
+        logging.debug("Starting APC Key 25 mk2 sl init sequence")
         """Initialize the device"""
         if self._shutting_down:
-            print("Skipping initialization - device is shutting down")
+            logging.debug("Skipping initialization - device is shutting down")
             return
 
         self._init_complete = False
         super().init()
 
         if not self._shutting_down:
-            print("Initializing zynthian_ctrldev_akai_apc_key25...")
+            logging.debug("Initializing zynthian_ctrldev_akai_apc_key25...")
 
             # Initialize LED controller
             if self._leds is None:
-                print("Initializing LED controller...")
+                logging.debug("Initializing LED controller...")
                 self._leds = FeedbackLEDs(self.idev_out)
-                print("LED controller initialized")
+                logging.debug("LED controller initialized")
 
             # Initialize OSC server
             try:
-                print("Creating OSC server...")
+                logging.debug("Creating OSC server...")
                 self.osc_server = liblo.ServerThread()
                 self.osc_server_port = self.osc_server.get_port()
                 self.osc_server_url = f"osc.udp://localhost:{self.osc_server_port}"
-                print(f"OSC server initialized on port {self.osc_server_port}")
+                logging.debug(f"OSC server initialized on port {self.osc_server_port}")
 
                 # Register OSC methods
-                print("Registering OSC methods...")
+                logging.debug("Registering OSC methods...")
                 self.osc_server.add_method("/error", "s", self._cb_osc_error)
                 self.osc_server.add_method("/pong", "ssi", self._cb_osc_pong)
                 self.osc_server.add_method("/info", "ssi", self._cb_osc_info)
@@ -978,17 +979,17 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                 self.osc_server.add_method(None, None, self._cb_osc_fallback)
 
                 # Start the OSC server
-                print("Starting OSC server...")
+                logging.debug("Starting OSC server...")
                 self.osc_server.start()
-                print("OSC server started successfully")
+                logging.debug("OSC server started successfully")
 
-                print("Attempting to connect to SooperLooper...")
+                logging.debug("Attempting to connect to SooperLooper...")
                 # Start connection attempt timer
                 self._init_time = time.time()
                 self._try_connect_to_sooperlooper()
 
             except liblo.ServerError as err:
-                print(f"Error initializing OSC: {err}")
+                logging.debug(f"Error initializing OSC: {err}")
                 self.osc_server = None
 
     def end(self):
@@ -1230,8 +1231,8 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
     def cycle_device_mode(self):
         state = self.state
         devicemode = getDeviceMode(state)
-        print(f"{devicemode}")
-        # print(f"{state}")
+        logging.debug(f"{devicemode}")
+        # logging.debug(f"{state}")
         devicemode = (devicemode + 1) % len(DEVICEMODES)
 
         self.dispatch(
@@ -1262,10 +1263,9 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
         if level_mode != 0:
             if level_mode == 2:
-                pass
-                # self.register_selected(
-                #     ["in_peak_meter"]
-                # )  # Assuming register_selected is a method of self
+                self.register_selected(
+                    ["in_peak_meter"]
+                )  # Assuming register_selected is a method of self
 
             self.dispatch(
                 batchAction(
@@ -1343,7 +1343,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         return
 
     def get_sessions(self):
-        # @todo: implement
         mypath = zynthian_ctrldev_akai_apc_key25_mk2_sl.SL_SESSION_PATH
         onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f)) and f.endswith('.slsess')]
         self.dispatch(deviceAction("sessions", onlyfiles))
@@ -1368,7 +1367,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
         # Use time.sleep to mimic setTimeout
         time.sleep(1)  # Wait for 1 second
-        self.request_feedback("/ping", "/pong")
+        self.get_sessions()
 
     def handle_track_levels(self, numpad, row):
         tracks = self.state.get("tracks")
@@ -1510,11 +1509,11 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
 
     def _cb_osc_fallback(self, path, args, types, src):
         """Fallback callback for unhandled OSC messages"""
-        print(f"Received unhandled OSC message: {path} {args}")
+        logging.debug(f"Received unhandled OSC message: {path} {args}")
 
     def _cb_osc_error(self, path, args):
         """Error callback for errors on loading or saving sessions"""
-        print(f"Error: {path} {args}")
+        logging.debug(f"Error: {path} {args}")
 
     def _cb_osc_pong(self, path, args):
         """Callback for info messages from SooperLooper"""
@@ -1535,7 +1534,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         old_count = int(self.loopcount)
         self.handleInfo(args)
 
-        print(f"{old_count} => {self.loopcount}")
+        logging.debug(f"{old_count} => {self.loopcount}")
         if self.loopcount > old_count:
             for loop in range(old_count, self.loopcount):
                 self.register_update(loop)
@@ -1580,7 +1579,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return state
 
         if action["type"] == "track":
-            # print(f"action {action}")
+            # logging.debug(f"action {action}")
             return on_update_track(action, state)
         elif action["type"] == "empty-track":
             return assoc_path(state, ["tracks", action["value"]], {})
@@ -1606,7 +1605,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return state
 
     def dispatch(self, action):
-        # print(f"type {type}; action {action}")
+        # logging.debug(f"type {type}; action {action}")
         self.state = self.reducer(self.state, action)
         pads = createAllPads(self.state)
         notes = split_every(3, pads)
@@ -1618,7 +1617,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                 # lib_zyncore.dev_send_note_on(self.idev, 0, pad[1], 0)
                 self._leds.led_off(pad[1], False)
         # @todo remove those off pads from the bulk message.
-        # print(pads, len(pads))
+        # logging.debug(pads, len(pads))
         msg = bytes(pads)
         lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
         # NOW RENDER
@@ -1663,7 +1662,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                 hosturl, version, loopcount = args[:3]
                 self.loopcount = int(loopcount)
         except Exception as e:
-            print(f"Error in info callback: {e}")
+            logging.error(f"Error in info callback: {e}")
 
         # @todo: from zynthian_ctrldev_akai_apc_key25.py: factor out, use in zynthian_engine_sooperlooper too?
 
@@ -1675,20 +1674,20 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         # Check if enough time has passed since initialization
         elapsed = time.time() - self._init_time
         if elapsed < 10:
-            print(f"Waiting for sooperlooper to start... ({elapsed:.1f}s)")
+            logging.debug(f"Waiting for sooperlooper to start... ({elapsed:.1f}s)")
             # Schedule next attempt
             Timer(1.0, self._try_connect_to_sooperlooper).start()
             return False
 
         if self.osc_server is None:
-            print("OSC server not initialized")
+            logging.debug("OSC server not initialized")
             return False
 
         try:
-            print(f"Attempting to connect to SooperLooper on port {self.SL_PORT}...")
+            logging.debug(f"Attempting to connect to SooperLooper on port {self.SL_PORT}...")
             self.osc_target = liblo.Address(self.SL_PORT)
-            # print("Successfully connected to SooperLooper via OSC")
-            print(
+            # logging.debug("Successfully connected to SooperLooper via OSC")
+            logging.debug(
                 "Pinging SLGoed.                                                                                                                                                                                                                                    ..."
             )
             self.request_feedback("/ping", "/pong")
@@ -1697,9 +1696,10 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return True
 
         except Exception as e:
-            print(f"Failed to connect to SooperLooper: {e}")
+            logging.debug(f"Failed to connect to SooperLooper: {e}")
             # Retry after delay if still within reasonable time
-            if elapsed < 300:  # Try for up to 300 seconds
-                print("Scheduling retry...")
-                Timer(2.0, self._try_connect_to_sooperlooper).start()
+            # if elapsed < 300:  # Try for up to 300 seconds
+            #     logging.debug("Scheduling retry...")
+            # Just keep on trying
+            Timer(2.0, self._try_connect_to_sooperlooper).start()
             return False
