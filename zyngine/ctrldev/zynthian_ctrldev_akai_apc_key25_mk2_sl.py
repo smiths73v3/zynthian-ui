@@ -238,7 +238,6 @@ matrixPadColor = {".": COLOR_WHITE, "_": COLOR_DARK_GREY}
 
 # Variables we do not want to store in state
 
-show8ths = False
 shifted = False
 
 
@@ -504,7 +503,6 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
         # Default case
         state_value = track.get("state", SL_STATE_UNKNOWN)
         statespec = SL_STATES[state_value]
-        print(f"spec: {statespec} {track}")
         statecolor = statespec["color"]
         return lambda x: statecolor
 
@@ -555,8 +553,6 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
             for x, pad in enumerate(padnums):
                 pads.extend([LED_BRIGHT_50, pad, SETTINGCOLORS[x]])
 
-            print(f"top pads simpl {pads}")
-
             track1 = tracks.get(0, {})
             synccolor = SETTINGCOLORS[6][
                 int(min((getGlob("sync_source", storeState) or 0) + 3, 5))
@@ -577,8 +573,6 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                     *pads,
                 ]
             )
-            print(f"matrci with top row and syncrz {matrix}")
-
             continue
 
         try:
@@ -593,8 +587,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                     ]
                     for x, pad in enumerate(rowPads(y))
                 ]
-                print(f"boeman? {pads}")
-
+                
                 matrix.extend(
                     [
                         LED_BRIGHT_75,
@@ -641,8 +634,8 @@ def get_soft_keys(loopoffset, storeState):
     return soft_keys
 
 
-def get_eighths(show8ths, storeState):
-    if show8ths:
+def get_eighths(storeState):
+    if getDeviceSetting("show8ths", storeState):
         eighths = [
             item
             for pad in range(getGlob("eighth_per_cycle", storeState))
@@ -777,11 +770,11 @@ def createAllPads(state):
     )
     toprow = list(chain.from_iterable(toprow))
     matrix = matrix_function(toprow, loopoffset, tracks, state, set_syncs)
-    mlen = len(matrix) / 3
-    print(f"{mlen}")
+    # mlen = len(matrix) / 3
+    # print(f"{mlen}")
     #return matrix
     soft_keys = get_soft_keys(loopoffset, state)
-    eighths = get_eighths(show8ths, state)
+    eighths = get_eighths(state)
     # print(f"softkeys{soft_keys}")
     # print(f"ctrl_keys{ctrl_keys}")
     # print(f"matrix{matrix}")
@@ -931,7 +924,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         self.undoing = False
         self.redoing = False
         self.force_alt1 = False
-        self.show8ths = False
 
         self._leds = FeedbackLEDs(idev_out)
         self.loopcount = 0
@@ -1108,17 +1100,18 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         numpad = pad % COLS
         if set_syncs:
             if row == 1 and numpad >= 6:
-                self.show8ths = evtype == EV_NOTE_ON
+                show8ths = evtype == EV_NOTE_ON
+                self.dispatch(deviceAction("show8ths", show8ths))
                 if show8ths:
                     setting = "eighth_per_cycle"
-                    oldvalue = getGlob([setting], self.state) or 16
+                    oldvalue = getGlob(setting, self.state) or 16
                     value = max(2, oldvalue - 1) if numpad == 6 else oldvalue + 1
                     self.just_send("/set", ("s", setting), ("f", value))
                     self.dispatch(globAction(setting, value))
                 return
 
             # Set 8ths directly
-            if self.show8ths and (pad < 30 or (pad > 31 and pad < 40)):
+            if getDeviceSetting("show8ths", self.state) and (pad < 30 or (pad > 31 and pad < 40)):
                 setting = "eighth_per_cycle"
                 value = pad + 1
                 self.just_send("/set", ("s", setting), ("f", value))
