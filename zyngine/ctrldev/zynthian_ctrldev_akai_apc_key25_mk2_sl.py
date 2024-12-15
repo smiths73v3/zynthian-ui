@@ -682,7 +682,8 @@ def getGlob(setting, state):
 
 
 def getLoopoffset(state):
-    return path(PATH_LOOP_OFFSET, state) or 1
+    offset = path(PATH_LOOP_OFFSET, state)
+    return 1 if offset is None else offset
 
 
 def showTrackLevels(state):
@@ -1228,7 +1229,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         state = self.state
         devicemode = getDeviceMode(state)
         print(f"{devicemode}")
-        print(f"{state}")
+        # print(f"{state}")
         devicemode = (devicemode + 1) % len(DEVICEMODES)
 
         self.dispatch(
@@ -1583,17 +1584,13 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return assoc_path(state, ["device", action["setting"]], action["value"])
         elif action["type"] == "offsetUp":
             max_offset = 1  # ==> -1, which is all!
-            cur_offset = path(PATH_LOOP_OFFSET, state)
-            if cur_offset is None:
-                cur_offset = 1
+            cur_offset = getLoopoffset(state)
             return assoc_path(state, PATH_LOOP_OFFSET, min(cur_offset + 1, max_offset))
         elif action["type"] == "offsetDown":
-            cur_offset = path(PATH_LOOP_OFFSET, state)
-            if cur_offset is None:
-                cur_offset = 1
             min_offset = min(
-                0, 4 - self.loopcount
+                0, (ROWS - 1) - self.loopcount
             )  # Leave last (fifth) row for new loops
+            cur_offset = getLoopoffset(state)
             return assoc_path(state, PATH_LOOP_OFFSET, max(cur_offset - 1, min_offset))
         elif action["type"] == "glob":
             return assoc_path(state, ["glob", action["setting"]], action["value"])
