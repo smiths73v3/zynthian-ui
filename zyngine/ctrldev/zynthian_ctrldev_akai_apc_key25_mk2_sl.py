@@ -236,11 +236,6 @@ CHARS = {
 matrixPadLedmode = {".": LED_BRIGHT_100, "_": LED_BRIGHT_10}
 matrixPadColor = {".": COLOR_WHITE, "_": COLOR_DARK_GREY}
 
-# Variables we do not want to store in state
-
-shifted = False
-
-
 # Some 'functional' code (well, not really)
 def path(keys, obj):
     """Retrieve the value at the specified path in a nested dictionary."""
@@ -780,7 +775,7 @@ def createAllPads(state):
     # print(f"matrix{matrix}")
     pads = matrix + overlay(soft_keys, ctrl_keys)
     if len(pads):
-        if shifted:
+        if getDeviceSetting("shifted", state):
             firstLoop = 2 - loopoffset
             if firstLoop > 9 and firstLoop < 100:
                 return overlay(
@@ -913,7 +908,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         self._state_manager = state_manager
         self._init_complete = False
         self._shutting_down = False
-        self._is_shifted = False
         self._leds = None
         self.osc_server = None
         self.osc_target = None
@@ -1027,7 +1021,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         if button >= BTN_KNOB_CTRL_VOLUME and button <= BTN_KNOB_CTRL_DEVICE:
             return self.handle_mode_buttons(button, evtype)
         if (
-            shifted
+            getDeviceSetting("shifted", self.state)
             and button >= BTN_SOFT_KEY_CLIP_STOP
             and button <= BTN_SOFT_KEY_SELECT
         ):
@@ -1039,7 +1033,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         ccnum = event[1] & 0x7F
         ccval = event[2] & 0x7F
         delta = self._knobs_ease.feed(
-            ccnum, ccval, shifted
+            ccnum, ccval, getDeviceSetting("shifted", self.state)
         )  # @todo: use self._is_shifted (or not at all?)
         if delta is None:
             return
@@ -1071,7 +1065,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                 1, channel_count + 1
             ):  # Loop from 1 to channel_count inclusive
                 ctrl = f"pan_{c}"
-                if shifted:
+                if getDeviceSetting("shifted", self.state):
                     if c == 2 and channel_count == 2:
                         self.increase(-delta, ctrl, track, loopnum)
                     else:
@@ -1304,9 +1298,8 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         return
 
     def handle_rest_of_buttons(self, button, evtype):
-        global shifted  # Assuming these are global variables or class attributes
         if button == BTN_SHIFT:
-            shifted = evtype == EV_NOTE_ON
+            self.dispatch(deviceAction("shifted",  evtype == EV_NOTE_ON))
             return
 
         if button == BTN_UNDO:
@@ -1318,14 +1311,14 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return
 
         if button == BTN_TRACK_1:
-            if evtype == EV_NOTE_ON and (shifted or syncMode(self.state)):
+            if evtype == EV_NOTE_ON and (getDeviceSetting("shifted", self.state) or syncMode(self.state)):
                 self.shift_up()  # Assuming shift_up is a method of self
                 return
             self.force_alt1 = evtype == EV_NOTE_ON
             return
 
         if button == BTN_TRACK_2:
-            if evtype == EV_NOTE_ON and (shifted or ssyncMode(self.state)):
+            if evtype == EV_NOTE_ON and (getDeviceSetting("shifted", self.state) or syncMode(self.state)):
                 self.shift_down()  # Assuming shift_down is a method of self
             return
 
@@ -1494,7 +1487,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             self.just_send(f"/sl/{track}/hit", ("s", "trigger"))
 
         if numpad == 7:
-            if shifted:
+            if getDeviceSetting("shifted", self.state):
                 self.just_send(
                     f"/sl/{track}/set", ("s", "delay_trigger"), ("f", random.random())
                 )
