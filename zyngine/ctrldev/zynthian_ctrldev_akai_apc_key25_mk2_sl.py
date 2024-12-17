@@ -26,9 +26,9 @@ from .zynthian_ctrldev_base_extended import (
     CONST,
 )
 from .zynthian_ctrldev_akai_apc_key25_mk2_feedback_leds import FeedbackLEDs
-from .zynthian_ctrldev_akai_apc_key25_mk2_colors import *
-from .zynthian_ctrldev_akai_apc_key25_mk2_brights import *
-from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import *
+from .zynthian_ctrldev_akai_apc_key25_mk2_colors import COLORS
+from .zynthian_ctrldev_akai_apc_key25_mk2_brights import BRIGHTS
+from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import BUTTONS
 
 from typing import Dict, Any, Callable
 from itertools import chain, islice
@@ -58,14 +58,14 @@ TRACK_LEVELS = [
     "none",
 ]
 LEVEL_COLORS = [
-    COLOR_RED,
-    COLOR_RED,
-    COLOR_LIME,
-    COLOR_BLUE,
-    COLOR_DARK_GREY,
-    COLOR_PURPLE,
-    COLOR_WHITE,
-    COLOR_WHITE,
+    COLORS.COLOR_RED,
+    COLORS.COLOR_RED,
+    COLORS.COLOR_LIME,
+    COLORS.COLOR_BLUE,
+    COLORS.COLOR_DARK_GREY,
+    COLORS.COLOR_PURPLE,
+    COLORS.COLOR_WHITE,
+    COLORS.COLOR_WHITE,
 ]
 # @todo factor out this from here and zynthian_engine_sooperlooper?
 # ------------------------------------------------------------------------------
@@ -96,98 +96,98 @@ SL_STATE_REDO = 18
 SL_STATE_REDO_ALL = 19
 SL_STATE_OFF_MUTED = 20
 SL_STATES = {
-    SL_STATE_UNKNOWN: {"name": "unknown", "color": COLOR_BLACK, "ledmode": LED_OFF},
-    SL_STATE_OFF: {"name": "off", "color": COLOR_WHITE, "ledmode": LED_BRIGHT_100},
+    SL_STATE_UNKNOWN: {"name": "unknown", "color": COLORS.COLOR_BLACK, "ledmode": LED_OFF},
+    SL_STATE_OFF: {"name": "off", "color": COLORS.COLOR_WHITE, "ledmode": LED_BRIGHT_100},
     SL_STATE_REC_STARTING: {
         "name": "waitstart",
-        "color": COLOR_RED,
+        "color": COLORS.COLOR_RED,
         "ledmode": LED_PULSING_16,
     },
     SL_STATE_RECORDING: {
         "name": "record",
-        "color": COLOR_RED,
+        "color": COLORS.COLOR_RED,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_REC_STOPPING: {
         "name": "waitstop",
-        "color": COLOR_RED,
+        "color": COLORS.COLOR_RED,
         "ledmode": LED_PULSING_8,
     },
-    SL_STATE_PLAYING: {"name": "play", "color": COLOR_GREEN, "ledmode": LED_BRIGHT_100},
+    SL_STATE_PLAYING: {"name": "play", "color": COLORS.COLOR_GREEN, "ledmode": LED_BRIGHT_100},
     SL_STATE_OVERDUBBING: {
         "name": "overdub",
-        "color": COLOR_PURPLE,
+        "color": COLORS.COLOR_PURPLE,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_MULTIPLYING: {
         "name": "multiply",
-        "color": COLOR_AMBER,
+        "color": COLORS.COLOR_AMBER,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_INSERTING: {
         "name": "insert",
-        "color": COLOR_PINK_WARM,
+        "color": COLORS.COLOR_PINK_WARM,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_REPLACING: {
         "name": "replace",
-        "color": COLOR_PINK_LIGHT,
+        "color": COLORS.COLOR_PINK_LIGHT,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_SUBSTITUTING: {
         "name": "substitute",
-        "color": COLOR_PINK,
+        "color": COLORS.COLOR_PINK,
         "ledmode": LED_BRIGHT_100,
     },
-    SL_STATE_DELAYING: {"name": "delay", "color": COLOR_RED, "ledmode": LED_BRIGHT_10},
+    SL_STATE_DELAYING: {"name": "delay", "color": COLORS.COLOR_RED, "ledmode": LED_BRIGHT_10},
     SL_STATE_MUTED: {
         "name": "mute",
-        "color": COLOR_DARK_GREEN,
+        "color": COLORS.COLOR_DARK_GREEN,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_SCRATCHING: {
         "name": "scratch",
-        "color": COLOR_BLUE,
+        "color": COLORS.COLOR_BLUE,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_PLAYING_ONCE: {
         "name": "oneshot",
-        "color": COLOR_LIME_DARK,
+        "color": COLORS.COLOR_LIME_DARK,
         "ledmode": LED_PULSING_8,
     },
     SL_STATE_PAUSED: {
         "name": "pause",
-        "color": COLOR_GREEN_YELLOW,
+        "color": COLORS.COLOR_GREEN_YELLOW,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_UNDO_ALL: {
         "name": "undo_all",
-        "color": COLOR_DARK_GREY,
+        "color": COLORS.COLOR_DARK_GREY,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_UNDO: {
         "name": "undo_all",
-        "color": COLOR_DARK_GREY,
+        "color": COLORS.COLOR_DARK_GREY,
         "ledmode": LED_BRIGHT_50,
     },
     SL_STATE_REDO: {
         "name": "redo",
-        "color": COLOR_DARK_GREY,
+        "color": COLORS.COLOR_DARK_GREY,
         "ledmode": LED_BRIGHT_50,
     },
     SL_STATE_REDO_ALL: {
         "name": "redo_all",
-        "color": COLOR_DARK_GREY,
+        "color": COLORS.COLOR_DARK_GREY,
         "ledmode": LED_BRIGHT_100,
     },
     SL_STATE_OFF_MUTED: {
         "name": "offmute",
-        "color": COLOR_RED,
+        "color": COLORS.COLOR_RED,
         "ledmode": LED_BRIGHT_100,
     },  # undocumented
     SL_STATE_TRIGGER_PLAY: {
         "name": "trigger_play",
-        "color": COLOR_GREEN,
+        "color": COLORS.COLOR_GREEN,
         "ledmode": LED_BRIGHT_100,
     },
 }
@@ -204,22 +204,22 @@ SETTINGS = [
 ]
 
 SETTINGCOLORS = [
-    COLOR_BLUE,
-    COLOR_LIME,
-    COLOR_GREEN,
-    COLOR_DARK_GREEN,
-    COLOR_PURPLE,
-    COLOR_PINK_LIGHT,
+    COLORS.COLOR_BLUE,
+    COLORS.COLOR_LIME,
+    COLORS.COLOR_GREEN,
+    COLORS.COLOR_DARK_GREEN,
+    COLORS.COLOR_PURPLE,
+    COLORS.COLOR_PINK_LIGHT,
     # -3 = internal,  -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
     [
-        COLOR_WHITE,
-        COLOR_ORANGE,
-        COLOR_RED,
-        COLOR_DARK_GREY,
-        COLOR_BLUE,
-        COLOR_BLUE_DARK,
+        COLORS.COLOR_WHITE,
+        COLORS.COLOR_ORANGE,
+        COLORS.COLOR_RED,
+        COLORS.COLOR_DARK_GREY,
+        COLORS.COLOR_BLUE,
+        COLORS.COLOR_BLUE_DARK,
     ],
-    [COLOR_WHITE, COLOR_ORANGE, COLOR_BROWNISH_RED, COLOR_BLUE],
+    [COLORS.COLOR_WHITE, COLORS.COLOR_ORANGE, COLORS.COLOR_BROWNISH_RED, COLORS.COLOR_BLUE],
 ]
 PATH_LOOP_OFFSET = ["device", "loopoffset"]
 DEVICEMODES = ["loops", "sessionsave", "sessionload"]
@@ -237,7 +237,7 @@ CHARS = {
     0: ["_._", "._.", "._.", "._.", "_._"],
 }
 matrixPadLedmode = {".": LED_BRIGHT_100, "_": LED_BRIGHT_10}
-matrixPadColor = {".": COLOR_WHITE, "_": COLOR_DARK_GREY}
+matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
 
 # Some 'functional' code (well, not really)
 def path(keys, obj):
@@ -469,11 +469,11 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
                 # any_pads = set(pads_left) | set(pads_right)
 
                 return lambda x: (
-                    COLOR_PURPLE
+                    COLORS.COLOR_PURPLE
                     if x in both
-                    else COLOR_RED
+                    else COLORS.COLOR_RED
                     if x in pads_left
-                    else COLOR_BLUE
+                    else COLORS.COLOR_BLUE
                     if x in pads_right
                     else SL_STATES[track_state]["color"]
                 )
@@ -493,9 +493,9 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
             return lambda x: (
                 SL_STATES[state_value]["color"]
                 if state_value == SL_STATE_UNKNOWN
-                else COLOR_BLUE_LIGHT
+                else COLORS.COLOR_BLUE_LIGHT
                 if state_value == SL_STATE_OFF
-                else COLOR_BLUE
+                else COLORS.COLOR_BLUE
             )
 
         # Default case
@@ -590,10 +590,10 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                     [
                         LED_BRIGHT_75,
                         30,
-                        COLOR_BROWN_LIGHT,
+                        COLORS.COLOR_BROWN_LIGHT,
                         LED_BRIGHT_75,
                         31,
-                        COLOR_BROWN_LIGHT,
+                        COLORS.COLOR_BROWN_LIGHT,
                     ]
                 )
                 for pad in pads:
@@ -637,7 +637,7 @@ def get_eighths(storeState):
         eighths = [
             item
             for pad in range(getGlob("eighth_per_cycle", storeState))
-            for item in [LED_BRIGHT_100, pad, COLOR_BROWNISH_RED]
+            for item in [LED_BRIGHT_100, pad, COLORS.COLOR_BROWNISH_RED]
         ]
     else:
         eighths = []
@@ -720,17 +720,17 @@ def createAllPads(state):
     panmode = getDeviceSetting("pan", state) or False
 
     def ctrl_btn(btn):
-        if btn == BTN_KNOB_CTRL_VOLUME:
+        if btn == BUTTONS.BTN_KNOB_CTRL_VOLUME:
             return [0x90, btn, levelmode]
-        if btn == BTN_KNOB_CTRL_PAN:
+        if btn == BUTTONS.BTN_KNOB_CTRL_PAN:
             return [
                 0x90,
                 btn,
                 1 if panmode else 0,
             ]  # @check Used to have to convert this to num
-        if btn == BTN_KNOB_CTRL_SEND:
+        if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
             return [0x90, btn, 1 if set_syncs else 0]
-        if btn == BTN_KNOB_CTRL_DEVICE:
+        if btn == BUTTONS.BTN_KNOB_CTRL_DEVICE:
             return [0x90, btn, devicemode]
         return []
 
@@ -740,9 +740,9 @@ def createAllPads(state):
 
     if devicemode > 0:
         color = (
-            COLOR_DARK_GREEN
+            COLORS.COLOR_DARK_GREEN
             if DEVICEMODES[devicemode] == "sessionload"
-            else COLOR_ORANGE
+            else COLORS.COLOR_ORANGE
         )
         sessions = getDeviceSetting("sessions", state) or []
         sessionnums = functools.reduce(
@@ -1018,16 +1018,16 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             return self.cc_event(event)
         if (
             (evtype == EV_NOTE_OFF or evtype == EV_NOTE_ON)
-            and button >= BTN_PAD_START
-            and button <= BTN_PAD_END
+            and button >= BUTTONS.BTN_PAD_START
+            and button <= BUTTONS.BTN_PAD_END
         ):
             return self.pad_event(event)
-        if button >= BTN_KNOB_CTRL_VOLUME and button <= BTN_KNOB_CTRL_DEVICE:
+        if button >= BUTTONS.BTN_KNOB_CTRL_VOLUME and button <= BUTTONS.BTN_KNOB_CTRL_DEVICE:
             return self.handle_mode_buttons(button, evtype)
         if (
             getDeviceSetting("shifted", self.state)
-            and button >= BTN_SOFT_KEY_CLIP_STOP
-            and button <= BTN_SOFT_KEY_SELECT
+            and button >= BUTTONS.BTN_SOFT_KEY_CLIP_STOP
+            and button <= BUTTONS.BTN_SOFT_KEY_SELECT
         ):
             return self.select_loop_for_button(button)
         self.handle_rest_of_buttons(button, evtype)
@@ -1185,11 +1185,11 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         return
 
     def handle_mode_buttons(self, button, evtype):
-        if button == BTN_KNOB_CTRL_VOLUME and evtype == EV_NOTE_ON:
+        if button == BUTTONS.BTN_KNOB_CTRL_VOLUME and evtype == EV_NOTE_ON:
             self.cycle_level_mode()
             return
 
-        if button == BTN_KNOB_CTRL_PAN:
+        if button == BUTTONS.BTN_KNOB_CTRL_PAN:
             dopan = self._auto_latch.feed(button, evtype)
             self.dispatch(
                 batchAction(
@@ -1204,7 +1204,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             self.unregister_selected(["in_peak_meter"])
             return
 
-        if button == BTN_KNOB_CTRL_SEND:
+        if button == BUTTONS.BTN_KNOB_CTRL_SEND:
             if evtype == EV_NOTE_OFF:
                 return
             dosync = not getDeviceSetting("sync", self.state)
@@ -1213,7 +1213,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                     [
                         deviceAction("levels", 0),
                         deviceAction(
-                            "pan", self._auto_latch.feed(BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
+                            "pan", self._auto_latch.feed(BUTTONS.BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
                         ),
                         deviceAction("sync", dosync),
                         deviceAction("mode", -1 if dosync else 0),
@@ -1223,7 +1223,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             self.unregister_selected(["in_peak_meter"])
             return
 
-        if button == BTN_KNOB_CTRL_DEVICE:
+        if button == BUTTONS.BTN_KNOB_CTRL_DEVICE:
             if evtype == EV_NOTE_ON:
                 self.cycle_device_mode()
             return
@@ -1240,7 +1240,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                 [
                     deviceAction("levels", 0),
                     deviceAction(
-                        "pan", self._auto_latch.feed(BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
+                        "pan", self._auto_latch.feed(BUTTONS.BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
                     ),
                     deviceAction("sync", False),
                     deviceAction("mode", devicemode),
@@ -1272,7 +1272,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
                     [
                         deviceAction("levels", level_mode),
                         deviceAction(
-                            "pan", self._auto_latch.feed(BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
+                            "pan", self._auto_latch.feed(BUTTONS.BTN_KNOB_CTRL_PAN, EV_NOTE_OFF)
                         ),
                         deviceAction("sync", False),
                         deviceAction("mode", -1),
@@ -1301,39 +1301,39 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         return
 
     def handle_rest_of_buttons(self, button, evtype):
-        if button == BTN_SHIFT:
+        if button == BUTTONS.BTN_SHIFT:
             self.dispatch(deviceAction("shifted",  evtype == EV_NOTE_ON))
             return
 
-        if button == BTN_UNDO:
+        if button == BUTTONS.BTN_UNDO:
             self.undoing = evtype == EV_NOTE_ON
             return
 
-        if button == BTN_REDO:
+        if button == BUTTONS.BTN_REDO:
             self.redoing = evtype == EV_NOTE_ON
             return
 
-        if button == BTN_TRACK_1:
+        if button == BUTTONS.BTN_TRACK_1:
             if evtype == EV_NOTE_ON and (getDeviceSetting("shifted", self.state) or syncMode(self.state)):
                 self.shift_up()  # Assuming shift_up is a method of self
                 return
             self.force_alt1 = evtype == EV_NOTE_ON
             return
 
-        if button == BTN_TRACK_2:
+        if button == BUTTONS.BTN_TRACK_2:
             if evtype == EV_NOTE_ON and (getDeviceSetting("shifted", self.state) or syncMode(self.state)):
                 self.shift_down()  # Assuming shift_down is a method of self
             return
 
-        if button == BTN_SOFT_KEY_SOLO:
+        if button == BUTTONS.BTN_SOFT_KEY_SOLO:
             self.dosolo = evtype == EV_NOTE_ON
             return
 
-        if button == BTN_SOFT_KEY_MUTE:
+        if button == BUTTONS.BTN_SOFT_KEY_MUTE:
             self.domute = evtype == EV_NOTE_ON
             return
 
-        if button == BTN_STOP_ALL_CLIPS:
+        if button == BUTTONS.BTN_STOP_ALL_CLIPS:
             # self.render_all_pads(state)  # Assuming render_all_pads is a method of self
             # @todo: simply turn all leds off
             self.request_feedback(

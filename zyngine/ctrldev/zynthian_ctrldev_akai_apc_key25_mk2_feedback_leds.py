@@ -1,6 +1,6 @@
 from zyncoder.zyncore import lib_zyncore
 from .zynthian_ctrldev_base_extended import RunTimer
-from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import *
+from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import BUTTONS
 
 # --------------------------------------------------------------------------
 # Feedback LEDs controller
@@ -17,16 +17,16 @@ class FeedbackLEDs:
 
     def control_leds_off(self):
         buttons = [
-            BTN_UP, BTN_DOWN, BTN_LEFT, BTN_RIGHT, BTN_KNOB_CTRL_VOLUME,
-            BTN_KNOB_CTRL_PAN, BTN_KNOB_CTRL_SEND, BTN_KNOB_CTRL_DEVICE,
-            BTN_SOFT_KEY_CLIP_STOP, BTN_SOFT_KEY_MUTE, BTN_SOFT_KEY_SOLO,
-            BTN_SOFT_KEY_REC_ARM, BTN_SOFT_KEY_SELECT,
+            BUTTONS.BTN_UP, BUTTONS.BTN_DOWN, BUTTONS.BTN_LEFT, BUTTONS.BTN_RIGHT, BUTTONS.BTN_KNOB_CTRL_VOLUME,
+            BUTTONS.BTN_KNOB_CTRL_PAN, BUTTONS.BTN_KNOB_CTRL_SEND, BUTTONS.BTN_KNOB_CTRL_DEVICE,
+            BUTTONS.BTN_SOFT_KEY_CLIP_STOP, BUTTONS.BTN_SOFT_KEY_MUTE, BUTTONS.BTN_SOFT_KEY_SOLO,
+            BUTTONS.BTN_SOFT_KEY_REC_ARM, BUTTONS.BTN_SOFT_KEY_SELECT,
         ]
         for btn in buttons:
             self.led_off(btn)
 
     def pad_leds_off(self):
-        buttons = [btn for btn in range(BTN_PAD_START, BTN_PAD_END + 1)]
+        buttons = [btn for btn in range(BUTTONS.BTN_PAD_START, BUTTONS.BTN_PAD_END + 1)]
         for btn in buttons:
             self.led_off(btn)
 
