@@ -196,12 +196,11 @@ def init_lilv():
     # world.set_option(lilv.OPTION_FILTER_LANG, world.new_bool(False))
     world.load_all()
     world.ns.ev = lilv.Namespace(world, "http://lv2plug.in/ns/ext/event#")
-    world.ns.presets = lilv.Namespace(
-        world, "http://lv2plug.in/ns/ext/presets#")
-    world.ns.portprops = lilv.Namespace(
-        world, "http://lv2plug.in/ns/ext/port-props#")
-    world.ns.portgroups = lilv.Namespace(
-        world, "http://lv2plug.in/ns/ext/port-groups#")
+    world.ns.presets = lilv.Namespace(world, "http://lv2plug.in/ns/ext/presets#")
+    world.ns.portprops = lilv.Namespace(world, "http://lv2plug.in/ns/ext/port-props#")
+    world.ns.portgroups = lilv.Namespace(world, "http://lv2plug.in/ns/ext/port-groups#")
+    world.ns.parameters = lilv.Namespace(world, "http://lv2plug.in/ns/ext/parameters#")
+    world.ns.patch = lilv.Namespace(world, "http://lv2plug.in/ns/ext/patch#")
 
 
 # ------------------------------------------------------------------------------
@@ -853,6 +852,57 @@ def get_plugin_ports(plugin_url):
             }
             ports_info[i] = info
             # logging.debug("PORT {} => {}".format(i, info))
+
+    # Property parameters
+    i = 0
+    for node in world.find_nodes(plugin.get_uri(), world.ns.patch.writable, None):
+        try:
+            symbol = str(world.get_symbol(node))
+            name = str(world.get(node, world.ns.rdfs.label, None))
+            range_type = str(world.get(node, world.ns.rdfs.range, None))
+            vdef = get_node_value(world.get(node, world.ns.lv2.default, None))
+            vmin = get_node_value(world.get(node, world.ns.lv2.minimum, None))
+            vmax = get_node_value(world.get(node, world.ns.lv2.maximum, None))
+
+            group_index = None
+            group_name = None
+            group_symbol = None
+
+            is_toggled = False
+            is_integer = False
+            is_enumeration = False
+            is_logarithmic = False
+            envelope = None
+            not_on_gui = False
+            display_priority = 0
+            sp = []
+
+            info = {
+                'index': i,
+                'symbol': symbol,
+                'name': name,
+                'group_index': group_index,
+                'group_name': group_name,
+                'group_symbol': group_symbol,
+                'value': vdef,
+                'range': {
+                    'default': vdef,
+                    'min': vmin,
+                    'max': vmax
+                },
+                'is_toggled': is_toggled,
+                'is_integer': is_integer,
+                'is_enumeration': is_enumeration,
+                'is_logarithmic': is_logarithmic,
+                'envelope': envelope,
+                'not_on_gui': not_on_gui,
+                'display_priority': display_priority,
+                'scale_points': sp
+            }
+            ports_info[i] = info
+            i += 1
+        except Exception as e:
+            logging.error(e)
 
     return ports_info
 
