@@ -592,7 +592,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                         30,
                         COLORS.COLOR_BROWN_LIGHT,
                         BRIGHTS.LED_BRIGHT_75,
-                        31,
+                        22,
                         COLORS.COLOR_BROWN_LIGHT,
                     ]
                 )
@@ -1098,19 +1098,19 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         numpad = pad % COLS
         if set_syncs:
             # @todo: numpad 6 and row 2 and 3 would be better to get multiples of 8
-            if row == 1 and numpad >= 6:
+            if (row == 1 or row == 2) and numpad == 6:
                 show8ths = evtype == EV_NOTE_ON
                 self.dispatch(deviceAction("show8ths", show8ths))
                 if show8ths:
                     setting = "eighth_per_cycle"
                     oldvalue = getGlob(setting, self.state) or 16
-                    value = max(2, oldvalue - 1) if numpad == 6 else oldvalue + 1
+                    value = max(2, oldvalue - 1) if row == 2 else oldvalue + 1
                     self.just_send("/set", ("s", setting), ("f", value))
                     self.dispatch(globAction(setting, value))
                 return
 
             # Set 8ths directly
-            if getDeviceSetting("show8ths", self.state) and (pad < 30 or (pad > 31 and pad < 40)):
+            if getDeviceSetting("show8ths", self.state):
                 setting = "eighth_per_cycle"
                 value = pad + 1
                 self.just_send("/set", ("s", setting), ("f", value))
