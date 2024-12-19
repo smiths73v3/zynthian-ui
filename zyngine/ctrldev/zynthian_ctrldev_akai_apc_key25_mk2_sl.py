@@ -408,7 +408,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
         if showTrackLevels(state):
             tracknum = getGlob("selected_loop_num", state)
             theTrack = (
-                state.glob
+                state.get("glob")
                 if tracknum == -1
                 else state.get("tracks", {}).get(tracknum, {})
             )
