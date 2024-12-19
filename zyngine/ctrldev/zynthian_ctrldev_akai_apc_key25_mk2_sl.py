@@ -27,7 +27,7 @@ from .zynthian_ctrldev_base_extended import (
 )
 from .zynthian_ctrldev_akai_apc_key25_mk2_feedback_leds import FeedbackLEDs
 from .zynthian_ctrldev_akai_apc_key25_mk2_colors import COLORS
-from .zynthian_ctrldev_akai_apc_key25_mk2_brights import BRIGHTS
+from .zynthian_ctrldev_akai_apc_key25_mk2_brights import (BRIGHTS, LED_BRIGHTS)
 from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import BUTTONS
 
 from typing import Dict, Any, Callable
@@ -96,99 +96,99 @@ SL_STATE_REDO = 18
 SL_STATE_REDO_ALL = 19
 SL_STATE_OFF_MUTED = 20
 SL_STATES = {
-    SL_STATE_UNKNOWN: {"name": "unknown", "color": COLORS.COLOR_BLACK, "ledmode": LED_OFF},
-    SL_STATE_OFF: {"name": "off", "color": COLORS.COLOR_WHITE, "ledmode": LED_BRIGHT_100},
+    SL_STATE_UNKNOWN: {"name": "unknown", "color": COLORS.COLOR_BLACK, "ledmode": BRIGHTS.LED_OFF},
+    SL_STATE_OFF: {"name": "off", "color": COLORS.COLOR_WHITE, "ledmode": BRIGHTS.LED_BRIGHT_100},
     SL_STATE_REC_STARTING: {
         "name": "waitstart",
         "color": COLORS.COLOR_RED,
-        "ledmode": LED_PULSING_16,
+        "ledmode": BRIGHTS.LED_PULSING_16,
     },
     SL_STATE_RECORDING: {
         "name": "record",
         "color": COLORS.COLOR_RED,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_REC_STOPPING: {
         "name": "waitstop",
         "color": COLORS.COLOR_RED,
-        "ledmode": LED_PULSING_8,
+        "ledmode": BRIGHTS.LED_PULSING_8,
     },
-    SL_STATE_PLAYING: {"name": "play", "color": COLORS.COLOR_GREEN, "ledmode": LED_BRIGHT_100},
+    SL_STATE_PLAYING: {"name": "play", "color": COLORS.COLOR_GREEN, "ledmode": BRIGHTS.LED_BRIGHT_100},
     SL_STATE_OVERDUBBING: {
         "name": "overdub",
         "color": COLORS.COLOR_PURPLE,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_MULTIPLYING: {
         "name": "multiply",
         "color": COLORS.COLOR_AMBER,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_INSERTING: {
         "name": "insert",
         "color": COLORS.COLOR_PINK_WARM,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_REPLACING: {
         "name": "replace",
         "color": COLORS.COLOR_PINK_LIGHT,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_SUBSTITUTING: {
         "name": "substitute",
         "color": COLORS.COLOR_PINK,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
-    SL_STATE_DELAYING: {"name": "delay", "color": COLORS.COLOR_RED, "ledmode": LED_BRIGHT_10},
+    SL_STATE_DELAYING: {"name": "delay", "color": COLORS.COLOR_RED, "ledmode": BRIGHTS.LED_BRIGHT_10},
     SL_STATE_MUTED: {
         "name": "mute",
         "color": COLORS.COLOR_DARK_GREEN,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_SCRATCHING: {
         "name": "scratch",
         "color": COLORS.COLOR_BLUE,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_PLAYING_ONCE: {
         "name": "oneshot",
         "color": COLORS.COLOR_LIME_DARK,
-        "ledmode": LED_PULSING_8,
+        "ledmode": BRIGHTS.LED_PULSING_8,
     },
     SL_STATE_PAUSED: {
         "name": "pause",
         "color": COLORS.COLOR_GREEN_YELLOW,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_UNDO_ALL: {
         "name": "undo_all",
         "color": COLORS.COLOR_DARK_GREY,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_UNDO: {
         "name": "undo_all",
         "color": COLORS.COLOR_DARK_GREY,
-        "ledmode": LED_BRIGHT_50,
+        "ledmode": BRIGHTS.LED_BRIGHT_50,
     },
     SL_STATE_REDO: {
         "name": "redo",
         "color": COLORS.COLOR_DARK_GREY,
-        "ledmode": LED_BRIGHT_50,
+        "ledmode": BRIGHTS.LED_BRIGHT_50,
     },
     SL_STATE_REDO_ALL: {
         "name": "redo_all",
         "color": COLORS.COLOR_DARK_GREY,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_OFF_MUTED: {
         "name": "offmute",
         "color": COLORS.COLOR_RED,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },  # undocumented
     SL_STATE_TRIGGER_PLAY: {
         "name": "trigger_play",
         "color": COLORS.COLOR_GREEN,
-        "ledmode": LED_BRIGHT_100,
+        "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
 }
 
@@ -236,7 +236,7 @@ CHARS = {
     9: ["_._", "._.", "...", "__.", "..."],
     0: ["_._", "._.", "._.", "._.", "_._"],
 }
-matrixPadLedmode = {".": LED_BRIGHT_100, "_": LED_BRIGHT_10}
+matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_BRIGHT_10}
 matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
 
 # Some 'functional' code (well, not really)
@@ -360,11 +360,11 @@ def padBrightnessForLevel(num, level):
     index = (num - 1) * (pos - roundedpos) // 1
     last = LED_BRIGHTS[int(index)]
     return (
-        lambda x: LED_BRIGHT_100
+        lambda x: BRIGHTS.LED_BRIGHT_100
         if x < roundedpos
         else last
         if x == roundedpos
-        else LED_BRIGHT_10
+        else BRIGHTS.LED_BRIGHT_10
     )
 
 
@@ -387,7 +387,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
         if getDeviceSetting("pan", state):
             channels = track.get("channel_count")
             if channels is None:
-                return lambda x: LED_BRIGHT_10
+                return lambda x: BRIGHTS.LED_BRIGHT_10
             if channels == 2:
                 pads_left = panPads(track["pan_1"])
                 pads_right = panPads(track["pan_2"])
@@ -395,14 +395,14 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
                 any_pads = set(pads_left) | set(pads_right)
 
                 return lambda x: (
-                    LED_BRIGHT_100
+                    BRIGHTS.LED_BRIGHT_100
                     if x in both
-                    else LED_BRIGHT_75
+                    else BRIGHTS.LED_BRIGHT_75
                     if x in any_pads
-                    else LED_BRIGHT_25
+                    else BRIGHTS.LED_BRIGHT_25
                 )
             pads = panPads(track.get("pan_1", []))
-            return lambda x: LED_BRIGHT_100 if x in pads else LED_BRIGHT_25
+            return lambda x: BRIGHTS.LED_BRIGHT_100 if x in pads else BRIGHTS.LED_BRIGHT_25
 
         # Check for track levels
         if showTrackLevels(state):
@@ -444,10 +444,10 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
         led_mode = SL_STATES[state_value]["ledmode"]
 
         return lambda x: (
-            LED_BRIGHT_100
-            if led_mode == LED_BRIGHT_100 and x <= rounded_pos
-            else LED_BRIGHT_25
-            if led_mode == LED_BRIGHT_100
+            BRIGHTS.LED_BRIGHT_100
+            if led_mode == BRIGHTS.LED_BRIGHT_100 and x <= rounded_pos
+            else BRIGHTS.LED_BRIGHT_25
+            if led_mode == BRIGHTS.LED_BRIGHT_100
             else led_mode
         )
 
@@ -549,7 +549,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
             padnums = range(32, 38)  # rowPads(y)
             pads = []
             for x, pad in enumerate(padnums):
-                pads.extend([LED_BRIGHT_50, pad, SETTINGCOLORS[x]])
+                pads.extend([BRIGHTS.LED_BRIGHT_50, pad, SETTINGCOLORS[x]])
 
             track1 = tracks.get(0, {})
             synccolor = SETTINGCOLORS[6][
@@ -558,10 +558,10 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
 
             matrix.extend(
                 [
-                    LED_BRIGHT_100,
+                    BRIGHTS.LED_BRIGHT_100,
                     38,
                     synccolor,
-                    LED_BRIGHT_100 if track1.get("quantize") else LED_BRIGHT_10,
+                    BRIGHTS.LED_BRIGHT_100 if track1.get("quantize") else BRIGHTS.LED_BRIGHT_10,
                     39,
                     list_get(
                         SETTINGCOLORS[7],
@@ -577,7 +577,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
             if set_syncs:
                 pads = [
                     [
-                        LED_BRIGHT_100 if track.get(SETTINGS[x]) else LED_BRIGHT_10,
+                        BRIGHTS.LED_BRIGHT_100 if track.get(SETTINGS[x]) else BRIGHTS.LED_BRIGHT_10,
                         pad,
                         SETTINGCOLORS[x][int(track.get(SETTINGS[x], 0))]
                         if isinstance(SETTINGCOLORS[x], list)
@@ -588,10 +588,10 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                 
                 matrix.extend(
                     [
-                        LED_BRIGHT_75,
+                        BRIGHTS.LED_BRIGHT_75,
                         30,
                         COLORS.COLOR_BROWN_LIGHT,
-                        LED_BRIGHT_75,
+                        BRIGHTS.LED_BRIGHT_75,
                         31,
                         COLORS.COLOR_BROWN_LIGHT,
                     ]
@@ -637,7 +637,7 @@ def get_eighths(storeState):
         eighths = [
             item
             for pad in range(getGlob("eighth_per_cycle", storeState))
-            for item in [LED_BRIGHT_100, pad, COLORS.COLOR_BROWNISH_RED]
+            for item in [BRIGHTS.LED_BRIGHT_100, pad, COLORS.COLOR_BROWNISH_RED]
         ]
     else:
         eighths = []
@@ -746,11 +746,11 @@ def createAllPads(state):
         )
         sessions = getDeviceSetting("sessions", state) or []
         sessionnums = functools.reduce(
-            lambda acc, cur: acc + [LED_BRIGHT_100, int(cur[:-7]), color], sessions, []
+            lambda acc, cur: acc + [BRIGHTS.LED_BRIGHT_100, int(cur[:-7]), color], sessions, []
         )
 
         def emptycellreducer(acc, cur):
-            return acc + [LED_BRIGHT_25, cur, color]
+            return acc + [BRIGHTS.LED_BRIGHT_25, cur, color]
 
         def emptyrowreducer(acc, cur):
             return acc + functools.reduce(emptycellreducer, rowPads(cur), [])
@@ -763,7 +763,7 @@ def createAllPads(state):
         []
         if (set_syncs or showTrackLevels(state))
         else [
-            [LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
+            [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
     )
@@ -1688,7 +1688,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
             self.osc_target = liblo.Address(self.SL_PORT)
             # logging.debug("Successfully connected to SooperLooper via OSC")
             logging.debug(
-                "Pinging SLGoed.                                                                                                                                                                                                                                    ..."
+                "Pinging SL.                                                                                                                                                                                                                                    ..."
             )
             self.request_feedback("/ping", "/pong")
             # self._init_complete = True
