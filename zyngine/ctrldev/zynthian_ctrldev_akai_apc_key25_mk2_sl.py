@@ -1119,7 +1119,8 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sl(
         loopoffset = getLoopoffset(self.state)
         track = -1 if row == 0 else shiftedTrack(row, loopoffset)
         tracks = self.state["tracks"]
-        stateTrack = None if track == -1 else path(["tracks", track], self.state)
+        # Let loop 0 be the source of truth for all (sync/quant; rec_or_overdub is special-cased on loop -1 anyway)
+        stateTrack =  path(["tracks", 0], self.state) if track == -1 else path(["tracks", track], self.state)
         if evtype == EV_NOTE_ON:
             if set_syncs:
                 return self.handle_syncs(numpad, track, stateTrack, tracks)
