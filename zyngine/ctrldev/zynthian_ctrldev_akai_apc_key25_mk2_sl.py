@@ -387,7 +387,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
         if getDeviceSetting("pan", state):
             channels = track.get("channel_count")
             if channels is None:
-                return lambda x: BRIGHTS.LED_BRIGHT_10
+                return lambda x: BRIGHTS.LED_OFF
             if channels == 2:
                 pads_left = panPads(track["pan_1"])
                 pads_right = panPads(track["pan_2"])
@@ -425,6 +425,8 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
         # Check for device levels
         if getDeviceSetting("levels", state):
+            if y == 0:
+                return lambda x: padBrightnessForLevel(COLS, state.get('glob', {}).get("wet", 0))(x)
             return lambda x: padBrightnessForLevel(COLS, track.get("wet", 0))(x)
 
         # Default case
@@ -455,7 +457,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
 
 def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
-    def cond_fn(track):
+    def cond_fn(track, y):
         # Check for device pan
         if getDeviceSetting("pan", state):
             channels = track.get("channel_count")
@@ -490,13 +492,13 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
         # Check for wet for loops on page
         if getDeviceSetting("levels", state):
             state_value = track.get("state", SL_STATE_UNKNOWN)
-            return lambda x: (
-                SL_STATES[state_value]["color"]
-                if state_value == SL_STATE_UNKNOWN
-                else COLORS.COLOR_BLUE_LIGHT
-                if state_value == SL_STATE_OFF
-                else COLORS.COLOR_BLUE
-            )
+            if y == 0:
+                return lambda x: COLORS.COLOR_BLUE_DARK
+            if state_value == SL_STATE_UNKNOWN:
+                return lambda x: SL_STATES[state_value]["color"]
+            if state_value == SL_STATE_OFF:
+                return lambda x: COLORS.COLOR_BLUE_LIGHT
+            return lambda x: COLORS.COLOR_BLUE
 
         # Default case
         state_value = track.get("state", SL_STATE_UNKNOWN)
@@ -531,7 +533,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
         tracknum = y - loopoffset
         track = list_get(tracks, tracknum, {})
         cellLedModeFn = trackLedModeFn(track, y)
-        cellColorFn = trackColorFn(track)
+        cellColorFn = trackColorFn(track, y)
 
         # state = track.get("state", SL_STATE_UNKNOWN)
         # next_state = track.get("next_state")
@@ -541,7 +543,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
         # sync = track.get("sync")
         # relative_sync = track.get("relative_sync")
 
-        if not (set_syncs or showTrackLevels(storeState)) and y == 0:
+        if (len(toprow) > 0 and y == 0):
             matrix.extend(toprow)
             # logging.debug(f"matrci with top row {matrix}")
             continue
@@ -585,7 +587,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
                     ]
                     for x, pad in enumerate(rowPads(y))
                 ]
-                
+
                 matrix.extend(
                     [
                         BRIGHTS.LED_BRIGHT_75,
@@ -760,12 +762,12 @@ def createAllPads(state):
 
     tracks = state.get("tracks", [])
     toprow = (
-        []
-        if (set_syncs or showTrackLevels(state))
-        else [
+        [
             [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
+        if getDeviceMode(state) == 0 #(set_syncs or showTrackLevels(state))
+        else  []
     )
     toprow = list(chain.from_iterable(toprow))
     matrix = matrix_function(toprow, loopoffset, tracks, state, set_syncs)
