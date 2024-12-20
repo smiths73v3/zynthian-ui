@@ -91,7 +91,7 @@ class zynthian_basic_engine:
                 # Setting cwd is because we've set PWD above. Some engines doesn't
                 # care about the process's cwd, but it is more consistent to set
                 # cwd when PWD has been set.
-                self.proc = pexpect.spawn(self.command, echo=False, timeout=self.proc_timeout,
+                self.proc = pexpect.spawn(self.command, timeout=self.proc_timeout,
                                           env=self.command_env, cwd=self.command_cwd)
                 self.proc.delaybeforesend = 0
                 output = self.proc_get_output()
