@@ -46,6 +46,7 @@ from .zynthian_ctrldev_base_extended import (
 )
 from .zynthian_ctrldev_base_ui import ModeHandlerBase
 
+from .looper_handler import LooperHandler
 
 # FIXME: these defines should be taken from where they are defined (zynseq.h)
 MAX_STUTTER_COUNT = 32
@@ -177,7 +178,7 @@ FN_CLEAR_PATTERN = 0x11
 # --------------------------------------------------------------------------
 class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
 
-    dev_ids = ["APC Key 25 mk2 MIDI 1", "APC Key 25 mk2 IN 1"]
+    dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
 
     @classmethod
     def get_autoload_flag(cls):
@@ -190,6 +191,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
         self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
         self._stepseq_handler = StepSeqHandler(
             state_manager, self._leds, idev_in)
+        self._looper_handler = LooperHandler(state_manager, self._leds, idev_in, idev_out)
         self._current_handler = self._mixer_handler
         self._is_shifted = False
 
@@ -268,6 +270,8 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
                     self._padmatrix_handler.refresh()
                 elif note == BTN_KNOB_CTRL_SEND:
                     self._current_handler = self._stepseq_handler
+                elif note == 7:
+                    self._current_handler = self._looper_handler
 
                 if old_handler != self._current_handler:
                     old_handler.set_active(False)
@@ -280,6 +284,11 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
                     elif BTN_SOFT_KEY_SOLO <= note <= BTN_SOFT_KEY_END:
                         self._padmatrix_handler.enable_seqman(False)
 
+
+            if self._current_handler == self._looper_handler and not note == 7:
+                self._looper_handler.midi_event(ev)
+                return
+            
             # Padmatrix related events
             if self._current_handler == self._mixer_handler:
                 if BTN_PAD_START <= note <= BTN_PAD_END:
@@ -331,7 +340,10 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
             if note == BTN_SHIFT:
                 return self._on_shift_changed(False)
 
-            # Padmatrix related events
+            if self._current_handler == self._looper_handler:
+               self._looper_handler.midi_event(ev)
+               return
+                    # Padmatrix related events
             if self._current_handler == self._mixer_handler:
                 if note == BTN_RECORD:
                     return self._padmatrix_handler.on_record_changed(False)
@@ -344,6 +356,11 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
             return self._current_handler.note_off(note, self._is_shifted)
 
         elif evtype == EV_CC:
+
+            if self._current_handler == self._looper_handler:
+                self._looper_handler.midi_event(ev)
+                return
+            
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
             return self._current_handler.cc_change(ccnum, ccval)
