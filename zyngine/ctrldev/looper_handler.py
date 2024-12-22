@@ -1371,6 +1371,12 @@ class LooperHandler(
         return
 
     def handle_rest_of_buttons(self, button, evtype):
+        if evtype == EV_NOTE_ON and button == BUTTONS.BTN_STOP_ALL_CLIPS:
+            if (getDeviceSetting("shifted", self.state)):
+                self.just_send("/sl/-1/hit", ("s", "mute_off"))
+            else:
+                self.just_send("/sl/-1/hit", ("s", "mute_on"))
+            return
         if button == BUTTONS.BTN_SHIFT:
             self.dispatch(deviceAction("shifted", evtype == EV_NOTE_ON))
             return
