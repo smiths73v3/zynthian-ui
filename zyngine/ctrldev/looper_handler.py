@@ -1563,6 +1563,8 @@ class LooperHandler(
         if numpad == 3:
             if self.redoing:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "redo"))
+            elif self.force_alt1:
+                self.just_send(f"/sl/{track}/{sus}", ("s", "reverse"))
             else:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "replace"))
             return
