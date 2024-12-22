@@ -56,6 +56,7 @@ class zynthian_gui_keyboard():
         self.selected_button = 45  # Index of highlighted button
         self.mode = OSK_QWERTY  # Keyboard layout mode
         self.ctrl_order = zynthian_gui_config.layout['ctrl_order']
+        self.last_key = None # Last pressed key
 
         # Geometry vars
         self.width = zynthian_gui_config.screen_width
@@ -198,16 +199,19 @@ class zynthian_gui_keyboard():
         if not tags:
             return
         dummy, index = tags[0].split(':')
-        key = int(index)
-        if key == self.btn_delete:
+        self.last_key = int(index)
+        if self.last_key == self.btn_delete:
             self.hold_timer = Timer(0.8, self.bold_press)
             self.hold_timer.start()
-        self.deferred_key_press(key)
+        if self.last_key != self.btn_enter:
+            self.deferred_key_press(self.last_key)
 
     # Function to handle key release
     #  event: Mouse event
     def on_key_release(self, event=None):
         self.hold_timer.cancel()
+        if self.last_key == self.btn_enter:
+            self.deferred_key_press(self.btn_enter)
 
     def deferred_key_press(self, key, bold=False):
         self.keypress_queue.append((key, bold))
