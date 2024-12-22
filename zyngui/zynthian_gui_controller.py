@@ -636,7 +636,9 @@ class zynthian_gui_controller(tkinter.Canvas):
 			if self.active_motion_axis == 0:
 				if zynthian_gui_config.enable_touch_controller_switches:
 					if dts < zynthian_gui_config.zynswitch_bold_seconds:
-						self.zyngui.cuia_v5_zynpot_switch((self.index, 'S'))
+						if self.zctrl.is_toggle:
+							self.zctrl.toggle()
+						#self.zyngui.cuia_v5_zynpot_switch((self.index, 'S'))
 					elif zynthian_gui_config.zynswitch_bold_seconds <= dts < zynthian_gui_config.zynswitch_long_seconds:
 						self.zyngui.cuia_v5_zynpot_switch((self.index, 'B'))
 					elif dts >= zynthian_gui_config.zynswitch_long_seconds:
