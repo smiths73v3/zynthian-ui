@@ -1206,10 +1206,11 @@ class LooperHandler(
                 return self.just_send(f"/sl/{track}/hit", ("s", "undo_all"))
             if self.redoing and numpad >= 4:
                 return self.just_send(f"/sl/{track}/hit", ("s", "redo_all"))
+        if (not self.undoing or self.redoing):
             if numpad == 0:
-                return self.handle_rec_or_overdub(track, stateTrack)
-            if numpad < 8:
-                return self.handle_loop_actions(numpad, track)
+                return self.handle_rec_or_overdub(track, stateTrack, evtype)
+        if numpad < 8:
+            return self.handle_loop_actions(numpad, track, evtype)
         pass
 
     def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks):
@@ -1529,9 +1530,10 @@ class LooperHandler(
             )
             return
 
-    def handle_rec_or_overdub(self, track, stateTrack):
+    def handle_rec_or_overdub(self, track, stateTrack, evtype):
+        sus = "down" if evtype == EV_NOTE_ON else "up"
         if track == -1:
-            self.just_send(f"/sl/{track}/hit", ("s", "record_or_overdub"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "record_or_overdub"))
             return
         if stateTrack is None:
             return
@@ -1541,46 +1543,50 @@ class LooperHandler(
             or (not self.force_alt1 and state == SL_STATE_RECORDING)
             or (self.force_alt1 and state != SL_STATE_RECORDING)
         ):
-            self.just_send(f"/sl/{track}/hit", ("s", "record"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "record"))
         else:
-            self.just_send(f"/sl/{track}/hit", ("s", "overdub"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "overdub"))
 
-    def handle_loop_actions(self, numpad, track):
+    def handle_loop_actions(self, numpad, track, evtype):
+        sus = "down" if evtype == EV_NOTE_ON else "up"
         if numpad == 1:
-            self.just_send(f"/sl/{track}/hit", ("s", "multiply"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "multiply"))
             return
 
         if numpad == 2:
             if self.undoing:
-                self.just_send(f"/sl/{track}/hit", ("s", "undo"))
+                self.just_send(f"/sl/{track}/{sus}", ("s", "undo"))
             else:
-                self.just_send(f"/sl/{track}/hit", ("s", "insert"))
+                self.just_send(f"/sl/{track}/{sus}", ("s", "insert"))
             return
 
         if numpad == 3:
             if self.redoing:
-                self.just_send(f"/sl/{track}/hit", ("s", "redo"))
+                self.just_send(f"/sl/{track}/{sus}", ("s", "redo"))
             else:
-                self.just_send(f"/sl/{track}/hit", ("s", "replace"))
+                self.just_send(f"/sl/{track}/{sus}", ("s", "replace"))
             return
 
         if numpad == 4:
-            self.just_send(f"/sl/{track}/hit", ("s", "substitute"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "substitute"))
             return
 
         if numpad == 5:
-            self.just_send(f"/sl/{track}/hit", ("s", "oneshot"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "oneshot"))
 
         if numpad == 6:
-            self.just_send(f"/sl/{track}/hit", ("s", "trigger"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "trigger"))
 
         if numpad == 7:
             if getDeviceSetting("shifted", self.state):
-                self.just_send(
-                    f"/sl/{track}/set", ("s", "delay_trigger"), ("f", random.random())
-                )
+                if evtype == EV_NOTE_ON:
+                    self.just_send(
+                        f"/sl/{track}/set", ("s", "delay_trigger"), ("f", random.random())
+                    )
+                else:
+                    pass
             else:
-                self.just_send(f"/sl/{track}/hit", ("s", "pause"))
+                self.just_send(f"/sl/{track}/{sus}", ("s", "pause"))
 
     def request_feedback(self, address, path, *args):
         self.osc_server.send(self.osc_target, address, *args, self.osc_server_url, path)
