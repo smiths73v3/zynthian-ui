@@ -115,6 +115,9 @@ class zynthian_gui_zs3_options(zynthian_gui_selector):
                 if chain is None:
                     continue
                 label = chain.get_name()
+                while f"\u2612 {label}" in options or f"\u2610 {label}" in options:
+                    # Make each option title unique so that they are not omitted from the options menu
+                    label += " "
                 try:
                     restore_flag = chain_state["restore"]
                 except:
