@@ -190,7 +190,11 @@ class zynthian_gui_keyboard():
 
     # Function to handle bold touchscreen press and hold
     def bold_press(self):
-        self.deferred_key_press(self.btn_delete, True)
+        self.deferred_key_press(self.last_key, True)
+        if self.last_key != self.btn_delete:
+            self.hold_timer = Timer(0.2, self.bold_press)
+            self.hold_timer.start()
+
 
     # Function to handle key press
     #  event: Mouse event
@@ -200,11 +204,10 @@ class zynthian_gui_keyboard():
             return
         dummy, index = tags[0].split(':')
         self.last_key = int(index)
-        if self.last_key == self.btn_delete:
-            self.hold_timer = Timer(0.8, self.bold_press)
-            self.hold_timer.start()
         if self.last_key not in [self.btn_enter, self.btn_cancel]:
             self.deferred_key_press(self.last_key)
+            self.hold_timer = Timer(0.8, self.bold_press)
+            self.hold_timer.start()
 
     # Function to handle key release
     #  event: Mouse event
