@@ -203,15 +203,15 @@ class zynthian_gui_keyboard():
         if self.last_key == self.btn_delete:
             self.hold_timer = Timer(0.8, self.bold_press)
             self.hold_timer.start()
-        if self.last_key != self.btn_enter:
+        if self.last_key not in [self.btn_enter, self.btn_cancel]:
             self.deferred_key_press(self.last_key)
 
     # Function to handle key release
     #  event: Mouse event
     def on_key_release(self, event=None):
         self.hold_timer.cancel()
-        if self.last_key == self.btn_enter:
-            self.deferred_key_press(self.btn_enter)
+        if self.last_key in [self.btn_enter, self.btn_cancel]:
+            self.deferred_key_press(self.last_key)
 
     def deferred_key_press(self, key, bold=False):
         self.keypress_queue.append((key, bold))
