@@ -197,7 +197,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
             self.list_data.append((self.show_cv_config, 0, "CV Settings", ["Control Voltage configuration.", None]))
         self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen", ["Show touchscreen calibration.\nTouch each crosshair until it changes color.\nScreen closes after 15s of inactivity.", None]))
         self.list_data.append((self.zyngui.cuia_screen_clean, 0, "Clean Screen", ["10s countdown with no touch trigger. Allows screen to be cleaned without triggering any action.", None]))
-        self.list_data.append((self.bluetooth, 0, "Bluetooth", ["Scan, enable and configure Bluetooth devices.\n\nMust enable Bluetooth here to access BLE MIDI devices. Also supports HID devices.", None]))
+        self.list_data.append((self.bluetooth, 0, "Bluetooth", ["Scan, enable and configure Bluetooth devices.\n\nMust enable Bluetooth here to access BLE MIDI devices. Also supports HID devices.", "bluetooth.png"]))
 
         self.list_data.append((None, 0, "> TEST"))
         self.list_data.append((self.test_audio, 0, "Test Audio", ["Play an audio track to test audio output.\n\nPress BACK to cancel playback.", "headphones.png"]))
