@@ -474,9 +474,9 @@ class zynthian_gui_selector(zynthian_gui_base):
             if self.index != cursel:
                 self.select(cursel)
             if dts < zynthian_gui_config.zynswitch_bold_seconds:
-                self.zyngui.zynswitch_defered('S', 3)
+                self.cb_listbox_click('S')
             elif zynthian_gui_config.zynswitch_bold_seconds <= dts < zynthian_gui_config.zynswitch_long_seconds:
-                self.zyngui.zynswitch_defered('B', 3)
+                self.cb_listbox_click('B')
 
     def cb_listbox_wheel(self, event):
         if event.num == 5 or event.delta == -120:
@@ -484,6 +484,9 @@ class zynthian_gui_selector(zynthian_gui_base):
         elif event.num == 4 or event.delta == 120:
             self.select(self.index - 1)
         return "break"  # Consume event to stop scrolling of listbox
+
+    def cb_listbox_click(self, t):
+        self.zyngui.zynswitch_defered(t, 3)
 
     def cb_loading_push(self, event):
         self.loading_push_ts = event.time

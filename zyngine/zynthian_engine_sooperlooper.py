@@ -89,7 +89,8 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		'mute',
 		'oneshot',
 		'pause',
-		'reverse'
+		'reverse',
+		'single_pedal'
 	]
 
 	# SL_LOOP_PARAMS act on individual loops - sent with osc command /sl/#/set
@@ -424,7 +425,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['Loop control', ['trigger:0', 'oneshot:0', 'mute:0', 'pause:0']],
 			['Loop time/pitch', ['reverse:0', 'rate', 'stretch_ratio', 'pitch_shift']],
 			['Loop levels', ['wet', 'dry', 'feedback', 'selected_loop_num']],
-			['Global loop', ['selected_loop_num', 'loop_count', 'prev/next', 'single_pedal']],
+			['Global loop', ['selected_loop_num', 'loop_count', 'prev/next', 'single_pedal:0']],
 			['Global levels', ['rec_thresh', 'input_gain']],
 			['Global quantize', ['quantize', 'mute_quantized', 'overdub_quantized', 'replace_quantized']],
 			['Global sync 1', ['sync_source', 'sync', 'playback_sync', 'relative_sync']],
@@ -844,7 +845,8 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		self._ctrl_screens[0][1] = [f'record:{self.selected_loop}', f'overdub:{self.selected_loop}', f'multiply:{self.selected_loop}', 'undo/redo']
 		self._ctrl_screens[1][1] = [f'replace:{self.selected_loop}', f'substitute:{self.selected_loop}', f'insert:{self.selected_loop}', 'undo/redo']
 		self._ctrl_screens[2][1] = [f'trigger:{self.selected_loop}', f'oneshot:{self.selected_loop}', f'mute:{self.selected_loop}', f'pause:{self.selected_loop}']
-		self._ctrl_screens[3][1] = [f'reverse:{self.selected_loop}', 'rate', 'stretch_ratio', 'pitch_shift']
+		self._ctrl_screens[3][1][0] = f'reverse:{self.selected_loop}'
+		self._ctrl_screens[5][1][3] = f'single_pedal:{self.selected_loop}'
 		processor.refresh_controllers()
 
 		zynsigman.send_queued(zynsigman.S_GUI, SS_GUI_CONTROL_MODE, mode='control')
