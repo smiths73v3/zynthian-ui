@@ -374,7 +374,15 @@ def padRow(pad):
 def shiftedTrack(track, offset):
     return track - offset
 
-
+def makeSessionNumberReducer(color, last):
+    def sessionNumberReducer(acc, cur):
+        try:
+            pad = int(cur[:-7])
+            return acc + [BRIGHTS.LED_PULSING_8 if pad == last else BRIGHTS.LED_BRIGHT_100, pad, color]
+        except ValueError:
+            return acc
+    return sessionNumberReducer
+    
 # Pad coloring
 def padBrightnessForLevel(num, level):
     pos = num * level
@@ -779,7 +787,7 @@ def createAllPads(state):
         )
         sessions = getDeviceSetting("sessions", state) or []
         sessionnums = functools.reduce(
-            lambda acc, cur: acc + [BRIGHTS.LED_BRIGHT_100, int(cur[:-7]), color],
+            makeSessionNumberReducer(color, getDeviceSetting('sessions-last', state)),
             sessions,
             [],
         )
@@ -1436,6 +1444,7 @@ class LooperHandler(
         # Create the URI
         file_path = f"{self.SL_SESSION_PATH}{str(pad).zfill(2)}.slsess"
 
+        self.dispatch(deviceAction("sessions-last", pad))
         # Send the session load request
         self.just_send("/load_session", file_path, self.osc_server_url, "/error")
 
@@ -1447,6 +1456,7 @@ class LooperHandler(
         # Create the filepath
         file_path = f"{self.SL_SESSION_PATH}{str(pad).zfill(2)}.slsess"
 
+        self.dispatch(deviceAction("sessions-last", pad))
         # Send the session load request
         self.just_send("/save_session", file_path, self.osc_server_url, "/error", 1)
 
