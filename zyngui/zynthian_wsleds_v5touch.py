@@ -109,7 +109,7 @@ class zynthian_wsleds_v5touch(zynthian_wsleds_v5):
         self.wscolor_orange = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_ORANGE', "#FF6A00")
         self.wscolor_blue = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_BLUE', "#1070FE")
         self.wscolor_blue_light = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_LIGHTBLUE', "#05FDFF")
-        self.wscolor_purple = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_PURPLE', "#D662FE")
+        self.wscolor_purple = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_PURPLE', "#D000E0")
         self.wscolor_default = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_DEFAULT', self.wscolor_blue)
         self.wscolor_alt = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_ALT', self.wscolor_purple)
         self.wscolor_active = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD_COLOR_ACTIVE', self.wscolor_green)

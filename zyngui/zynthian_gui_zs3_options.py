@@ -115,6 +115,9 @@ class zynthian_gui_zs3_options(zynthian_gui_selector):
                 if chain is None:
                     continue
                 label = chain.get_name()
+                while f"\u2612 {label}" in options or f"\u2610 {label}" in options:
+                    # Make each option title unique so that they are not omitted from the options menu
+                    label += " "
                 try:
                     restore_flag = chain_state["restore"]
                 except:
@@ -152,7 +155,15 @@ class zynthian_gui_zs3_options(zynthian_gui_selector):
 
     def zs3_update(self):
         logging.info("Updating ZS3 '{}'".format(self.zs3_id))
+        restore_chains = []
+        state = self.zyngui.state_manager.zs3[self.zs3_id]
+        if "chains" in state:
+            for chain_id, chain_state in state["chains"].items():
+                if "restore" in chain_state and not chain_state["restore"]:
+                    restore_chains.append(chain_id)
         self.zyngui.state_manager.save_zs3(self.zs3_id)
+        for chain_id in restore_chains:
+            self.zyngui.state_manager.toggle_zs3_chain_restore_flag(self.zs3_id, chain_id)
         self.zyngui.close_screen()
 
     def zs3_delete(self):

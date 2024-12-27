@@ -26,18 +26,17 @@ import os
 import re
 import json
 import glob
+import copy
 import liblo
 import logging
 import pexpect
 import fnmatch
 from time import sleep
-from string import Template
-from os.path import isfile, isdir, ismount, join
+from os.path import isfile, isdir, join
 
 import zynautoconnect
 from . import zynthian_controller
 from zyngui import zynthian_gui_config
-from zyncoder.zyncore import lib_zyncore
 
 # --------------------------------------------------------------------------------
 # Basic Engine Class: Spawn a process & manage IPC communication using pexpect
@@ -65,6 +64,7 @@ class zynthian_basic_engine:
         self.proc = None
         self.proc_timeout = 30
         self.proc_start_sleep = None
+        self.proc_exit = False
         self.command = command
         self.command_env = os.environ.copy()
         self.command_prompt = prompt
@@ -81,6 +81,8 @@ class zynthian_basic_engine:
             try:
                 logging.debug("Command: {}".format(self.command))
 
+                self.proc_exit = False
+
                 # Turns out that environment's PWD is not set automatically
                 # when cwd is specified for pexpect.spawn(), so do it here.
                 if self.command_cwd:
@@ -89,8 +91,8 @@ class zynthian_basic_engine:
                 # Setting cwd is because we've set PWD above. Some engines doesn't
                 # care about the process's cwd, but it is more consistent to set
                 # cwd when PWD has been set.
-                self.proc = pexpect.spawn(
-                    self.command, timeout=self.proc_timeout, env=self.command_env, cwd=self.command_cwd)
+                self.proc = pexpect.spawn(self.command, timeout=self.proc_timeout,
+                                          env=self.command_env, cwd=self.command_cwd)
                 self.proc.delaybeforesend = 0
                 output = self.proc_get_output()
 
@@ -107,6 +109,7 @@ class zynthian_basic_engine:
         if self.proc:
             try:
                 logging.info("Stopping Engine " + self.name)
+                self.proc_exit = True
                 self.proc.terminate(True)
                 self.proc = None
             except Exception as err:
@@ -130,8 +133,7 @@ class zynthian_basic_engine:
                 # logging.debug("proc output:\n{}".format(out))
             except Exception as err:
                 out = ""
-                logging.error(
-                    "Can't exec engine command: {} => {}".format(cmd, err))
+                logging.error("Can't exec engine command: {} => {}".format(cmd, err))
             return out
 
 
@@ -572,12 +574,36 @@ class zynthian_engine(zynthian_basic_engine):
     # Controllers Management
     # ---------------------------------------------------------------------------
 
+    def get_ctrl_options(self, ctrl, processor):
+        if isinstance(ctrl[1], dict):
+            build_from_options = True
+            options = copy.copy(ctrl[1])
+        else:
+            build_from_options = False
+            options = {}
+            if isinstance(ctrl[1], int) and ctrl[1] > 0:
+                options["midi_cc"] = ctrl[1]
+
+        options["processor"] = processor
+        options["midi_chan"] = processor.get_midi_chan()
+        if build_from_options:
+            return options
+
+        # Add extra options depending on array length ...
+        if len(ctrl) > 4 and ctrl[0] in processor.controllers_dict:
+            # optional param 4 is graph path
+            options['graph_path'] = ctrl[4]
+        if len(ctrl) > 3:
+            # optional param 3 is called value_max but actually could be a configuration object
+            options['value_max'] = ctrl[3]
+        if len(ctrl) > 2:
+            options['value'] = ctrl[2]
+        return options
+
     # Get zynthian controllers dictionary.
     # Updates existing processor dictionary.
     # + Default implementation uses a static controller definition array
     def get_controllers_dict(self, processor):
-        midich = processor.get_midi_chan()
-
         if self._ctrls is not None:
             # Remove controls that are no longer used
             for symbol in list(processor.controllers_dict):
@@ -591,63 +617,15 @@ class zynthian_engine(zynthian_basic_engine):
                 else:
                     processor.controllers_dict[symbol].reset(self, symbol)
 
+            # Regenerate / update controller dictionary
             for ctrl in self._ctrls:
-                cc = None
-                options = {}
-                build_from_options = False
-                if isinstance(ctrl[1], dict):
-                    options = ctrl[1]
-                    build_from_options = True
-                # OSC control =>
-                elif isinstance(ctrl[1], str):
-                    # replace variables ...
-                    tpl = Template(ctrl[1])
-                    cc = tpl.safe_substitute(ch=midich)
-                    try:
-                        cc = tpl.safe_substitute(i=processor.part_i)
-                    except:
-                        pass
-                    # set osc_port option ...
-                    if self.osc_target_port > 0:
-                        options['osc_port'] = self.osc_target_port
-                    # debug message
-                    logging.debug('CONTROLLER %s OSC PATH => %s' %
-                                  (ctrl[0], cc))
-                # MIDI Control =>
-                else:
-                    cc = ctrl[1]
-
-                options["processor"] = processor
-                options["midi_chan"] = midich
-                if cc is not None:
-                    options["midi_cc"] = cc
-
-                # Build controller depending on array length ...
+                options = self.get_ctrl_options(ctrl, processor)
+                # Controller already exists so reconfigure with new settings
                 if ctrl[0] in processor.controllers_dict:
-                    # Controller already exists so reconfigure with new settings
                     zctrl = processor.controllers_dict[ctrl[0]]
-                    if build_from_options:
-                        zctrl.set_options(options)
-                    elif len(ctrl) > 3:
-                        options['value'] = ctrl[2]
-                        options['value_max'] = ctrl[3]
-                        zctrl.set_options(options)
-                    elif len(ctrl) > 2:
-                        options['value'] = ctrl[2]
-                        zctrl.set_options(options)
-
+                    zctrl.set_options(options)
+                # Create new controller
                 else:
-                    if not build_from_options:
-                        if len(ctrl) > 4:
-                            # optional param 4 is graph path
-                            options['graph_path'] = ctrl[4]
-                        if len(ctrl) > 3:
-                            # optional param 3 is called value_max but actually could be a configuration object
-                            options['value_max'] = ctrl[3]
-                        if len(ctrl) > 2:
-                            # param 2 is zctrl value
-                            options['value'] = ctrl[2]
-                    # param 0 is symbol string, param 1 is options or midi cc or osc path
                     zctrl = zynthian_controller(self, ctrl[0], options)
                     processor.controllers_dict[zctrl.symbol] = zctrl
                     if zctrl.midi_cc is not None:

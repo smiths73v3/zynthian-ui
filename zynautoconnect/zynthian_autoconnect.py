@@ -160,7 +160,7 @@ def set_port_friendly_name(port, friendly_name=None):
 
     try:
         alias1 = port.aliases[0]
-        if friendly_name is None:
+        if not friendly_name:
             # Reset name
             if alias1 in midi_port_names:
                 midi_port_names.pop(alias1)

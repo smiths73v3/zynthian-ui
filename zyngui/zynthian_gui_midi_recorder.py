@@ -5,7 +5,7 @@
 #
 # Zynthian GUI MIDI Recorder Class
 #
-# Copyright (C) 2015-2023 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -31,7 +31,7 @@ import tkinter
 # Zynthian specific modules
 import zynconf
 from zyngui import zynthian_gui_config
-from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 from zyngui.zynthian_gui_controller import zynthian_gui_controller
 # Python wrapper for zynsmf (ensures initialised and wraps load() function)
 from zynlibs.zynsmf import zynsmf
@@ -42,7 +42,7 @@ from zynlibs.zynsmf.zynsmf import libsmf  # Direct access to shared library
 # ------------------------------------------------------------------------------
 
 
-class zynthian_gui_midi_recorder(zynthian_gui_selector):
+class zynthian_gui_midi_recorder(zynthian_gui_selector_info):
 
     def __init__(self):
         self.capture_dir_sdc = os.environ.get(
@@ -54,7 +54,7 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
 
         self.smf_timer = None  # 1s timer used to check end of SMF playback
 
-        super().__init__('MIDI Recorder', True)
+        super().__init__('MIDI Recorder')
 
         self.bpm_zgui_ctrl = None
 
@@ -92,7 +92,7 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
             flist += self.get_filelist(exd, "USB")
         i = 1
         for finfo in sorted(flist, key=lambda d: d['mtime'], reverse=True):
-            self.list_data.append((finfo['fpath'], i, finfo['title']))
+            self.list_data.append((finfo['fpath'], i, finfo['title'], ["Play MIDI file.\nBold select to show more options.", None]))
             i += 1
 
         super().fill_list()
@@ -160,11 +160,11 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
     def update_status_recording(self, fill=False):
         if self.list_data:
             if self.zyngui.state_manager.status_midi_recorder:
-                self.list_data[0] = ("STOP_RECORDING", 0,
-                                     "■ Stop MIDI Recording")
+                self.list_data[0] = (("STOP_RECORDING", 0,
+                                     "■ Stop MIDI Recording", ["Toggle recording to MIDI file.", None]))
             else:
-                self.list_data[0] = ("START_RECORDING", 0,
-                                     "⬤ Start MIDI Recording")
+                self.list_data[0] = (("START_RECORDING", 0,
+                                     "⬤ Start MIDI Recording", ["Toggle recording to MIDI file", None]))
             if fill:
                 self.listbox.delete(0)
                 self.listbox.insert(0, self.list_data[0][2])
@@ -173,10 +173,10 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
     def update_status_loop(self, fill=False):
         if self.list_data:
             if zynthian_gui_config.midi_play_loop:
-                self.list_data[1] = ("LOOP", 0, "\u2612 Loop Play")
+                self.list_data[1] = (("LOOP", 0, "\u2612 Loop Play", ["Toggle loop playback.", None]))
                 libsmf.setLoop(True)
             else:
-                self.list_data[1] = ("LOOP", 0, "\u2610 Loop Play")
+                self.list_data[1] = (("LOOP", 0, "\u2610 Loop Play", ["Toggle loop playback.", None]))
                 libsmf.setLoop(False)
             if fill:
                 self.listbox.delete(1)
@@ -213,8 +213,8 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
         smf = self.list_data[self.index]
         smf_fname = smf[2]
         options = {}
-        options["Rename"] = smf
-        options["Delete"] = smf
+        options["Rename"] = [smf, ["Rename MIDI file", None]]
+        options["Delete"] = [smf, ["Delete MIDI file", None]]
         self.zyngui.screens['option'].config(
             f"MIDI file {smf_fname}", options, self.smf_options_cb)
         self.zyngui.show_screen('option')
@@ -230,7 +230,8 @@ class zynthian_gui_midi_recorder(zynthian_gui_selector):
 
     def smf_options_cb(self, option, smf):
         if option == "Rename":
-            self.zyngui.show_keyboard(self.rename_smf, smf[2])
+            name = os.path.basename(smf[0])[:-4]
+            self.zyngui.show_keyboard(self.rename_smf, name)
         elif option == "Delete":
             self.delete_smf(smf)
 

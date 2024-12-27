@@ -93,8 +93,8 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                                    ["Manage audio output routing.", "audio_output.png"]))
 
         if self.chain.is_audio():
-            self.list_data.append((self.audio_options, None, "Audio Options",
-                                   ["Manage audio ouput options.", "audio_options.png"]))
+            self.list_data.append((self.audio_options, None, "Mixer Options",
+                                   ["Extra audio mixer options.", "audio_options.png"]))
 
         # TODO: Catch signal for Audio Recording status change
         if self.chain_id == 0 and not zynthian_gui_config.check_wiring_layout(["Z2", "V5"]):
@@ -124,15 +124,15 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
                 self.list_data.append((self.remove_chain, None, "Remove Chain", ["Remove this chain and all its processors.", "delete.png"]))
             else:
                 self.list_data.append((self.remove_cb, None, "Remove...", ["Remove chain or processors.", "delete.png"]))
-            self.list_data.append((self.export_chain, None, "Export chain as snapshot..."))
+            self.list_data.append((self.export_chain, None, "Export chain as snapshot...", ["Save the selected chain as a snapshot which may then be imported into another snapshot.", None]))
         elif audio_proc_count > 0:
             self.list_data.append((self.remove_all_audiofx, None, "Remove all Audio-FX", ["Remove all audio-FX processors in this chain.", "delete.png"]))
 
         self.list_data.append((None, None, "> GUI"))
-        self.list_data.append((self.rename_chain, None, "Rename chain"))
+        self.list_data.append((self.rename_chain, None, "Rename chain", ["Rename the chain. Clear name to reset to default name.", None]))
         if self.chain_id:
             if len(self.zyngui.chain_manager.ordered_chain_ids) > 2:
-                self.list_data.append((self.move_chain, None, "Move chain ⇦ ⇨"))
+                self.list_data.append((self.move_chain, None, "Move chain ⇦ ⇨", ["Reposition the chain in the mixer view.", None]))
 
         super().fill_list()
 
@@ -329,31 +329,31 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
     def audio_options(self):
         options = {}
         if self.zyngui.state_manager.zynmixer.get_mono(self.chain.mixer_chan):
-            options['\u2612 Mono'] = 'mono'
+            options['\u2612 Mono'] = ['mono', ["Chain is mono.\n\nLeft and right inputs are summed and fed as mono to left and right outputs", None]]
         else:
-            options['\u2610 Mono'] = 'mono'
+            options['\u2610 Mono'] = ['mono', ["Chain is stereo.\n\nLeft input feeds left output and right input feeds right output.", None]]
         if self.zyngui.state_manager.zynmixer.get_phase(self.chain.mixer_chan):
-            options['\u2612 Phase reverse'] = 'phase'
+            options['\u2612 Phase reverse'] = ['phase', ["Chain is phase reversed.\n\nRight output is inverted, making it 180° out of phase with its input.", None]]
         else:
-            options['\u2610 Phase reverse'] = 'phase'
+            options['\u2610 Phase reverse'] = ['phase', ["Chain is not phase reversed.\n\nLeft and right inputs feed left and right outputs without phase modification.", None]]
         if self.zyngui.state_manager.zynmixer.get_ms(self.chain.mixer_chan):
-            options['\u2612 M+S'] = 'ms'
+            options['\u2612 M+S'] = ['ms', ["Mid/Side mode is enabled.\n\nLeft output carries the 'Mid' signal. Right output carries the 'Side' signal.", None]]
         else:
-            options['\u2610 M+S'] = 'ms'
+            options['\u2610 M+S'] = ['ms', ["Mid/Side mode is disabled.\n\nLeft and right inputs feed left and right outputs.", None]]
 
         self.zyngui.screens['option'].config(
-            "Audio options", options, self.audio_menu_cb)
+            "Mixer options", options, self.audio_menu_cb, False, False, None)
         self.zyngui.show_screen('option')
 
     def audio_menu_cb(self, options, params):
         if params == 'mono':
             self.zyngui.state_manager.zynmixer.toggle_mono(
                 self.chain.mixer_chan)
-        elif params == 'ms':
-            self.zyngui.state_manager.zynmixer.toggle_ms(self.chain.mixer_chan)
         elif params == 'phase':
             self.zyngui.state_manager.zynmixer.toggle_phase(
                 self.chain.mixer_chan)
+        elif params == 'ms':
+            self.zyngui.state_manager.zynmixer.toggle_ms(self.chain.mixer_chan)
         self.audio_options()
 
     def chain_audio_capture(self):
@@ -392,7 +392,7 @@ class zynthian_gui_chain_options(zynthian_gui_selector_info):
         for dir in dirs:
             if dir.startswith(".") or not os.path.isdir(f"{self.zyngui.state_manager.snapshot_dir}/{dir}"):
                 continue
-            options[dir] = dir
+            options[dir] = [dir, ["Choose folder to store snapshot.", "folder.png"]]
         self.zyngui.screens['option'].config(
             "Select location for export", options, self.name_export)
         self.zyngui.show_screen('option')
