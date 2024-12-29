@@ -988,6 +988,8 @@ class LooperHandler(
 
     def set_active(self, active):
         super().set_active(active)
+        self._leds.all_off()
+        self.render()
         print(f"Active {active}")
         if active:
             self.reconnect()
@@ -1706,11 +1708,7 @@ class LooperHandler(
         else:
             return state
 
-    def dispatch(self, action):
-        # logging.debug(f"type {type}; action {action}")
-        self.state = self.reducer(self.state, action)
-        if not (self._is_active):
-            return
+    def render(self):
         pads = createAllPads(self.state)
         notes = split_every(3, pads)
         for pad in notes:
@@ -1725,7 +1723,14 @@ class LooperHandler(
         msg = bytes(pads)
         lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
         # NOW RENDER
-
+        
+    def dispatch(self, action):
+        # logging.debug(f"type {type}; action {action}")
+        self.state = self.reducer(self.state, action)
+        if not (self._is_active):
+            return
+        self.render()
+        
     def register_update(self, range):
         for ctrl in self.ctrls:
             self.request_feedback(f"/sl/{range}/register_update", "/update", ctrl)
