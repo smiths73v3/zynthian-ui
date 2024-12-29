@@ -79,6 +79,7 @@ class zynthian_gui_controller(tkinter.Canvas):
 		self.title_width = 1
 
 		self.index = index
+		self.enabled = True
 
 		# Create Canvas
 		if not hidden:
@@ -297,6 +298,13 @@ class zynthian_gui_controller(tkinter.Canvas):
 
 	def set_color_readonly(self):
 		self.itemconfig(self.graph, outline=zynthian_gui_config.color_ctrl_bg_off)
+
+	def enable(self, enable=True):
+		self.enabled = enable
+		if enable:
+			self.unset_hl()
+		else:
+			self.set_hl(zynthian_gui_config.color_ctrl_bg_off)
 
 	def set_hl(self, color=zynthian_gui_config.color_hl):
 		try:
@@ -603,7 +611,7 @@ class zynthian_gui_controller(tkinter.Canvas):
 	def nudge(self, dval, fine=False):
 		if self.preselection is not None:
 			self.zyngui.screens["control"].zctrl_touch(self.preselection)
-		if self.zctrl:
+		elif self.enabled and self.zctrl:
 			return self.zctrl.nudge(dval, fine=fine)
 		else:
 			return False
@@ -621,14 +629,16 @@ class zynthian_gui_controller(tkinter.Canvas):
 		#logging.debug(f"CONTROL {self.index} PUSH => {self.canvas_push_ts} ({self.canvas_motion_x0},{self.canvas_motion_y0})")
 
 	def cb_canvas_release(self, event):
-		if self.canvas_push_ts:
+		if self.canvas_push_ts and self.enabled:
 			dts = (datetime.now()-self.canvas_push_ts).total_seconds()
 			self.canvas_push_ts = None
 			#logging.debug(f"CONTROL {self.index} RELEASE => {dts}, {motion_rate}")
 			if self.active_motion_axis == 0:
 				if zynthian_gui_config.enable_touch_controller_switches:
 					if dts < zynthian_gui_config.zynswitch_bold_seconds:
-						self.zyngui.cuia_v5_zynpot_switch((self.index, 'S'))
+						if self.zctrl.is_toggle:
+							self.zctrl.toggle()
+						#self.zyngui.cuia_v5_zynpot_switch((self.index, 'S'))
 					elif zynthian_gui_config.zynswitch_bold_seconds <= dts < zynthian_gui_config.zynswitch_long_seconds:
 						self.zyngui.cuia_v5_zynpot_switch((self.index, 'B'))
 					elif dts >= zynthian_gui_config.zynswitch_long_seconds:
