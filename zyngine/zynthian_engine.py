@@ -590,7 +590,8 @@ class zynthian_engine(zynthian_basic_engine):
             return options
 
         # Add extra options depending on array length ...
-        if len(ctrl) > 4 and ctrl[0] in processor.controllers_dict:
+        #if len(ctrl) > 4 and ctrl[0] no in processor.controllers_dict:
+        if len(ctrl) > 4:
             # optional param 4 is graph path
             options['graph_path'] = ctrl[4]
         if len(ctrl) > 3:
