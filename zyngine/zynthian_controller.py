@@ -408,14 +408,12 @@ class zynthian_controller:
 
         # Try sending directly to chain's zmop
         if izmop is not None and izmop >= 0:
-            lib_zyncore.zmop_send_ccontrol_change(
-                izmop, self.midi_chan, self.midi_cc, mval)
+            lib_zyncore.zmop_send_ccontrol_change(izmop, self.midi_chan, self.midi_cc, mval)
         # If not possible, send to fake-UI zmip,
         # but if active MIDI channel is enabled, this would reach all chains in the MIDI channel
         # what generates issues when combining some engines (for instance, fluidsynth + pianoteq)
         else:
-            lib_zyncore.ui_send_ccontrol_change(
-                self.midi_chan, self.midi_cc, mval)
+            lib_zyncore.ui_send_ccontrol_change(self.midi_chan, self.midi_cc, mval)
 
     def send_midi_feedback(self, mval=None):
         if mval is None:
