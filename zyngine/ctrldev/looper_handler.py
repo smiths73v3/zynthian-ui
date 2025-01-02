@@ -55,7 +55,7 @@ TRACK_LEVELS = [
     "wet",
     "dry",
     "feedback",
-    "none",
+    "pitch_shift",
     "none",
 ]
 LEVEL_COLORS = [
@@ -905,6 +905,7 @@ class LooperHandler(
         "overdub_quantized",
         "replace_quantized",
         "reverse",
+        "pitch_shift"
     ]
     auto_ctrls = [
         "state",
@@ -1066,7 +1067,10 @@ class LooperHandler(
         if curval is None:
             return
         # Calculate the new value, ensuring it stays within the range [0, 1]
-        new_value = max(0, min(1, curval + delta * 0.1))
+        if ctrl == 'pitch_shift':
+            new_value = max(-12, min(12, curval + delta))
+        else:
+            new_value = max(0, min(1, curval + delta * 0.1))
         self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
 
     def note_on(self, note, velocity, shifted_override=None):
@@ -1481,6 +1485,16 @@ class LooperHandler(
 
         ctrl = TRACK_LEVELS[numpad]
         storedValue = levelTrack.get(ctrl, 0)
+
+        if ctrl == 'pitch_shift':
+            value = [12, None, 0, NotImplemented, -12][row]
+            if row == 1:
+                value = storedValue + 1
+            if row == 3:
+                value = storedValue - 1
+            self.dispatch(trackAction(trackno, ctrl, value))
+            self.just_send(f"/sl/{trackno}/set", ("s", ctrl), ("f", value))
+            return
 
         if round(storedValue * ROWS) == round(value * ROWS):
             value -= 1 / 10
