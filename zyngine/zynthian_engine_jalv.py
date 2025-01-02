@@ -135,7 +135,8 @@ class zynthian_engine_jalv(zynthian_engine):
             'Surge': ['modulation wheel', 'sustain pedal'],
             'padthv1': [],
             'Vex': [],
-            'amsynth': ['modulation wheel', 'sustain pedal']
+            'amsynth': ['modulation wheel', 'sustain pedal'],
+            'JC303': []
         }
     }
 
