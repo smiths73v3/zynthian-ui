@@ -81,7 +81,7 @@ class zynthian_controller:
         self.is_dirty = True  # True if control value changed since last UI update
         self.not_on_gui = False  # True to hint to GUI to show control
         # Hint of order in which to display control (higher comes first)
-        self.display_priority = 0
+        self.display_priority = float("inf")
 
         # Parameters to send values if engine-specific send method not available
         self.midi_chan = None  # MIDI channel to send CC messages from control
@@ -160,11 +160,7 @@ class zynthian_controller:
         if 'midi_chan' in options:
             self.midi_chan = options['midi_chan']
         if 'midi_cc' in options:
-            cc = options['midi_cc']
-            if isinstance(cc, str):
-                self.osc_path = cc
-            else:
-                self.midi_cc = cc
+            self.midi_cc = options['midi_cc']
         if 'osc_port' in options:
             self.osc_port = options['osc_port']
         if 'osc_path' in options:
@@ -375,6 +371,10 @@ class zynthian_controller:
         if old_val == self.value:
             return
 
+        self.send_value(send)
+        self.is_dirty = True
+
+    def send_value(self, send=True):
         mval = None
         if self.engine and send:
             # Send value using engine method...
@@ -385,22 +385,18 @@ class zynthian_controller:
                 try:
                     if self.osc_path:
                         # logging.debug("Sending OSC Controller '{}', {} => {}".format(self.symbol, self.osc_path, self.get_ctrl_osc_val()))
-                        liblo.send(self.engine.osc_target,
-                                   self.osc_path, self.get_ctrl_osc_val())
+                        liblo.send(self.engine.osc_target, self.osc_path, self.get_ctrl_osc_val())
                     elif self.midi_cc:
                         mval = self.get_ctrl_midi_val()
                         # logging.debug("Sending MIDI Controller '{}', CH{}#CC{}={}".format(self.symbol, self.midi_chan, self.midi_cc, mval))
                         self.send_midi_cc(mval)
                 except Exception as e:
-                    logging.warning(
-                        "Can't send controller '{}' => {}".format(self.symbol, e))
+                    logging.warning("Can't send controller '{}' => {}".format(self.symbol, e))
 
         # Send feedback to MIDI controllers => What MIDI controllers? Those selected as MIDI-out?
         # TODO: Set midi_feeback to MIDI learn
         if self.midi_feedback:
             self.send_midi_feedback(mval)
-
-        self.is_dirty = True
 
     def send_midi_cc(self, mval=None):
         if mval is None:
@@ -412,14 +408,12 @@ class zynthian_controller:
 
         # Try sending directly to chain's zmop
         if izmop is not None and izmop >= 0:
-            lib_zyncore.zmop_send_ccontrol_change(
-                izmop, self.midi_chan, self.midi_cc, mval)
+            lib_zyncore.zmop_send_ccontrol_change(izmop, self.midi_chan, self.midi_cc, mval)
         # If not possible, send to fake-UI zmip,
         # but if active MIDI channel is enabled, this would reach all chains in the MIDI channel
         # what generates issues when combining some engines (for instance, fluidsynth + pianoteq)
         else:
-            lib_zyncore.ui_send_ccontrol_change(
-                self.midi_chan, self.midi_cc, mval)
+            lib_zyncore.ui_send_ccontrol_change(self.midi_chan, self.midi_cc, mval)
 
     def send_midi_feedback(self, mval=None):
         if mval is None:
@@ -613,6 +607,12 @@ class zynthian_controller:
 
         #logging.debug(f"CC val={val} => current mode={self.midi_cc_mode}, detecting mode {self.midi_cc_mode_detecting}"
         #              f" (count {self.midi_cc_mode_detecting_count}, zero {self.midi_cc_mode_detecting_zero})\n")
+
+        # Always use absolute mode with toggle controllers
+        if self.is_toggle:
+            self.midi_cc_mode = 0
+            self.midi_cc_mode_detecting = 0
+            return
 
         # Mode autodetection timeout
         now = monotonic()

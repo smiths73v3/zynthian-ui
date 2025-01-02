@@ -28,9 +28,7 @@ import logging
 # Zynthian specific modules
 import zynautoconnect
 from zyngine.zynthian_signal_manager import zynsigman
-from zyngui import zynthian_gui_config
-from zyngui.zynthian_gui_selector import zynthian_gui_selector
-from zyngine.zynthian_engine_modui import zynthian_engine_modui
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 from zyngine.zynthian_audio_recorder import zynthian_audio_recorder
 
 # ------------------------------------------------------------------------------
@@ -38,13 +36,15 @@ from zyngine.zynthian_audio_recorder import zynthian_audio_recorder
 # ------------------------------------------------------------------------------
 
 
-class zynthian_gui_audio_out(zynthian_gui_selector):
+class zynthian_gui_audio_out(zynthian_gui_selector_info):
 
     def __init__(self):
         self.chain = None
-        super().__init__('Audio Out', True)
+        super().__init__('Audio Out')
 
     def build_view(self):
+        self.check_ports = 0
+        self.playback_ports = zynautoconnect.get_hw_audio_dst_ports()
         if super().build_view():
             zynsigman.register_queued(
                 zynsigman.S_AUDIO_RECORDER, zynthian_audio_recorder.SS_AUDIO_RECORDER_STATE, self.update_rec)
@@ -65,11 +65,21 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
     def set_chain(self, chain):
         self.chain = chain
 
+    def refresh_status(self):
+        super().refresh_status()
+        self.check_ports += 1
+        if self.check_ports > 10:
+            self.check_ports = 0
+            ports = zynautoconnect.get_hw_audio_dst_ports()
+            if self.playback_ports != ports:
+                self.playback_ports = ports
+                self.fill_list()
+
     def fill_list(self):
         self.list_data = []
         if self.chain.chain_id:
             # Normal chain so add mixer / chain targets
-            port_names = [("Main mixbus", 0)]
+            port_names = [("Main mixbus", 0, ["Send audio from this chain to the main mixbus", "audio_output.png"])]
             self.list_data.append((None, None, "> Chain inputs"))
             for chain_id, chain in self.zyngui.chain_manager.chains.items():
                 if chain_id != 0 and chain != self.chain and chain.audio_thru or chain.is_synth() and chain.synth_slots[0][0].type == "Special":
@@ -77,38 +87,43 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
                         prefix = "∞ "
                     else:
                         prefix = ""
-                    port_names.append((f"{prefix}{chain.get_name()}", chain_id))
+                    port_names.append((f"{prefix}{chain.get_name()}", chain_id, [f"Send audio from this chain to the input of chain {chain.get_name()}.", "audio_output.png"]))
                 # Add side-chain targets
                 for processor in chain.get_processors():
                     try:
                         for port_name in zynautoconnect.get_sidechain_portnames(processor.jackname):
-                            port_names.append((f"↣ side {port_name}", port_name))
+                            port_names.append((f"↣ side {port_name}", port_name), [f"Send audio from this chain to the sidechain input of processor {port_name}.", "audio_output.png"])
                     except:
                         pass
-            for title, processor in port_names:
+            for title, processor, info in port_names:
                 if processor in self.chain.audio_out:
-                    self.list_data.append((processor, processor, "\u2612 " + title))
+                    self.list_data.append((processor, processor, "\u2612 " + title, info))
                 else:
-                    self.list_data.append((processor, processor, "\u2610 " + title))
+                    self.list_data.append((processor, processor, "\u2610 " + title, info))
 
         if self.chain.is_audio():
             port_names = []
             # Direct physical outputs
             self.list_data.append((None, None, "> Direct Outputs"))
-            ports = zynautoconnect.get_hw_audio_dst_ports()
-            port_count = len(ports)
-            for i in range(1, port_count + 1, 2):
+            port_count = len(self.playback_ports)
+            for i in range(0, port_count, 2):
+                if self.playback_ports[i].aliases:
+                    suffix = f" ({self.playback_ports[i].aliases[0]})"
+                else:
+                    suffix = ""
+                port_names.append((f"Output {i + 1}{suffix}", f"^{self.playback_ports[i].name}$", [f"Send audio from this chain directly to physical audio output {i + 1} as mono.", "audio_output.png"]))
                 if i < port_count:
-                    port_names.append((f"Output {i}", f"system:playback_{i}$"))
-                    port_names.append((f"Output {i + 1}", f"system:playback_{i + 1}$"))
-                    port_names.append((f"Outputs {i}+{i + 1}", f"system:playback_[{i},{i + 1}]$"))
-                else:
-                    port_names.append((f"Output {i}", f"system:playback_{i}$"))
-            for title, processor in port_names:
+                    if self.playback_ports[i + 1].aliases:
+                        suffix = f" ({self.playback_ports[i + 1].aliases[0]})"
+                    else:
+                        suffix = ""
+                    port_names.append((f"Output {i + 2}{suffix}", f"^{self.playback_ports[i + 1].name}$", [f"Send audio from this chain directly to physical audio output {i + 2} as mono.", "audio_output.png"]))
+                    port_names.append((f"Outputs {i + 1}+{i + 2} (stereo)", f"^{self.playback_ports[i].name}$|^{self.playback_ports[i + 1].name}$", [f"Send audio from this chain directly to physical audio outputs {i + 1} & {i + 2} as stereo.", "audio_output.png"]))
+            for title, processor, info in port_names:
                 if processor in self.chain.audio_out:
-                    self.list_data.append((processor, processor, "\u2612 " + title))
+                    self.list_data.append((processor, processor, "\u2612 " + title, info))
                 else:
-                    self.list_data.append((processor, processor, "\u2610 " + title))
+                    self.list_data.append((processor, processor, "\u2610 " + title, info))
 
         self.list_data.append((None, None, "> Audio Recorder"))
         armed = self.zyngui.state_manager.audio_recorder.is_armed(self.chain.mixer_chan)
@@ -117,9 +132,9 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
         else:
             locked = "record"
         if armed:
-            self.list_data.append((locked, 'record_disable', '\u2612 Record chain'))
+            self.list_data.append((locked, 'record_disable', '\u2612 Record chain', [f"The chain will be recorded as a stereo track within a multitrack audio recording.", "audio_output.png"]))
         else:
-            self.list_data.append((locked, 'record_enable', '\u2610 Record chain'))
+            self.list_data.append((locked, 'record_enable', '\u2610 Record chain', [f"The chain will be not be recorded as a stereo track within a multitrack audio recording.", "audio_output.png"]))
 
         super().fill_list()
 
@@ -130,8 +145,18 @@ class zynthian_gui_audio_out(zynthian_gui_selector):
         if self.list_data[i][0] == 'record':
             self.zyngui.state_manager.audio_recorder.toggle_arm(self.chain.mixer_chan)
         else:
-            self.chain.toggle_audio_out(self.list_data[i][0])
-        self.fill_list()
+            self.zyngui.state_manager.start_busy("alsa_output")
+            zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
+            ctrl_list = []
+            for symbol, zctrl in zctrls.items():
+                try:
+                    if zctrl.graph_path[4] in self.list_data[i][1]:
+                        ctrl_list.append(symbol)
+                except:
+                    pass
+            self.zyngui.state_manager.end_busy("alsa_output")
+            if ctrl_list:
+                self.zyngui.show_screen("alsa_mixer", params=ctrl_list)
 
     def set_select_path(self):
         self.select_path.set("Send Audio to ...")
