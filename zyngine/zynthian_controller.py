@@ -81,7 +81,7 @@ class zynthian_controller:
         self.is_dirty = True  # True if control value changed since last UI update
         self.not_on_gui = False  # True to hint to GUI to show control
         # Hint of order in which to display control (higher comes first)
-        self.display_priority = 0
+        self.display_priority = float("inf")
 
         # Parameters to send values if engine-specific send method not available
         self.midi_chan = None  # MIDI channel to send CC messages from control
