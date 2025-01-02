@@ -781,8 +781,7 @@ class zynthian_engine_jalv(zynthian_engine):
                 logging.error(e)
 
         # Sort by suggested display_priority
-        new_index = sorted(
-            zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
+        new_index = sorted(zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
         zctrls = {k: zctrls[k] for k in new_index}
 
         return zctrls

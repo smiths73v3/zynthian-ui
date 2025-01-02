@@ -644,7 +644,7 @@ class zynthian_engine(zynthian_basic_engine):
             self._ctrl_screens = []
 
         # Sort by display_priority if exists
-        zctrl_dict = dict(sorted(zctrl_dict.items(), key=lambda item: item[1].display_priority))
+        zctrl_dict = dict(sorted(zctrl_dict.items(), key=lambda item: item[1].display_priority, reverse=True))
 
         # Get zctrls by group
         zctrl_group = {}
@@ -674,18 +674,15 @@ class zynthian_engine(zynthian_basic_engine):
                     ctrl_set.append(symbol)
                     if len(ctrl_set) >= 4:
                         # logging.debug("ADDING CONTROLLER SCREEN {}".format(self.get_ctrl_screen_name(gname,c)))
-                        self._ctrl_screens.append(
-                            [self.get_ctrl_screen_name(gname, c), ctrl_set])
+                        self._ctrl_screens.append([self.get_ctrl_screen_name(gname, c), ctrl_set])
                         ctrl_set = []
                         c = c + 1
                 except Exception as err:
-                    logging.error(
-                        "Generating Controller Screens => {}".format(err))
+                    logging.error("Generating Controller Screens => {}".format(err))
 
             if len(ctrl_set) >= 1:
                 # logging.debug("ADDING CONTROLLER SCREEN {}",format(self.get_ctrl_screen_name(gname,c)))
-                self._ctrl_screens.append(
-                    [self.get_ctrl_screen_name(gname, c), ctrl_set])
+                self._ctrl_screens.append([self.get_ctrl_screen_name(gname, c), ctrl_set])
 
     def send_controller_value(self, zctrl):
         raise Exception("NOT IMPLEMENTED!")
