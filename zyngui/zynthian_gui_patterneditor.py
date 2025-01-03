@@ -83,6 +83,22 @@ STEPS_PER_BEAT = [1, 2, 3, 4, 6, 8, 12, 24]
 INPUT_CHANNEL_LABELS = ['OFF', 'ANY', '1', '2', '3', '4', '5',
                         '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16']
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+CHORDS = {
+    "maj": ["Major triad",  [0, 4, 7]],
+    "min": ["Minor triad", [0, 3, 7]],
+    "dim": ["Diminished", [0, 3, 6]],
+    "maj7": ["Major seventh", [0, 4, 7, 11]],
+    "min7": ["Minor seventh", [0, 3, 7, 10]],
+    "dom7": ["Dominant Seventh", [0, 4, 7, 10]],
+    "sus2": ["Suspended second", [0, 2, 7]],
+    "sus4": ["Suspended fourth", [0, 5, 7]],
+    "aug": ["Augmented", [0, 4, 8]],
+    "maj9": ["Major ninth", [0, 4, 7, 11, 14]],
+    "min9": ["Minor ninth", [0, 3, 7, 10, 14]],
+    "dom9": ["Dominant ninth", [0, 4, 7, 10, 14]],
+    "maj11": ["Major eleventh", [0, 4, 7, 11, 14, 17]],
+    "min11": ["Minor eleventh", [0, 3, 7, 10, 14, 17]]
+}
 
 # -----------------------------------------------------------------------------
 # Class implements step sequencer pattern editor
@@ -377,6 +393,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
         options['Save pattern'] = 'Save pattern'
         options['Clear pattern'] = 'Clear pattern'
         options['Export to SMF'] = 'Export to SMF'
+        options['Insert pattern'] = 'Insert pattern'
 
         self.zyngui.screens['option'].config(
             "Pattern Editor Menu", options, self.menu_cb)
@@ -473,6 +490,36 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
         elif params == 'Export to SMF':
             self.zyngui.show_keyboard(
                 self.export_smf, "pat#{}".format(self.pattern))
+        elif params == 'Insert pattern':
+            options = {
+                "Chord": "chord",
+                "Progression": "progression",
+                "Pattern": "pattern"
+            }
+            self.zyngui.screens['option'].config(
+                'Select type to insert', options, self.insert_pattern_type)
+            self.zyngui.show_screen('option')
+
+    def insert_pattern_type(self, option, param):
+        self.new_pattern_type = param
+        match param:
+            case "chord":
+                options = {}
+                for key, value in CHORDS.items():
+                    options[value[0]] = key
+                self.zyngui.screens['option'].config(
+                    'Select pattern type', options, self.insert_pattern_chord)
+                self.zyngui.show_screen('option')
+            case "progression":
+                pass
+            case "pattern":
+                pass
+
+    def insert_pattern_chord(self, option, param):
+        step, root = self.selected_cell
+        for note in CHORDS[param][1]:
+            self.add_event(step, root + note, self.velocity, self.duration)
+        self.select_cell(step, root)
 
     def save_pattern_file(self, fname):
         self.zynseq.save_pattern(
