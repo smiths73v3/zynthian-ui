@@ -67,7 +67,6 @@ class zynthian_gui_selector(zynthian_gui_base):
         self.listbox_motion_last_dy = 0
         self.swiping = False
         self.last_release_ts = 0
-        self.last_selected_index = None
 
         # ListBox
         self.listbox = tkinter.Listbox(self.main_frame,
@@ -405,7 +404,7 @@ class zynthian_gui_selector(zynthian_gui_base):
         return True
 
     def select_action(self, index, t='S'):
-        self.last_selected_index = index
+        pass
 
     # --------------------------------------------------------------------------
     # Zynpot Callbacks (rotaries!)
