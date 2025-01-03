@@ -139,7 +139,7 @@ class zynthian_engine_jalv(zynthian_engine):
             'padthv1': [],
             'Vex': [],
             'amsynth': ['modulation wheel', 'sustain pedal'],
-            'JC303': []
+            'JC303': ['modulation wheel', 'sustain pedal']
         }
     }
 
@@ -801,17 +801,18 @@ class zynthian_engine_jalv(zynthian_engine):
         return zctrls
 
     def send_controller_value(self, zctrl):
-        try:
-            if zctrl.graph_path is not None:
-                self.proc_cmd("set %d %.6f" % (zctrl.graph_path, zctrl.value))
-            else:
-                self.proc_cmd("%s=%.6f" % (zctrl.symbol, zctrl.value))
-        except:
-            if zctrl.midi_cc:
+        if zctrl.midi_cc:
+            try:
                 lib_zyncore.zmop_send_ccontrol_change(zctrl.processor.chain.zmop_index,
                                                       zctrl.processor.midi_chan_engine,
                                                       zctrl.midi_cc,
                                                       zctrl.get_ctrl_midi_val())
+            except Exception as e:
+                logging.error(f"Can't send controller '{zctrl.symbol}' with CC{zctrl.midi_cc} to zmop {zctrl.processor.chain.zmop_index} => {e}")
+        elif zctrl.graph_path is not None:
+            self.proc_cmd("set %d %.6f" % (zctrl.graph_path, zctrl.value))
+        else:
+            self.proc_cmd("%s=%.6f" % (zctrl.symbol, zctrl.value))
 
     # ---------------------------------------------------------------------------
     # API methods
