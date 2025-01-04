@@ -25,15 +25,14 @@
 import os
 import re
 import copy
+import numpy
 import logging
-from subprocess import check_output, PIPE, DEVNULL, STDOUT
 import alsaaudio
-import numpy as np
+from subprocess import check_output
 
 from zyncoder.zyncore import lib_zyncore
 from . import zynthian_engine
 from . import zynthian_controller
-from zyngui import zynthian_gui_config
 
 # ------------------------------------------------------------------------------
 # ALSA Mixer Engine Class
@@ -60,7 +59,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # ---------------------------------------------------------------------------
 
     device_overrides = {
-
         # HifiBerry / ZynADAC
         "sndrpihifiberry": {
             "Digital_0_0_level": {"name": f"Output 1 level"},
@@ -81,7 +79,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # ZynADAC fix
     if soundcard_name == "ZynADAC":
         device_overrides["sndrpihifiberry"]["ADC_Left_Input_0_0_enum"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
-        device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] =  ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
+        device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
 
     # Tascam US-16x08
     device_overrides["US16x08"][f"DSP_Bypass_0_switch"] = {"name": "DSP enable"}
@@ -96,13 +94,12 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         device_overrides["US16x08"][f"EQ_{i}_0_switch"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels":["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
         for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
             device_overrides["US16x08"][f"EQ_{param}_{i}_0_level"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 50 + j * 10}
-        device_overrides["US16x08"][f"EQ_High_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in np.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
-        device_overrides["US16x08"][f"EQ_MidHigh_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidHigh Frequency", i, 0, "level", f"input_{i}"], "display_priority": 61}
+        device_overrides["US16x08"][f"EQ_High_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
+        device_overrides["US16x08"][f"EQ_MidHigh_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidHigh Frequency", i, 0, "level", f"input_{i}"], "display_priority": 61}
         device_overrides["US16x08"][f"EQ_MidHigh_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ MidHigh Q", i, 0, "level", f"input_{i}"], "display_priority": 62}
-        device_overrides["US16x08"][f"EQ_MidLow_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidLow Frequency", i, 0, "level", f"input_{i}"], "display_priority": 71}
+        device_overrides["US16x08"][f"EQ_MidLow_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidLow Frequency", i, 0, "level", f"input_{i}"], "display_priority": 71}
         device_overrides["US16x08"][f"EQ_MidLow_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ Midow Q", i, 0, "level", f"input_{i}"], "display_priority": 72}
-        device_overrides["US16x08"][f"EQ_Low_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 16000, num=64)], "graph_path": [f"EQ Low Frequency", i, 0, "level", f"input_{i}"], "display_priority": 81}
-
+        device_overrides["US16x08"][f"EQ_Low_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=64)], "graph_path": [f"EQ Low Frequency", i, 0, "level", f"input_{i}"], "display_priority": 81}
 
     # ---------------------------------------------------------------------------
     # Controllers & Screens
@@ -577,8 +574,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
 
         try:
             cmd = self.sys_dir + "/sbin/get_rbpi_audio_device.sh"
-            self.rbpi_device_name = check_output(
-                cmd, shell=True).decode("utf-8")
+            self.rbpi_device_name = check_output(cmd, shell=True).decode("utf-8")
         except:
             self.rbpi_device_name = None
 
