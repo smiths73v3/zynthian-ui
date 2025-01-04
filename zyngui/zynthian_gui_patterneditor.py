@@ -1839,9 +1839,13 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                            zynthian_gui_config.color_panel_tx)
             self.init_buttonbar(
                 [("ARROW_LEFT", "<< undo"), ("ARROW_RIGHT", "redo >>")])
+        elif self.chord_mode:
+            self.set_title(f"Pattern {self.pattern} [Chord Entry]",
+                zynthian_gui_config.color_panel_tx, zynthian_gui_config.color_header_bg)
+            self.init_buttonbar()
         else:
-            self.set_title("Pattern {}".format(
-                self.pattern), zynthian_gui_config.color_panel_tx, zynthian_gui_config.color_header_bg)
+            self.set_title(f"Pattern {self.pattern}",
+                zynthian_gui_config.color_panel_tx, zynthian_gui_config.color_header_bg)
             self.init_buttonbar()
 
     def set_edit_title(self):
@@ -1893,7 +1897,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                 self.set_title(
                     f"Chord mode: {CHORD_MODES[self.chord_mode]}")
             elif self.edit_param == EDIT_PARAM_CHORD_TYPE:
-                if self.chord_mode == 0:                    
+                if self.chord_mode == 0:
                     self.set_title(
                         f"Chord type: Single note")
                 elif self.chord_mode == 1:
@@ -2077,6 +2081,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     self.edit_param = 0
                 if self.edit_param > EDIT_PARAM_LAST:
                     self.edit_param = EDIT_PARAM_LAST
+                if self.edit_param == EDIT_PARAM_CHORD_TYPE and self.chord_mode == 0:
+                    self.edit_param = EDIT_PARAM_CHORD_MODE
                 self.set_edit_title()
             elif self.edit_mode == EDIT_MODE_ZOOM:
                 self.set_grid_zoom(self.zoom + dval)
