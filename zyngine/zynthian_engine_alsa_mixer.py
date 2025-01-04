@@ -25,11 +25,10 @@
 import os
 import re
 import copy
-import shlex
 import logging
-import threading
-from time import sleep
-from subprocess import check_output, Popen, PIPE, DEVNULL, STDOUT
+from subprocess import check_output, PIPE, DEVNULL, STDOUT
+import alsaaudio
+import numpy as np
 
 from zyncoder.zyncore import lib_zyncore
 from . import zynthian_engine
@@ -56,40 +55,54 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # Config variables
     # ----------------------------------------------------------------------------
 
-    chan_names = ["Left", "Right"]
-
     # ---------------------------------------------------------------------------
     # Translations by device
     # ---------------------------------------------------------------------------
 
-    if soundcard_name == "ZynADAC":
-        chan_trans = chan_names
-        sr_order = [2, 1]
-    else:
-        chan_trans = ["1", "2"]
-        sr_order = [1, 2]
+    device_overrides = {
 
-    translations_by_device = {
+        # HifiBerry / ZynADAC
         "sndrpihifiberry": {
-            "Digital Left": f"Output {chan_trans[0]} Level",
-            "Digital Right": f"Output {chan_trans[1]} Level",
-            "ADC Left": f"Input {chan_trans[0]} Level",
-            "ADC Right": f"Input {chan_trans[1]} Level",
-            "PGA Gain Left": f"Input {chan_trans[0]} Gain",
-            "PGA Gain Right": f"Input {chan_trans[1]} Gain",
-            "ADC Left Input": f"Input {chan_trans[0]} Mode",
-            "ADC Right Input": f"Input {chan_trans[1]} Mode",
-            "No Select": "Disabled",
-            f"VINL{sr_order[0]}[SE]": "Unbalanced Mono TS",
-            f"VINL{sr_order[1]}[SE]": "Unbalanced Mono TR",
-            "VINL2[SE] + VINL1[SE]": "Stereo TRS to Mono",
-            "{VIN1P, VIN1M}[DIFF]": "Balanced Mono TRS",
-            f"VINR{sr_order[0]}[SE]": "Unbalanced Mono TS",
-            f"VINR{sr_order[1]}[SE]": "Unbalanced Mono TR",
-            "VINR2[SE] + VINR1[SE]": "Stereo TRS to Mono",
-            "{VIN2P, VIN2M}[DIFF]": "Balanced Mono TRS"
-        }
+            "Digital_0_0_level": {"name": f"Output 1 level"},
+            "Digital_0_1_level": {"name": f"Output 2 level"},
+            "Digital_0_0_switch": {"name": f"Output 1 mute"},
+            "Digital_0_1_switch": {"name": f"Output 2 mute"},
+            "ADC_0_0_level": {"name": f"Input 1 level"}, 
+            "ADC_0_1_level": {"name": f"Input 2 level"}, 
+            "PGA_Gain_Left_0_0_enum": {"name":f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"], "group_symbol": "input"},
+            "PGA_Gain_Right_0_0_enum": {"name":f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"], "group_symbol": "input"},
+            "ADC_Left_Input_0_0_enum": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"], "group_symbol": "input"},
+            "ADC_Right_Input_0_0_enum": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 1, "enum", "input_1"], "group_symbol": "input"}
+        },
+        # Tascam US-16x08 place holder (populated programatically)
+        "US16x08": {}
     }
+
+    # ZynADAC fix
+    if soundcard_name == "ZynADAC":
+        device_overrides["sndrpihifiberry"]["ADC_Left_Input_0_0_enum"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
+        device_overrides["sndrpihifiberry"]["ADC_Right_Input_0_0_enum"]["labels"] =  ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
+
+    # Tascam US-16x08
+    device_overrides["US16x08"][f"DSP_Bypass_0_switch"] = {"name": "DSP enable"}
+    for i in range(16):
+        device_overrides["US16x08"][f"Compressor_{i}_0_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "labels":["enabled", "disabled"], "display_priority": i}
+        device_overrides["US16x08"][f"Compressor_Threshold_{i}_0_level"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "graph_path": ["Compressor Threshold", i, 0, "level", f"input_{i}"], "display_priority": 21}
+        device_overrides["US16x08"][f"Compressor_Ratio_{i}_0_level"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "graph_path": ["Compressor Ratio", i, 0, "level", f"input_{i}"], "display_priority": 22}
+        device_overrides["US16x08"][f"Compressor_Attack_{i}_0_level"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Attack", i, 0, "level", f"input_{i}"], "display_priority": 23}
+        device_overrides["US16x08"][f"Compressor_Release_{i}_0_level"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Release", i, 0, "level", f"input_{i}"], "display_priority": 24}
+        device_overrides["US16x08"][f"Compressor_{i}_0_level"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "graph_path": ["Compressor", i, 0, "level", f"input_{i}"], "display_priority": 25}
+
+        device_overrides["US16x08"][f"EQ_{i}_0_switch"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels":["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
+        for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
+            device_overrides["US16x08"][f"EQ_{param}_{i}_0_level"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 50 + j * 10}
+        device_overrides["US16x08"][f"EQ_High_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in np.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
+        device_overrides["US16x08"][f"EQ_MidHigh_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidHigh Frequency", i, 0, "level", f"input_{i}"], "display_priority": 61}
+        device_overrides["US16x08"][f"EQ_MidHigh_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ MidHigh Q", i, 0, "level", f"input_{i}"], "display_priority": 62}
+        device_overrides["US16x08"][f"EQ_MidLow_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidLow Frequency", i, 0, "level", f"input_{i}"], "display_priority": 71}
+        device_overrides["US16x08"][f"EQ_MidLow_Q_{i}_0_level"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ Midow Q", i, 0, "level", f"input_{i}"], "display_priority": 72}
+        device_overrides["US16x08"][f"EQ_Low_Frequency_{i}_0_level"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in np.geomspace(32, 16000, num=64)], "graph_path": [f"EQ Low Frequency", i, 0, "level", f"input_{i}"], "display_priority": 81}
+
 
     # ---------------------------------------------------------------------------
     # Controllers & Screens
@@ -121,16 +134,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         self.options['replace'] = False
 
         self.zctrls = None
-        self.sender_poll_state = 0
-        self.amixer_sender_proc = None
-
         self.get_soundcard_config()
-
-    def start(self):
-        self.start_sender_poll()
-
-    def stop(self):
-        self.stop_sender_poll()
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -194,20 +198,21 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
 
         logging.debug(f"MIXER CTRL LIST: {ctrl_list}")
 
-        self.stop_sender_poll()
         ctrls = self.get_mixer_zctrls(self.device_name, ctrl_list)
 
         # Add HP amplifier interface if available
         try:
             if self.is_headphone_amp_interface_available():
-                ctrls.append(["Headphone", {
+                ctrls["Headphone"] = {
                     'name': "Headphone",
                     'graph_path': lib_zyncore.set_hpvol,
                     'value': lib_zyncore.get_hpvol(),
                     'value_min': 0,
                     'value_max': lib_zyncore.get_hpvol_max(),
-                    'is_integer': True
-                }])
+                    'is_integer': True,
+                    'group_symbol': "output",
+                    'group_name': "Output levels"
+                }
                 logging.debug(
                     "Added zyncore Headphones Amplifier volume control")
         except Exception as e:
@@ -219,9 +224,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 hp_ctrls = self.get_mixer_zctrls(
                     self.rbpi_device_name, ["Headphone", "PCM"])
                 if len(hp_ctrls) > 0:
-                    for ctrl in hp_ctrls:
-                        ctrls.append(ctrl)
-                        logging.debug(f"Added RBPi {ctrl[0]} volume control")
+                    ctrls |= hp_ctrls
                 else:
                     raise Exception("RBPi Headphone volume control not found!")
             except Exception as e:
@@ -229,25 +232,24 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     f"Can't configure RBPi headphones volume control: {e}")
 
         # Sort ctrls to match the configured mixer control list
+        """
         if ctrl_list and len(ctrl_list) > 0:
-            sorted_ctrls = []
-            for ctrl_symbol in ctrl_list:
+            sorted_ctrls = {}
+            for symbol in ctrl_list:
                 try:
-                    for ctrl in ctrls:
-                        if ctrl[0] == ctrl_symbol:
-                            sorted_ctrls.append(ctrl)
-                            break
+                    sorted_ctrls[symbol] = ctrls[symbol]
                 except:
                     pass
             ctrls = sorted_ctrls
+        """
 
         if processor:
             self.zctrls = processor.controllers_dict
             # Remove controls that are no longer used
-            for symbol in self.zctrls:
+            for symbol in list(self.zctrls):
                 d = True
                 for ctrl in ctrls:
-                    if symbol == ctrl[0]:
+                    if symbol == ctrl:
                         d = False
                         break
                 if d:
@@ -256,254 +258,293 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             self.zctrls = {}
 
         # Add new controllers or reconfigure existing ones
-        for ctrl in ctrls:
-            if ctrl[0] in self.zctrls:
-                self.zctrls[ctrl[0]].set_options(ctrl[1])
-            self.zctrls[ctrl[0]] = zynthian_controller(self, ctrl[0], ctrl[1])
-            self.zctrls[ctrl[0]].last_value_sent = None
+        for symbol, config in ctrls.items():
+            if symbol in self.zctrls:
+                self.zctrls[symbol].set_options(config)
+            self.zctrls[symbol] = zynthian_controller(self, symbol, config)
 
         # Generate control screens
         self._ctrl_screens = None
         self.generate_ctrl_screens(self.zctrls)
 
-        self.start_sender_poll()
-
         return self.zctrls
 
-    def get_mixer_zctrls(self, device_name, ctrl_list):
-        _ctrls = []
+    def get_mixer_zctrls(self, device_name=None, ctrl_list=None):
+        _ctrls = {}
+        if device_name:
+            device = f"hw:{device_name}"
+        else:
+            device = self.device
         try:
-            ctrls = check_output(
-                f"amixer -M -c {device_name}", shell=True).decode("utf-8").split("Simple mixer control ")
-            for ctrl in ctrls:
-                lines = ctrl.splitlines()
-                if len(lines) == 0:
-                    continue
-
-                m = re.match("'(.*?)'.*", lines[0], re.M | re.I)
-                if m:
-                    ctrl_name = m.group(1).strip()
-                    ctrl_symbol = ctrl_name.replace(' ', '_')
-                else:
-                    ctrl_name = None
-                    ctrl_symbol = None
-
-                ctrl_type = None
-                ctrl_caps = None
-                ctrl_chans = []
-                ctrl_items = None
-                ctrl_item0 = None
-                ctrl_ticks = None
-                ctrl_limits = None
-                ctrl_maxval = 100
-                ctrl_minval = 0
-                ctrl_value = 50
-                ctrl_values = []
-
-                # logging.debug(f"MIXER CONTROL => {ctrl_name}\n{ctrl}")
-                for line in lines[1:]:
+            mixer_ctrl_names = sorted(set(alsaaudio.mixers(device=device)))
+            for ctrl_name in mixer_ctrl_names:
+                idx = 0
+                try:
+                    alsaaudio.Mixer(ctrl_name, 1, -1, device)
+                    ctrl_array = True
+                except:
+                    ctrl_array = False
+                while True:
+                    # Iterate through all elements of array
                     try:
-                        key, value = line.strip().split(": ", 1)
-                        # logging.debug("f  {key} => {value}")
-                    except:
-                        continue
-
-                    if key == 'Capabilities':
-                        ctrl_caps = value.split(' ')
-                        if 'enum' in ctrl_caps:
-                            ctrl_type = "Selector"
-                        elif 'volume' in ctrl_caps or 'pvolume' in ctrl_caps:
-                            ctrl_type = "Playback"
-                        elif 'cvolume' in ctrl_caps:
-                            ctrl_type = "Capture"
-                        elif 'pswitch' in ctrl_caps or 'cswitch' in ctrl_caps:
-                            ctrl_type = "Toggle"
-                            ctrl_items = ["off", "on"]
-                            ctrl_ticks = [0, 1]
-
-                    elif key == 'Playback channels':
-                        ctrl_chans = value.strip().split(' - ')
-
-                    elif key == 'Capture channels':
-                        ctrl_chans = value.strip().split(' - ')
-
-                    elif key == 'Limits':
-                        m = re.match(".*(\d+) - (\d+).*", value, re.M | re.I)
-                        if m:
-                            ctrl_limits = [int(m.group(1)), int(m.group(2))]
-                            if ctrl_limits[0] == 0 and ctrl_limits[1] == 1:
-                                ctrl_type = "VToggle"
-                                ctrl_items = ["off", "on"]
-                                ctrl_ticks = [0, 100]
-
-                    elif key == 'Items':
-                        ctrl_items = value[1:-1].split("' '")
-                        ctrl_ticks = list(range(len(ctrl_items)))
-
-                    elif key == 'Item0':
-                        ctrl_item0 = value[1:-1]
-
-                    elif key in ctrl_chans:
-                        if ctrl_type == "Toggle":
-                            m = re.match(".*\[(off|on)\].*",
-                                         value, re.M | re.I)
-                            if m:
-                                ctrl_item0 = m.group(1)
+                        mixer_ctrl = alsaaudio.Mixer(ctrl_name, idx, -1, device)
+                        switch_cap = mixer_ctrl.switchcap() # May be arbitrary switch, not necessarily mute
+                        level_cap = mixer_ctrl.volumecap() # May be arbitrary level, not necessarily volume
+                        enum_vals = mixer_ctrl.getenum()
+                    except Exception as e:
+                        break # exceeded index in array of controls
+                    io_num = idx + 1
+                    if "Playback Volume" in level_cap:
+                        # Control supports control of an output level parameter
+                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        ctrl_multi = ctrl_array or len(levels) > 1
+                        for chan, val in enumerate(levels):
+                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                            if ctrl_multi:
+                                name = f"{ctrl_name} {io_num}"
                             else:
-                                ctrl_item0 = "off"
+                                name = ctrl_name
+                            is_toggle = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK)[1] == 1
+                            if is_toggle:
+                                labels = ["off", "on"]
+                            else:
+                                labels = None
+                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_level"
+                            if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
+                                continue
+                            if ctrl_name == "Headphone":
+                                io_num = 0 # Clumsey but we are only guestimating here
+                            _ctrls[symbol] = {
+                                'name': name,
+                                'graph_path': [ctrl_name, idx, chan, "level", f"output_{io_num - 1}"],
+                                    'value': val,
+                                    'value_min': ctrl_range[0],
+                                    'value_max': ctrl_range[1],
+                                    'is_toggle': is_toggle,
+                                    'is_integer': True,
+                                    'labels' : labels,
+                                    'processor': self.processor,
+                                    'group_symbol': "output",
+                                    'group_name': "Output levels",
+                                    'display_priority': 100000 + io_num
+                                }
+                            io_num += 1
+                    elif "Capture Volume" in level_cap:
+                        # Control supports control of an input level parameter
+                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        ctrl_multi = ctrl_array or len(levels) > 1
+                        for chan, val in enumerate(levels):
+                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                            if ctrl_multi:
+                                name = f"{ctrl_name} {io_num}"
+                            else:
+                                name = f"{ctrl_name}"
+                            is_toggle = mixer_ctrl.getrange(alsaaudio.PCM_CAPTURE)[1] == 1
+                            if is_toggle:
+                                labels = ["off", "on"]
+                            else:
+                                labels = None
+                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_level"
+                            if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
+                                continue
+                            _ctrls[symbol] = {
+                                'name': name,
+                                'graph_path': [ctrl_name,idx, chan, "level", f"input_{io_num - 1}"],
+                                    'value': val,
+                                    'value_min': ctrl_range[0],
+                                    'value_max': ctrl_range[1],
+                                    'is_toggle': is_toggle,
+                                    'is_integer': True,
+                                    'labels' : labels,
+                                    'processor': self.processor,
+                                    'group_symbol': "input",
+                                    'group_name': "Input levels",
+                                    'display_priority': 100000 + io_num
+                                }
+                            io_num += 1
+                    elif "Volume" in level_cap:
+                        # Control supports control of a misc? level parameter
+                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        ctrl_multi = ctrl_array or len(levels) > 1
+                        for chan, val in enumerate(levels):
+                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                            if ctrl_multi:
+                                name = f"{ctrl_name} {io_num}"
+                            else:
+                                name = f"{ctrl_name}"
+                            is_toggle = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK)[1] == 1
+                            if is_toggle:
+                                labels = ["off", "on"]
+                            else:
+                                labels = None
+                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_level"
+                            if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
+                                continue
+                            _ctrls[symbol] = {
+                                'name': name,
+                                'graph_path': [ctrl_name,idx, chan, "level", "other"],
+                                    'value': val,
+                                    'value_min': ctrl_range[0],
+                                    'value_max': ctrl_range[1],
+                                    'is_toggle': is_toggle,
+                                    'is_integer': True,
+                                    'labels' : labels,
+                                    'processor': self.processor,
+                                    'group_symbol': "other",
+                                    'group_name': "Other controls",
+                                    'display_priority': 100000 + io_num
+                                }
+                            io_num += 1
+                    io_num = idx + 1
+                    if "Playback Mute" in switch_cap:
+                        # Control supports control of an ouput switch parameter
+                        mutes = mixer_ctrl.getmute()
+                        ctrl_multi = ctrl_array or len(mutes) > 1
+                        for chan, val in enumerate(mutes):
+                            if ctrl_multi:
+                                name = f"{ctrl_name} {io_num}"
+                            else:
+                                name = ctrl_name
+                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_switch"
+                            if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
+                                continue
+                            _ctrls[symbol] = {
+                                'name': name,
+                                'graph_path': [ctrl_name, idx, chan, "switch", f"output_{io_num - 1}"],
+                                    'value': val,
+                                    'value_min': 0,
+                                    'value_max': 1,
+                                    'is_toggle': True,
+                                    'is_integer': True,
+                                    'labels': ["off", "on"],
+                                    'processor': self.processor,
+                                    'group_symbol': "output",
+                                    'group_name': "Output levels",
+                                    'display_priority': 100000 + io_num
+                                }
+                            io_num += 1
+                    elif "Capture Mute" in switch_cap:
+                        # Control supports control of an output switch parameter
+                        mutes = mixer_ctrl.getrec()
+                        ctrl_multi = ctrl_array or len(mutes) > 1
+                        for chan, val in enumerate(mutes):
+                            if ctrl_multi:
+                                name = f"{ctrl_name} {io_num}"
+                            else:
+                                name = ctrl_name
+                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_switch"
+                            if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
+                                continue
+                            _ctrls[symbol] = {
+                                'name': name,
+                                'graph_path': [ctrl_name, idx, chan, "switch", f"input_{io_num - 1}"],
+                                    'value': val,
+                                    'value_min': 0,
+                                    'value_max': 1,
+                                    'is_toggle': True,
+                                    'is_integer': True,
+                                    'labels': ["off", "on"],
+                                    'processor': self.processor,
+                                    'group_symbol': "input",
+                                    'group_name': "Input levels",
+                                    'display_priority': 100000 + io_num
+                                }
+                            io_num += 1
+                    elif "Mute" in switch_cap:
+                        # Control supports control of a misc? switch parameter
+                        mutes = mixer_ctrl.getmute()
+                        ctrl_multi = ctrl_array or len(mutes) > 1
+                        for chan, val in enumerate(mutes):
+                            if ctrl_multi:
+                                name = f"{ctrl_name} {io_num}"
+                            else:
+                                name = ctrl_name
+                            symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_{chan}_switch"
+                            if ctrl_list and symbol not in ctrl_list:
+                                io_num += 1
+                                continue
+                            _ctrls[symbol] = {
+                                'name': name,
+                                'graph_path': [ctrl_name, idx, chan, "switch", "other"],
+                                    'value': val,
+                                    'value_min': 0,
+                                    'value_max': 1,
+                                    'is_toggle': True,
+                                    'is_integer': True,
+                                    'labels': ["off", "on"],
+                                    'processor': self.processor,
+                                    'group_symbol': "other",
+                                    'group_name': "Other controls",
+                                    'display_priority': 100000 + io_num
+                                }
+                            io_num += 1
+                    io_num = idx + 1
+                    if enum_vals:
+                        # Control allows selection from a list
+                        if ctrl_array:
+                            name = f"{ctrl_name} {io_num}"
                         else:
-                            m = re.match(".*\[(\d*)%\].*", value, re.M | re.I)
-                            if m:
-                                ctrl_value = int(m.group(1))
-                                ctrl_values.append(ctrl_value)
-                                if ctrl_type == "VToggle":
-                                    ctrl_item0 = 'on' if (
-                                        ctrl_value > 0) else 'off'
-
-                if ctrl_symbol and ctrl_type:
-                    if ctrl_type in ("Selector", "Toggle", "VToggle") and len(ctrl_items) > 1:
-                        if not ctrl_list or ctrl_symbol in ctrl_list:
-                            ctrl_name_trans = self.translate(ctrl_name)
-                            ctrl_labels = [self.translate(
-                                item) for item in ctrl_items]
-                            # ctrl_labels = ctrl_items
-                            ctrl_value = self.translate(ctrl_item0)
-                            logging.debug("ADDING ZCTRL SELECTOR: {} ({}) => {}".format(
-                                ctrl_name_trans, ctrl_symbol, ctrl_item0))
-                            _ctrls.append([ctrl_symbol, {
-                                'name': ctrl_name_trans,
-                                'graph_path': [ctrl_name, ctrl_type, ctrl_items],
-                                'labels': ctrl_labels,
-                                'ticks': ctrl_ticks,
-                                'value': ctrl_value,
-                                'value_min': ctrl_ticks[0],
-                                'value_max': ctrl_ticks[-1],
-                                'is_toggle': (ctrl_type == 'Toggle'),
-                                'is_integer': True,
-                                'processor': self.processor
-                            }])
-
-                    elif ctrl_type in ("Playback", "Capture"):
-                        for i, chan in enumerate(ctrl_chans):
-                            if len(ctrl_chans) > 2:
-                                graph_path = [ctrl_name,
-                                              ctrl_type, i, len(ctrl_chans)]
-                                zctrl_symbol = ctrl_symbol + "_" + str(i)
-                                zctrl_name = ctrl_name + " " + str(i+1)
-                            elif len(ctrl_chans) == 2:
-                                graph_path = [ctrl_name, ctrl_type, i, 2]
-                                zctrl_symbol = ctrl_symbol + "_" + str(i)
-                                zctrl_name = ctrl_name + \
-                                    " " + self.chan_names[i]
-                            else:
-                                graph_path = [ctrl_name, ctrl_type]
-                                zctrl_symbol = ctrl_symbol
-                                zctrl_name = ctrl_name
-                            if not ctrl_list or zctrl_symbol in ctrl_list:
-                                zctrl_name_trans = self.translate(zctrl_name)
-                                logging.debug("ADDING ZCTRL LEVEL: {} ({}) => {}".format(
-                                    zctrl_name_trans, zctrl_symbol, ctrl_values[i]))
-                                _ctrls.append([zctrl_symbol, {
-                                    'name': zctrl_name_trans,
-                                    'graph_path': graph_path,
-                                    'value': ctrl_values[i],
-                                    'value_min': ctrl_minval,
-                                    'value_max': ctrl_maxval,
-                                    'is_toggle': False,
-                                    'is_integer': True
-                                }])
+                            name = ctrl_name
+                        symbol = f"{ctrl_name.replace(' ', '_')}_{idx}_0_enum"
+                        if ctrl_list and symbol not in ctrl_list:
+                            idx += 1
+                            continue
+                        _ctrls[symbol] = {
+                            'name': name,
+                            'graph_path': [ctrl_name, idx, 0, "enum", "other"],
+                            'labels': enum_vals[1],
+                            'ticks': list(range(len(enum_vals[1]))),
+                            'value': enum_vals[1].index(enum_vals[0]),
+                            'value_min': 0,
+                            'value_max': len(enum_vals[1]) - 1,
+                            'is_toggle': False,
+                            'is_integer': True,
+                            'processor': self.processor,
+                            'group_symbol': "other",
+                            'group_name': "Other controls",
+                            'display_priority': 100000 + io_num
+                        }
+                        io_num += 1
+                    idx += 1
 
         except Exception as err:
             logging.error(err)
 
+        # Apply soundcard specific overrides
+        if self.device_name in self.device_overrides:
+            for ctrl in self.device_overrides[self.device_name]:
+                try:
+                    _ctrls[ctrl] |= self.device_overrides[self.device_name][ctrl]
+                except:
+                    pass # There may be hidden controls
+
         return _ctrls
 
-    def translate(self, text):
-        try:
-            return self.translations[text]
-        except:
-            return text
-
     def send_controller_value(self, zctrl):
-        pass
-
-    def _send_controller_value(self, zctrl):
         try:
             if callable(zctrl.graph_path):
                 zctrl.graph_path(zctrl.value)
             else:
-                if zctrl.labels:
-                    if zctrl.graph_path[1] == "VToggle":
-                        amixer_command = f"set '{zctrl.graph_path[0]}' '{zctrl.value}%'"
+                name = zctrl.graph_path[0]
+                idx = zctrl.graph_path[1]
+                chan = zctrl.graph_path[2]
+                type = zctrl.graph_path[3]
+                if type == "level":
+                    if zctrl.group_symbol == "output":
+                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
                     else:
-                        i = zctrl.get_value2index()
-                        try:
-                            itemval = zctrl.graph_path[2][i]
-                        except:
-                            itemval = zctrl.get_value()
-                        amixer_command = f"set '{zctrl.graph_path[0]}' '{itemval}'"
-                    logging.debug(amixer_command)
-                    print(amixer_command,
-                          file=self.amixer_sender_proc.stdin, flush=True)
-                else:
-                    if zctrl.symbol == "Headphone" and self.allow_rbpi_headphones() and self.state_manager and self.state_manager.get_zynthian_config("rbpi_headphones"):
-                        amixer_command = f"amixer -M -c {self.rbpi_device_name} set '{zctrl.graph_path[0]}' '{zctrl.graph_path[1]}' {zctrl.value}% unmute"
-                        logging.debug(amixer_command)
-                        check_output(shlex.split(amixer_command))
-                    else:
-                        values = []
-                        if len(zctrl.graph_path) > 2:
-                            nchans = zctrl.graph_path[3]
-                            symbol_prefix = zctrl.symbol[:-1]
-                            for i in range(0, nchans):
-                                symbol_i = symbol_prefix + str(i)
-                                if symbol_i in self.zctrls:
-                                    values.append(
-                                        f"{self.zctrls[symbol_i].value}%")
-                                else:
-                                    values.append("0%")
-                        else:
-                            values.append(f"{zctrl.value}%")
-
-                        amixer_command = f"set '{zctrl.graph_path[0]}' '{zctrl.graph_path[1]}' {','.join(values)} unmute"
-                        logging.debug(amixer_command)
-                        print(amixer_command,
-                              file=self.amixer_sender_proc.stdin, flush=True)
-            sleep(0.05)
-
+                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                elif type == "switch":
+                        alsaaudio.Mixer(name, idx, -1, self.device).setmute(zctrl.value, chan)
+                elif type == "enum":
+                        alsaaudio.Mixer(name, idx, -1, self.device).setenum(zctrl.value)
         except Exception as err:
             logging.error(err)
-
-    def start_sender_poll(self):
-        def runInThread():
-            self.amixer_sender_proc = Popen(["amixer", "-s", "-M", "-c", self.device_name],
-                                            stdin=PIPE, stdout=DEVNULL, stderr=STDOUT, bufsize=1, universal_newlines=True)
-            while self.sender_poll_state == 1:
-                counter = 0
-                if self.zctrls:
-                    for sym, zctrl in self.zctrls.items():
-                        if zctrl.last_value_sent != zctrl.value:
-                            zctrl.last_value_sent = zctrl.value
-                            self._send_controller_value(zctrl)
-                            counter += 1
-
-                if counter == 0:
-                    sleep(0.05)
-            self.amixer_sender_proc.terminate()
-            self.amixer_sender_proc = None
-            self.sender_poll_state = 0
-            sleep(0.1)
-
-        self.sender_poll_state = 1
-        thread = threading.Thread(target=runInThread, daemon=True)
-        thread.name = "ALSA mixer engine"
-        thread.start()
-
-    def stop_sender_poll(self):
-        if self.sender_poll_state == 1:
-            self.sender_poll_state = 2
-        while self.sender_poll_state:
-            sleep(0.1)
 
     # ----------------------------------------------------------------------------
     # MIDI CC processing
@@ -527,6 +568,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             self.device_name = res.group(1)
         except:
             self.device_name = "0"
+        self.device = f"hw:{self.device_name}"
 
         try:
             self.translations = self.translations_by_device[self.device_name]

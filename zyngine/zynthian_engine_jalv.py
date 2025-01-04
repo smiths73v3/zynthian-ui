@@ -138,7 +138,8 @@ class zynthian_engine_jalv(zynthian_engine):
             'Surge': ['modulation wheel', 'sustain pedal'],
             'padthv1': [],
             'Vex': [],
-            'amsynth': ['modulation wheel', 'sustain pedal']
+            'amsynth': ['modulation wheel', 'sustain pedal'],
+            'JC303': []
         }
     }
 
@@ -318,7 +319,7 @@ class zynthian_engine_jalv(zynthian_engine):
                 self.proc.terminate()
                 try:
                     self.proc.wait(timeout=5)
-                except TimeoutExpired:
+                except:
                     self.proc.kill()
                 self.proc = None
             except Exception as err:
@@ -780,8 +781,7 @@ class zynthian_engine_jalv(zynthian_engine):
                 logging.error(e)
 
         # Sort by suggested display_priority
-        new_index = sorted(
-            zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
+        new_index = sorted(zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
         zctrls = {k: zctrls[k] for k in new_index}
 
         return zctrls

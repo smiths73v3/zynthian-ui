@@ -1731,6 +1731,7 @@ class zynthian_state_manager:
                         continue
                     fixed_processors[processor_id] = processor_state
                 state['processors'] = fixed_processors
+
         return zs3_state
 
     def purge_zs3(self):

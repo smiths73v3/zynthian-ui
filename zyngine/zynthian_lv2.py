@@ -874,6 +874,8 @@ def get_plugin_ports(plugin_url):
         symbol = world.get_symbol(control)
         name = str(world.get(control, world.ns.rdfs.label, None))
 
+        #logging.debug(f"Got property parameter with symbol {symbol} => {name}")
+
         range_type = str(world.get(control, world.ns.rdfs.range, None))
         vdef = get_node_value(world.get(control, world.ns.lv2.default, None))
         vmin = get_node_value(world.get(control, world.ns.lv2.minimum, None))

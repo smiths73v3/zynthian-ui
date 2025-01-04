@@ -81,7 +81,7 @@ class zynthian_controller:
         self.is_dirty = True  # True if control value changed since last UI update
         self.not_on_gui = False  # True to hint to GUI to show control
         # Hint of order in which to display control (higher comes first)
-        self.display_priority = 0
+        self.display_priority = float("inf")
 
         # Parameters to send values if engine-specific send method not available
         self.midi_chan = None  # MIDI channel to send CC messages from control
@@ -408,14 +408,12 @@ class zynthian_controller:
 
         # Try sending directly to chain's zmop
         if izmop is not None and izmop >= 0:
-            lib_zyncore.zmop_send_ccontrol_change(
-                izmop, self.midi_chan, self.midi_cc, mval)
+            lib_zyncore.zmop_send_ccontrol_change(izmop, self.midi_chan, self.midi_cc, mval)
         # If not possible, send to fake-UI zmip,
         # but if active MIDI channel is enabled, this would reach all chains in the MIDI channel
         # what generates issues when combining some engines (for instance, fluidsynth + pianoteq)
         else:
-            lib_zyncore.ui_send_ccontrol_change(
-                self.midi_chan, self.midi_cc, mval)
+            lib_zyncore.ui_send_ccontrol_change(self.midi_chan, self.midi_cc, mval)
 
     def send_midi_feedback(self, mval=None):
         if mval is None:

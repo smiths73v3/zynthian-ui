@@ -351,7 +351,12 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			custom_slb_fpath = None
 
 		# Build SL command line
+		#if self.config_remote_display():
+		#	self.command = ["slgui", "-l 0", f"-P {self.osc_target_port}", f"-J {self.jackname}"]
+		#else:
+			#self.command = ["sooperlooper", "-q", "-l 0", "-D no", f"-p {self.osc_target_port}", f"-j {self.jackname}"]
 		self.command = ["sooperlooper", "-q", "-D no", f"-p {self.osc_target_port}", f"-j {self.jackname}"]
+
 		if custom_slb_fpath:
 			self.command += ["-m", custom_slb_fpath]
 
