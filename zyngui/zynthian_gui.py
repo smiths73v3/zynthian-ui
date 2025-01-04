@@ -996,14 +996,16 @@ class zynthian_gui:
         self.chain_control()
 
     def toggle_favorites(self):
-        if self.get_current_processor():
-            self.get_current_processor().toggle_show_fav_presets()
+        curproc = self.get_current_processor()
+        if curproc:
+            curproc.toggle_show_fav_presets()
             self.show_screen("preset")
 
     def show_favorites(self):
-        if self.get_current_processor():
+        curproc = self.get_current_processor()
+        if curproc:
             self.cuia_bank_preset()
-            self.get_current_processor().set_show_fav_presets(True)
+            curproc.set_show_fav_presets(True)
             self.show_screen("preset")
 
     def get_current_processor(self):
@@ -1018,8 +1020,9 @@ class zynthian_gui:
     def get_current_processor_wait(self):
         # Try until processor is ready
         for j in range(100):
-            if self.get_current_processor():
-                return self.get_current_processor()
+            curproc = self.get_current_processor()
+            if curproc:
+                return curproc
             else:
                 sleep(0.1)
 
@@ -1848,7 +1851,9 @@ class zynthian_gui:
     # Initialize custom switches, analog I/O, TOF sensors, etc.
     def zynswitches_midi_setup(self, current_chan=None):
         if current_chan is None:
-            current_chan = self.get_current_processor().midi_chan
+            curproc = self.get_current_processor()
+            if curproc:
+                current_chan = curproc.midi_chan
         self.wiring_midi_setup(current_chan)
 
     def get_zynswitch_pr_state(self, i):
@@ -2017,8 +2022,11 @@ class zynthian_gui:
         if param:
             self.screens['control'].midi_unlearn(param)
         else:
-            self.show_confirm("Do you want to clean MIDI-learn for ALL controls in {} on MIDI channel {}?".format(
-                self.get_current_processor().engine.name, self.get_current_processor().midi_chan + 1), self.screens['control'].midi_unlearn)
+            curproc = self.get_current_processor()
+            if curproc:
+                self.show_confirm(
+                    f"Do you want to clean MIDI-learn for ALL controls in {curproc.engine.name} on MIDI channel {curproc.midi_chan + 1}?",
+                    self.screens['control'].midi_unlearn)
 
     # ------------------------------------------------------------------
     # Defered Switch Events
@@ -2069,15 +2077,19 @@ class zynthian_gui:
         """
 
         # Pattern recording
-        if self.current_screen == 'pattern_editor' and self.state_manager.zynseq.libseq.isMidiRecord():
-            self.screens['pattern_editor'].midi_note_on(note)
+        if self.current_screen == 'pattern_editor':
+            if self.state_manager.zynseq.libseq.isMidiRecord():
+                self.screens['pattern_editor'].midi_note_on(note)
         # Preload preset (note-on)
-        elif self.current_screen == 'preset' and zynthian_gui_config.preset_preload_noteon and \
-                (zynautoconnect.get_midi_in_dev_mode(izmip) or chan == self.get_current_processor().get_midi_chan()):
-            self.screens['preset'].preselect_action()
+        elif self.current_screen == 'preset':
+            if zynthian_gui_config.preset_preload_noteon:
+                curproc = self.get_current_processor()
+                if curproc and (zynautoconnect.get_midi_in_dev_mode(izmip) or chan == curproc.midi_chan):
+                    self.screens['preset'].preselect_action()
         # Note Range Learn
-        elif self.current_screen == 'midi_key_range' and self.state_manager.midi_learn_state:
-            self.screens['midi_key_range'].learn_note_range(note)
+        elif self.current_screen == 'midi_key_range':
+            if self.state_manager.midi_learn_state:
+                self.screens['midi_key_range'].learn_note_range(note)
         # Channel activity
         elif self.current_screen == 'midi_chan':
             self.screens['midi_chan'].midi_chan_activity(chan)
