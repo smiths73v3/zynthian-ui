@@ -1088,7 +1088,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                         self.set_edit_mode(EDIT_MODE_SINGLE)
                     else:
                         self.set_edit_mode(EDIT_MODE_ALL)
-                # Short click without drag: Add/remove single note
+                # Short click without drag: Add/remove single note/chord
                 else:
                     step = self.selected_cell[0]
                     row = self.selected_cell[1]
@@ -1096,10 +1096,11 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
             # End drag action
             elif self.drag_note:
                 if not self.drag_start_velocity:
+                    # Drag drop note
                     step = self.selected_cell[0]
                     row = self.selected_cell[1]
                     # note = self.keymap[row]['note']
-                    self.add_event(step, row, self.velocity, self.duration)
+                    self.toggle_event(step, row)
             # Swipe
             elif self.swiping:
                 self.swipe_nudge(dts/1000)
@@ -1192,23 +1193,10 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
             return
         note = self.keymap[row]['note']
         start_step = self.zynseq.libseq.getNoteStart(step, note)
-        match self.chord_mode:
-            case 0:
-                # Single note entry
-                chord = [0]
-            case 1:
-                # Chord entry mode
-                chord = CHORDS[self.chord_type][1]
-            case _:
-                # Tonal chord entry mode
-                chord = self.get_tonal_chord(note)
         if start_step >= 0:
-            for offset in chord:
-                self.remove_event(start_step, row + offset)
+            self.remove_chord(start_step, row)
         else:
-            for offset in chord:
-                if self.add_event(step, row + offset, self.velocity, self.duration):
-                    self.play_note(note + offset)
+            self.add_chord(step, row, self.velocity, self.duration)
         self.select_cell(None, row)
 
     # Function to remove an event
@@ -1227,6 +1215,47 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
         self.draw_row(row)
         self.drawing = False
         self.select_cell(step, row)
+
+    # Function to add a note or chord, depending on current chord mode
+    # step: step number (column)
+    # note: MIDI note (0-127)
+    # vel: velocity (0-127)
+    # dur: duration (in steps)
+    # offset: offset of start of event (0..0.99)
+    def add_chord(self, step, note, vel, dur, offset=0.0):
+        match self.chord_mode:
+            case 0:
+                # Single note entry
+                chord = [0]
+            case 1:
+                # Chord entry mode
+                chord = CHORDS[self.chord_type][1]
+            case _:
+                # Tonal chord entry mode
+                chord = self.get_tonal_chord(note)
+        for offset in chord:
+            if self.add_event(step, note + offset, self.velocity, self.duration):
+                self.play_note(note + offset)
+
+    # Function to remove a note or chord, depending on current chord mode
+    # step: step number (column)
+    # note: MIDI note (0-127)
+    # vel: velocity (0-127)
+    # dur: duration (in steps)
+    # offset: offset of start of event (0..0.99)
+    def remove_chord(self, step, note):
+        match self.chord_mode:
+            case 0:
+                # Single note entry
+                chord = [0]
+            case 1:
+                # Chord entry mode
+                chord = CHORDS[self.chord_type][1]
+            case _:
+                # Tonal chord entry mode
+                chord = self.get_tonal_chord(note)
+        for offset in chord:
+            self.remove_event(step, note + offset)
 
     # Function to add an event
     # step: step number (column)
@@ -1922,7 +1951,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     if sel_duration:
                         sel_velocity = self.zynseq.libseq.getNoteVelocity(step, note)
                         sel_offset = self.zynseq.libseq.getNoteOffset(step, note)
-                        self.add_event(step, self.selected_cell[1], sel_velocity, duration, sel_offset)
+                        self.add_chord(step, self.selected_cell[1], sel_velocity, duration, sel_offset)
                     else:
                         self.duration = duration
                         self.select_cell()
@@ -1972,7 +2001,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     self.set_velocity_indicator(velocity)
                     if sel_duration and velocity != sel_velocity:
                         self.zynseq.libseq.setNoteVelocity(step, note, velocity)
-                        self.draw_cell(step, index - self.keymap_offset)
+                        self.draw_cell(step, index)
                     else:
                         self.velocity = velocity
                         self.select_cell()
@@ -2066,7 +2095,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
             return
         if type == "S":
             if self.edit_mode == EDIT_MODE_NONE:
-                note = self.toggle_event( self.selected_cell[0], self.selected_cell[1])
+                self.toggle_event( self.selected_cell[0], self.selected_cell[1])
             else:
                 self.set_edit_mode(EDIT_MODE_NONE)
         elif type == "B":
