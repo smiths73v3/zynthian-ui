@@ -429,8 +429,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             symbol = f"{ctrl_name.replace(' ', '_')}"
                             if ctrl_array:
                                 symbol += f"_{idx}"
-                            if len(levels) > 1:
-                                symbol += f"_{chan}"
                             symbol += switch_suffix
                             if ctrl_list and symbol not in ctrl_list:
                                 io_num += 1
@@ -462,8 +460,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             symbol = f"{ctrl_name.replace(' ', '_')}"
                             if ctrl_array:
                                 symbol += f"_{idx}"
-                            if len(levels) > 1:
-                                symbol += f"_{chan}"
                             symbol += switch_suffix
                             if ctrl_list and symbol not in ctrl_list:
                                 io_num += 1
@@ -495,8 +491,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             symbol = f"{ctrl_name.replace(' ', '_')}"
                             if ctrl_array:
                                 symbol += f"_{idx}"
-                            if len(levels) > 1:
-                                symbol += f"_{chan}"
                             symbol += switch_suffix
                             if ctrl_list and symbol not in ctrl_list:
                                 io_num += 1
