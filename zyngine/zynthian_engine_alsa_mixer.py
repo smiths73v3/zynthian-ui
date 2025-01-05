@@ -66,7 +66,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             "Digital_0_switch": {"name": f"Output 1 mute"},
             "Digital_1_switch": {"name": f"Output 2 mute"},
             "ADC_0": {"name": f"Input 1 level"},
-            "ADC_0_1": {"name": f"Input 2 level"},
+            "ADC_1": {"name": f"Input 2 level"},
             "PGA_Gain_Left": {"name":f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"], "group_symbol": "input"},
             "PGA_Gain_Right": {"name":f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"], "group_symbol": "input"},
             "ADC_Left_Input": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"], "group_symbol": "input"},
@@ -567,8 +567,8 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 zctrl.graph_path(zctrl.value)
             else:
                 name = zctrl.graph_path[0]
-                chan = zctrl.graph_path[1]
-                idx = zctrl.graph_path[2]
+                idx = zctrl.graph_path[1]
+                chan = zctrl.graph_path[2]
                 type = zctrl.graph_path[3]
                 if type == "level":
                     if zctrl.group_symbol == "output":
