@@ -5,26 +5,39 @@ from .zynthian_ctrldev_base_ui import ModeHandlerBase
 from os import listdir
 from os.path import isfile, join
 import time
-import signal
 import random
-from bisect import bisect
-from copy import deepcopy
-from functools import partial
-import multiprocessing as mp
-from threading import Thread, RLock, Event
 import liblo
 from threading import Timer
 
 from zyncoder.zyncore import lib_zyncore
-from zyngine.zynthian_signal_manager import zynsigman
-from zynconf import ServerPort
-from zyngine.zynthian_engine_sooperlooper import *
-from .zynthian_ctrldev_base import zynthian_ctrldev_base
+from zyngine.zynthian_engine_sooperlooper import (
+    zynthian_engine_sooperlooper,
+    SL_STATE_UNKNOWN,
+    SL_STATE_OFF,
+    SL_STATE_REC_STARTING,
+    SL_STATE_RECORDING,
+    SL_STATE_REC_STOPPING,
+    SL_STATE_PLAYING,
+    SL_STATE_OVERDUBBING,
+    SL_STATE_MULTIPLYING,
+    SL_STATE_INSERTING,
+    SL_STATE_REPLACING,
+    SL_STATE_DELAYING,
+    SL_STATE_MUTED,
+    SL_STATE_SCRATCHING,
+    SL_STATE_PLAYING_ONCE,
+    SL_STATE_SUBSTITUTING,
+    SL_STATE_PAUSED,
+    SL_STATE_UNDO_ALL,
+    SL_STATE_TRIGGER_PLAY,
+    SL_STATE_UNDO,
+    SL_STATE_REDO,
+    SL_STATE_REDO_ALL,
+    SL_STATE_OFF_MUTED,
+)
+
 from .zynthian_ctrldev_base_extended import (
-    RunTimer,
     KnobSpeedControl,
-    ButtonTimer,
-    CONST,
 )
 from .zynthian_ctrldev_akai_apc_key25_mk2_feedback_leds import FeedbackLEDs
 from .zynthian_ctrldev_akai_apc_key25_mk2_colors import COLORS
@@ -74,28 +87,7 @@ LEVEL_COLORS = [
 # ------------------------------------------------------------------------------
 
 # From sooperlooper engine
-SL_STATE_UNKNOWN = -1
-SL_STATE_OFF = 0
-SL_STATE_REC_STARTING = 1
-SL_STATE_RECORDING = 2
-SL_STATE_REC_STOPPING = 3
-SL_STATE_PLAYING = 4
-SL_STATE_OVERDUBBING = 5
-SL_STATE_MULTIPLYING = 6
-SL_STATE_INSERTING = 7
-SL_STATE_REPLACING = 8
-SL_STATE_DELAYING = 9
-SL_STATE_MUTED = 10
-SL_STATE_SCRATCHING = 11
-SL_STATE_PLAYING_ONCE = 12
-SL_STATE_SUBSTITUTING = 13
-SL_STATE_PAUSED = 14
-SL_STATE_UNDO_ALL = 15
-SL_STATE_TRIGGER_PLAY = 16
-SL_STATE_UNDO = 17
-SL_STATE_REDO = 18
-SL_STATE_REDO_ALL = 19
-SL_STATE_OFF_MUTED = 20
+
 SL_STATES = {
     SL_STATE_UNKNOWN: {
         "name": "unknown",
@@ -282,20 +274,6 @@ def assoc_path(state, path, value):
     return state
 
 
-# def over(lens_path, func, state):
-#     """Applies a function to the value at the specified lens path in the state."""
-#     # This is a simplified version; you would need to implement lens logic
-#     value = state
-#     for key in lens_path:
-#         value = value.get(key)
-#     new_value = func(value)
-#     d = state
-#     for key in lens_path[:-1]:
-#         d = d[key]
-#     d[lens_path[-1]] = new_value
-#     return state
-
-
 def split_every(n, iterable):
     """Split an iterable into chunks of size n."""
     it = iter(iterable)
@@ -347,12 +325,6 @@ def list_get(lst, index, default=None):
 
 def cycle(from_val, to, cur):
     return (cur - from_val + 1) % (to - from_val + 1) + from_val
-    # check whether it is the same
-    delta0 = -from_val
-    to0 = to + delta0
-    cur0 = cur + delta0
-    newVal0 = (cur0 + 1) % (to0 + 1)
-    return newVal0 - delta0
 
 
 # PAD FUNCTIONS
@@ -374,15 +346,22 @@ def padRow(pad):
 def shiftedTrack(track, offset):
     return track - offset
 
+
 def makeSessionNumberReducer(color, last):
     def sessionNumberReducer(acc, cur):
         try:
             pad = int(cur[:-7])
-            return acc + [BRIGHTS.LED_PULSING_8 if pad == last else BRIGHTS.LED_BRIGHT_100, pad, color]
+            return acc + [
+                BRIGHTS.LED_PULSING_8 if pad == last else BRIGHTS.LED_BRIGHT_100,
+                pad,
+                color,
+            ]
         except ValueError:
             return acc
+
     return sessionNumberReducer
-    
+
+
 # Pad coloring
 def padBrightnessForLevel(num, level):
     pos = num * level
@@ -787,7 +766,7 @@ def createAllPads(state):
         )
         sessions = getDeviceSetting("sessions", state) or []
         sessionnums = functools.reduce(
-            makeSessionNumberReducer(color, getDeviceSetting('sessions-last', state)),
+            makeSessionNumberReducer(color, getDeviceSetting("sessions-last", state)),
             sessions,
             [],
         )
@@ -905,7 +884,7 @@ class LooperHandler(
         "overdub_quantized",
         "replace_quantized",
         "reverse",
-        "pitch_shift"
+        "pitch_shift",
     ]
     auto_ctrls = [
         "state",
@@ -1054,10 +1033,6 @@ class LooperHandler(
     def end(self):
         super().end()
 
-    def refresh(self):
-        # PadMatrix is handled in volume/pan modes (when mixer handler is active)
-        pass
-
     def deviceModeName(self):
         faux_devmodes = DEVICEMODES + ["off"]
         return faux_devmodes[getDeviceMode(self.state)]
@@ -1067,7 +1042,7 @@ class LooperHandler(
         if curval is None:
             return
         # Calculate the new value, ensuring it stays within the range [0, 1]
-        if ctrl == 'pitch_shift':
+        if ctrl == "pitch_shift":
             new_value = max(-12, min(12, curval + delta))
         else:
             new_value = max(0, min(1, curval + delta * 0.1))
@@ -1220,7 +1195,7 @@ class LooperHandler(
                 return self.just_send(f"/sl/{track}/hit", ("s", "undo_all"))
             if self.redoing and numpad >= 4:
                 return self.just_send(f"/sl/{track}/hit", ("s", "redo_all"))
-        if (not self.undoing or self.redoing):
+        if not self.undoing or self.redoing:
             if numpad == 0:
                 return self.handle_rec_or_overdub(track, stateTrack, evtype)
         if numpad < 8:
@@ -1387,7 +1362,7 @@ class LooperHandler(
 
     def handle_rest_of_buttons(self, button, evtype):
         if evtype == EV_NOTE_ON and button == BUTTONS.BTN_STOP_ALL_CLIPS:
-            if (getDeviceSetting("shifted", self.state)):
+            if getDeviceSetting("shifted", self.state):
                 self.just_send("/sl/-1/hit", ("s", "mute_off"))
             else:
                 self.just_send("/sl/-1/hit", ("s", "mute_on"))
@@ -1486,7 +1461,7 @@ class LooperHandler(
         ctrl = TRACK_LEVELS[numpad]
         storedValue = levelTrack.get(ctrl, 0)
 
-        if ctrl == 'pitch_shift':
+        if ctrl == "pitch_shift":
             value = [12, None, 0, NotImplemented, -12][row]
             if row == 1:
                 value = storedValue + 1
@@ -1609,7 +1584,9 @@ class LooperHandler(
             if getDeviceSetting("shifted", self.state):
                 if evtype == EV_NOTE_ON:
                     self.just_send(
-                        f"/sl/{track}/set", ("s", "delay_trigger"), ("f", random.random())
+                        f"/sl/{track}/set",
+                        ("s", "delay_trigger"),
+                        ("f", random.random()),
                     )
                 else:
                     pass
@@ -1737,14 +1714,14 @@ class LooperHandler(
         msg = bytes(pads)
         lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
         # NOW RENDER
-        
+
     def dispatch(self, action):
         # logging.debug(f"type {type}; action {action}")
         self.state = self.reducer(self.state, action)
         if not (self._is_active):
             return
         self.render()
-        
+
     def register_update(self, range):
         for ctrl in self.ctrls:
             self.request_feedback(f"/sl/{range}/register_update", "/update", ctrl)
