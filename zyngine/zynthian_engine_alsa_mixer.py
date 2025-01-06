@@ -67,10 +67,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             "Digital_1_switch": {"name": f"Output 2 mute"},
             "ADC_0": {"name": f"Input 1 level"},
             "ADC_1": {"name": f"Input 2 level"},
-            "PGA_Gain_Left": {"name":f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"], "group_symbol": "input"},
-            "PGA_Gain_Right": {"name":f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"], "group_symbol": "input"},
-            "ADC_Left_Input": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"], "group_symbol": "input"},
-            "ADC_Right_Input": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 1, "enum", "input_1"], "group_symbol": "input"}
+            "PGA_Gain_Left": {"name": f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"], "group_symbol": "input", 'group_name': "Input levels"},
+            "PGA_Gain_Right": {"name": f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"], "group_symbol": "input", 'group_name': "Input levels"},
+            "ADC_Left_Input": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"], "group_symbol": "input", 'group_name': "Input levels"},
+            "ADC_Right_Input": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 1, "enum", "input_1"], "group_symbol": "input", 'group_name': "Input levels"}
         },
         # Tascam US-16x08 place holder (populated programatically)
         "US16x08": {}
@@ -84,14 +84,14 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # Tascam US-16x08
     device_overrides["US16x08"][f"DSP_Bypass"] = {"name": "DSP enable"}
     for i in range(16):
-        device_overrides["US16x08"][f"Compressor_{i}_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "labels":["enabled", "disabled"], "display_priority": i}
+        device_overrides["US16x08"][f"Compressor_{i}_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "labels": ["enabled", "disabled"], "display_priority": i}
         device_overrides["US16x08"][f"Compressor_Threshold_{i}"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "graph_path": ["Compressor Threshold", i, 0, "level", f"input_{i}"], "display_priority": 21}
         device_overrides["US16x08"][f"Compressor_Ratio_{i}"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "graph_path": ["Compressor Ratio", i, 0, "level", f"input_{i}"], "display_priority": 22}
         device_overrides["US16x08"][f"Compressor_Attack_{i}"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Attack", i, 0, "level", f"input_{i}"], "display_priority": 23}
         device_overrides["US16x08"][f"Compressor_Release_{i}"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Release", i, 0, "level", f"input_{i}"], "display_priority": 24}
         device_overrides["US16x08"][f"Compressor_{i}"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "graph_path": ["Compressor", i, 0, "level", f"input_{i}"], "display_priority": 25}
 
-        device_overrides["US16x08"][f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels":["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
+        device_overrides["US16x08"][f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
         for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
             device_overrides["US16x08"][f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 50 + j * 10}
         device_overrides["US16x08"][f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
@@ -228,18 +228,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 logging.error(
                     f"Can't configure RBPi headphones volume control: {e}")
 
-        # Sort ctrls to match the configured mixer control list
-        """
-        if ctrl_list and len(ctrl_list) > 0:
-            sorted_ctrls = {}
-            for symbol in ctrl_list:
-                try:
-                    sorted_ctrls[symbol] = ctrls[symbol]
-                except:
-                    pass
-            ctrls = sorted_ctrls
-        """
-
         if processor:
             self.zctrls = processor.controllers_dict
             # Remove controls that are no longer used
@@ -275,7 +263,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         try:
             mixer_ctrl_names = sorted(set(alsaaudio.mixers(device=device)))
             for ctrl_name in mixer_ctrl_names:
-                idx = 0 # ALSA array index
+                idx = 0  # ALSA array index
                 try:
                     alsaaudio.Mixer(ctrl_name, 1, -1, device)
                     ctrl_array = True
@@ -285,11 +273,11 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     # Iterate through all elements of array
                     try:
                         mixer_ctrl = alsaaudio.Mixer(ctrl_name, idx, -1, device)
-                        switch_cap = mixer_ctrl.switchcap() # May be arbitrary switch, not necessarily mute
-                        level_cap = mixer_ctrl.volumecap() # May be arbitrary level, not necessarily volume
+                        switch_cap = mixer_ctrl.switchcap()  # May be arbitrary switch, not necessarily mute
+                        level_cap = mixer_ctrl.volumecap()  # May be arbitrary level, not necessarily volume
                         enum_vals = mixer_ctrl.getenum()
                     except Exception as e:
-                        break # exceeded index in array of controls
+                        break  # exceeded index in array of controls
                     io_num = idx + 1
                     if level_cap and switch_cap:
                         switch_suffix = "_switch"
@@ -320,25 +308,30 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 symbol += f"_{idx}"
                             if len(levels) > 1:
                                 symbol += f"_{chan}"
-                            if ctrl_list and symbol not in ctrl_list:
-                                io_num += 1
-                                continue
+                            if ctrl_list:
+                                try:
+                                    display_priority = 10000 - ctrl_list.index(symbol)
+                                except:
+                                    io_num += 1
+                                    continue
+                            else:
+                                display_priority = 10000 - io_num
                             if ctrl_name == "Headphone":
-                                io_num = 0 # Clumsey but we are only guestimating here
+                                io_num = 0  # Clumsey but we are only guestimating here
                             _ctrls[symbol] = {
                                 'name': name,
                                 'graph_path': [ctrl_name, idx, chan, "level", f"output_{io_num - 1}"],
-                                    'value': val,
-                                    'value_min': ctrl_range[0],
-                                    'value_max': ctrl_range[1],
-                                    'is_toggle': is_toggle,
-                                    'is_integer': True,
-                                    'labels' : labels,
-                                    'processor': self.processor,
-                                    'group_symbol': "output",
-                                    'group_name': "Output levels",
-                                    'display_priority': 100000 + io_num
-                                }
+                                'value': val,
+                                'value_min': ctrl_range[0],
+                                'value_max': ctrl_range[1],
+                                'is_toggle': is_toggle,
+                                'is_integer': True,
+                                'labels': labels,
+                                'processor': self.processor,
+                                'group_symbol': "output",
+                                'group_name': "Output levels",
+                                'display_priority': display_priority
+                            }
                             io_num += 1
                     elif "Capture Volume" in level_cap:
                         # Control supports control of an input level parameter
@@ -360,22 +353,27 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 symbol += f"_{idx}"
                             if len(levels) > 1:
                                 symbol += f"_{chan}"
-                            if ctrl_list and symbol not in ctrl_list:
-                                io_num += 1
-                                continue
+                            if ctrl_list:
+                                try:
+                                    display_priority = 10000 - ctrl_list.index(symbol)
+                                except:
+                                    io_num += 1
+                                    continue
+                            else:
+                                display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
-                            'graph_path': [ctrl_name, idx, chan, "level", f"input_{io_num - 1}"],
+                                'graph_path': [ctrl_name, idx, chan, "level", f"input_{io_num - 1}"],
                                 'value': val,
                                 'value_min': ctrl_range[0],
                                 'value_max': ctrl_range[1],
                                 'is_toggle': is_toggle,
                                 'is_integer': True,
-                                'labels' : labels,
+                                'labels': labels,
                                 'processor': self.processor,
                                 'group_symbol': "input",
                                 'group_name': "Input levels",
-                                'display_priority': 100000 + io_num
+                                'display_priority': display_priority
                             }
                             io_num += 1
                     elif "Volume" in level_cap:
@@ -398,23 +396,28 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 symbol += f"_{idx}"
                             if len(levels) > 1:
                                 symbol += f"_{chan}"
-                            if ctrl_list and symbol not in ctrl_list:
-                                io_num += 1
-                                continue
+                            if ctrl_list:
+                                try:
+                                    display_priority = 10000 - ctrl_list.index(symbol)
+                                except:
+                                    io_num += 1
+                                    continue
+                            else:
+                                display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
                                 'graph_path': [ctrl_name, idx, chan, "level", "other"],
-                                    'value': val,
-                                    'value_min': ctrl_range[0],
-                                    'value_max': ctrl_range[1],
-                                    'is_toggle': is_toggle,
-                                    'is_integer': True,
-                                    'labels' : labels,
-                                    'processor': self.processor,
-                                    'group_symbol': "other",
-                                    'group_name': "Other controls",
-                                    'display_priority': 100000 + io_num
-                                }
+                                'value': val,
+                                'value_min': ctrl_range[0],
+                                'value_max': ctrl_range[1],
+                                'is_toggle': is_toggle,
+                                'is_integer': True,
+                                'labels': labels,
+                                'processor': self.processor,
+                                'group_symbol': "other",
+                                'group_name': "Other controls",
+                                'display_priority': display_priority
+                            }
                             io_num += 1
                     io_num = idx + 1
                     if "Playback Mute" in switch_cap:
@@ -430,23 +433,28 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             if ctrl_array:
                                 symbol += f"_{idx}"
                             symbol += switch_suffix
-                            if ctrl_list and symbol not in ctrl_list:
-                                io_num += 1
-                                continue
+                            if ctrl_list:
+                                try:
+                                    display_priority = 10000 - ctrl_list.index(symbol)
+                                except:
+                                    io_num += 1
+                                    continue
+                            else:
+                                display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
                                 'graph_path': [ctrl_name, idx, chan, "switch", f"output_{io_num - 1}"],
-                                    'value': val,
-                                    'value_min': 0,
-                                    'value_max': 1,
-                                    'is_toggle': True,
-                                    'is_integer': True,
-                                    'labels': ["off", "on"],
-                                    'processor': self.processor,
-                                    'group_symbol': "output",
-                                    'group_name': "Output levels",
-                                    'display_priority': 100000 + io_num
-                                }
+                                'value': val,
+                                'value_min': 0,
+                                'value_max': 1,
+                                'is_toggle': True,
+                                'is_integer': True,
+                                'labels': ["off", "on"],
+                                'processor': self.processor,
+                                'group_symbol': "output",
+                                'group_name': "Output levels",
+                                'display_priority': display_priority
+                            }
                             io_num += 1
                     elif "Capture Mute" in switch_cap:
                         # Control supports control of an output switch parameter
@@ -461,23 +469,28 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             if ctrl_array:
                                 symbol += f"_{idx}"
                             symbol += switch_suffix
-                            if ctrl_list and symbol not in ctrl_list:
-                                io_num += 1
-                                continue
+                            if ctrl_list:
+                                try:
+                                    display_priority = 10000 - ctrl_list.index(symbol)
+                                except:
+                                    io_num += 1
+                                    continue
+                            else:
+                                display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
                                 'graph_path': [ctrl_name, idx, chan, "switch", f"input_{io_num - 1}"],
-                                    'value': val,
-                                    'value_min': 0,
-                                    'value_max': 1,
-                                    'is_toggle': True,
-                                    'is_integer': True,
-                                    'labels': ["off", "on"],
-                                    'processor': self.processor,
-                                    'group_symbol': "input",
-                                    'group_name': "Input levels",
-                                    'display_priority': 100000 + io_num
-                                }
+                                'value': val,
+                                'value_min': 0,
+                                'value_max': 1,
+                                'is_toggle': True,
+                                'is_integer': True,
+                                'labels': ["off", "on"],
+                                'processor': self.processor,
+                                'group_symbol': "input",
+                                'group_name': "Input levels",
+                                'display_priority': display_priority
+                            }
                             io_num += 1
                     elif "Mute" in switch_cap:
                         # Control supports control of a misc? switch parameter
@@ -492,23 +505,28 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             if ctrl_array:
                                 symbol += f"_{idx}"
                             symbol += switch_suffix
-                            if ctrl_list and symbol not in ctrl_list:
-                                io_num += 1
-                                continue
+                            if ctrl_list:
+                                try:
+                                    display_priority = 10000 - ctrl_list.index(symbol)
+                                except:
+                                    idx += 1
+                                    continue
+                            else:
+                                display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
                                 'graph_path': [ctrl_name, idx, chan, "switch", "other"],
-                                    'value': val,
-                                    'value_min': 0,
-                                    'value_max': 1,
-                                    'is_toggle': True,
-                                    'is_integer': True,
-                                    'labels': ["off", "on"],
-                                    'processor': self.processor,
-                                    'group_symbol': "other",
-                                    'group_name': "Other controls",
-                                    'display_priority': 100000 + io_num
-                                }
+                                'value': val,
+                                'value_min': 0,
+                                'value_max': 1,
+                                'is_toggle': True,
+                                'is_integer': True,
+                                'labels': ["off", "on"],
+                                'processor': self.processor,
+                                'group_symbol': "other",
+                                'group_name': "Other controls",
+                                'display_priority': display_priority
+                            }
                             io_num += 1
                     io_num = idx + 1
                     if enum_vals:
@@ -521,9 +539,14 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                         if ctrl_array:
                             symbol += f"_{idx}"
                         symbol += enum_suffix
-                        if ctrl_list and symbol not in ctrl_list:
-                            idx += 1
-                            continue
+                        if ctrl_list:
+                            try:
+                                display_priority = 10000 - ctrl_list.index(symbol)
+                            except:
+                                idx += 1
+                                continue
+                        else:
+                            display_priority = 10000 - io_num
                         _ctrls[symbol] = {
                             'name': name,
                             'graph_path': [ctrl_name, idx, 0, "enum", "other"],
@@ -537,7 +560,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             'processor': self.processor,
                             'group_symbol': "other",
                             'group_name': "Other controls",
-                            'display_priority': 100000 + io_num
+                            'display_priority': display_priority
                         }
                         io_num += 1
                     idx += 1
@@ -551,7 +574,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 try:
                     _ctrls[ctrl] |= self.device_overrides[self.device_name][ctrl]
                 except:
-                    pass # There may be hidden controls
+                    pass  # There may be hidden controls
 
         return _ctrls
 
@@ -570,9 +593,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                     else:
                         alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
                 elif type == "switch":
-                        alsaaudio.Mixer(name, idx, -1, self.device).setmute(zctrl.value, chan)
+                    alsaaudio.Mixer(name, idx, -1, self.device).setmute(zctrl.value, chan)
                 elif type == "enum":
-                        alsaaudio.Mixer(name, idx, -1, self.device).setenum(zctrl.value)
+                    alsaaudio.Mixer(name, idx, -1, self.device).setenum(zctrl.value)
         except Exception as err:
             logging.error(err)
 
@@ -594,16 +617,11 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     def get_soundcard_config(self):
         try:
             jack_opts = os.environ.get('JACKD_OPTIONS')
-            res = re.compile(r" hw:([^\s]+) ").search(jack_opts)
+            res = re.compile(r" hw:(\S+) ").search(jack_opts)
             self.device_name = res.group(1)
         except:
             self.device_name = "0"
         self.device = f"hw:{self.device_name}"
-
-        try:
-            self.translations = self.translations_by_device[self.device_name]
-        except:
-            self.translations = {}
 
         try:
             cmd = self.sys_dir + "/sbin/get_rbpi_audio_device.sh"
