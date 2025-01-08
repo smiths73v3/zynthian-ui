@@ -178,7 +178,7 @@ class zynthian_controller:
     def _configure(self):
         """Reconfigure based on current parameters"""
 
-        self.range = None
+        self.value_range = None
         if self.labels:
             # Detect toggle (on/off)
             if len(self.labels) == 2:
@@ -255,26 +255,42 @@ class zynthian_controller:
                 if self.value_range <= 1.0:
                     self.nudge_factor = 0.01
                     self.nudge_factor_fine = 0.001
-                elif self.value_range <= 10:
+                elif self.value_range <= 20:
                     self.nudge_factor = 0.1
                     self.nudge_factor_fine = 0.01
-                elif self.value_range <= 100:
+                elif self.value_range <= 250:
                     self.nudge_factor = 1
                     self.nudge_factor_fine = 0.1
-                elif self.value_range <= 1000:
-                    self.nudge_factor = self.value_range / 200
-                    self.nudge_factor_fine = 0.1
+                elif self.value_range <= 2500:
+                    self.nudge_factor = 10
+                    self.nudge_factor_fine = 1
                 else:
                     self.nudge_factor = self.value_range / 200
                     self.nudge_factor_fine = 1.0
             else:
-                self.nudge_factor = 1
-                self.nudge_factor_fine = 1
+                if self.value_range <= 250:
+                    self.nudge_factor = 1
+                    self.nudge_factor_fine = 1
+                elif self.value_range <= 2500:
+                    self.nudge_factor = 10
+                    self.nudge_factor_fine = 1
+                elif self.value_range <= 25000:
+                    self.nudge_factor = 100
+                    self.nudge_factor_fine = 10
+                elif self.value_range <= 250000:
+                    self.nudge_factor = 1000
+                    self.nudge_factor_fine = 100
+                elif self.value_range <= 2500000:
+                    self.nudge_factor = 10000
+                    self.nudge_factor_fine = 1000
+                else:
+                    self.nudge_factor = 100000
+                    self.nudge_factor_fine = 10000
         # Set a good default for fine adjustment if coarse factor was specified
         elif not self.nudge_factor_fine:
             self.nudge_factor_fine = 0.1 * self.nudge_factor
 
-        # logging.debug(f"CTRL '{self.name}' => NUDGE FACTOR={self.nudge_factor}, FINE={self.nudge_factor_fine}, LOGARITHMIC={self.is_logarithmic}")
+        #logging.debug(f"CTRL '{self.name}' => RANGE={self.value_range} NUDGE FACTOR={self.nudge_factor}, FINE={self.nudge_factor_fine}, LOGARITHMIC={self.is_logarithmic}")
 
         if self.midi_feedback is None and self.midi_chan is not None and self.midi_cc is not None:
             self.midi_feedback = [self.midi_chan, self.midi_cc]
@@ -318,11 +334,9 @@ class zynthian_controller:
             return False
 
         if self.is_logarithmic and self.value_range:
-            log_val = math.log10(
-                (9 * self.value - (10 * self.value_min - self.value_max)) / self.value_range)
+            log_val = math.log10((9 * self.value - (10 * self.value_min - self.value_max)) / self.value_range)
             log_val = min(1, max(0, log_val + val * factor))
-            self.set_value((math.pow(10, log_val) * self.value_range +
-                           (10 * self.value_min - self.value_max)) / 9)
+            self.set_value((math.pow(10, log_val) * self.value_range + (10 * self.value_min - self.value_max)) / 9)
         else:
             self.set_value(self.value + val * factor, send)
         return True
