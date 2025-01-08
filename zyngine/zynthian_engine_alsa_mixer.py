@@ -54,52 +54,13 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # Config variables
     # ----------------------------------------------------------------------------
 
+    volume_units_raw_devices = ["sndrpihifiberry"]
+
     # ---------------------------------------------------------------------------
     # Translations by device
     # ---------------------------------------------------------------------------
 
-    device_overrides = {
-        # HifiBerry / ZynADAC
-        "sndrpihifiberry": {
-            "Digital_0": {"name": f"Output 1 level"},
-            "Digital_1": {"name": f"Output 2 level"},
-            "Digital_0_switch": {"name": f"Output 1 mute"},
-            "Digital_1_switch": {"name": f"Output 2 mute"},
-            "ADC_0": {"name": f"Input 1 level"},
-            "ADC_1": {"name": f"Input 2 level"},
-            "PGA_Gain_Left": {"name": f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"], "group_symbol": "input", 'group_name': "Input levels"},
-            "PGA_Gain_Right": {"name": f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"], "group_symbol": "input", 'group_name': "Input levels"},
-            "ADC_Left_Input": {"name": f"Input 1 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"], "group_symbol": "input", 'group_name': "Input levels"},
-            "ADC_Right_Input": {"name": f"Input 2 Mode", "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono", "Balanced Mono TRS"], "graph_path": ["ADC", 0, 1, "enum", "input_1"], "group_symbol": "input", 'group_name': "Input levels"}
-        },
-        # Tascam US-16x08 place holder (populated programatically)
-        "US16x08": {}
-    }
-
-    # ZynADAC fix
-    if soundcard_name == "ZynADAC":
-        device_overrides["sndrpihifiberry"]["ADC_Left_Input"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
-        device_overrides["sndrpihifiberry"]["ADC_Right_Input"]["labels"] = ["Disabled", "Unbalanced Mono TR", "Unbalanced Mono TS", "Stereo TRS to Mono", "Balanced Mono TRS"]
-
-    # Tascam US-16x08
-    device_overrides["US16x08"][f"DSP_Bypass"] = {"name": "DSP enable"}
-    for i in range(16):
-        device_overrides["US16x08"][f"Compressor_{i}_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "labels": ["enabled", "disabled"], "display_priority": i}
-        device_overrides["US16x08"][f"Compressor_Threshold_{i}"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "graph_path": ["Compressor Threshold", i, 0, "level", f"input_{i}"], "display_priority": 21}
-        device_overrides["US16x08"][f"Compressor_Ratio_{i}"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "graph_path": ["Compressor Ratio", i, 0, "level", f"input_{i}"], "display_priority": 22}
-        device_overrides["US16x08"][f"Compressor_Attack_{i}"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Attack", i, 0, "level", f"input_{i}"], "display_priority": 23}
-        device_overrides["US16x08"][f"Compressor_Release_{i}"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Release", i, 0, "level", f"input_{i}"], "display_priority": 24}
-        device_overrides["US16x08"][f"Compressor_{i}"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "graph_path": ["Compressor", i, 0, "level", f"input_{i}"], "display_priority": 25}
-
-        device_overrides["US16x08"][f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
-        for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
-            device_overrides["US16x08"][f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 50 + j * 10}
-        device_overrides["US16x08"][f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
-        device_overrides["US16x08"][f"EQ_MidHigh_Frequency_{i}"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidHigh Frequency", i, 0, "level", f"input_{i}"], "display_priority": 61}
-        device_overrides["US16x08"][f"EQ_MidHigh_Q_{i}"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ MidHigh Q", i, 0, "level", f"input_{i}"], "display_priority": 62}
-        device_overrides["US16x08"][f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidLow Frequency", i, 0, "level", f"input_{i}"], "display_priority": 71}
-        device_overrides["US16x08"][f"EQ_MidLow_Q_{i}"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ Midow Q", i, 0, "level", f"input_{i}"], "display_priority": 72}
-        device_overrides["US16x08"][f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=64)], "graph_path": [f"EQ Low Frequency", i, 0, "level", f"input_{i}"], "display_priority": 81}
+    device_overrides = {}
 
     # ---------------------------------------------------------------------------
     # Controllers & Screens
@@ -260,7 +221,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             device = f"hw:{device_name}"
         else:
             device = self.device
+
         try:
+            is_log = False
             mixer_ctrl_names = sorted(set(alsaaudio.mixers(device=device)))
             for ctrl_name in mixer_ctrl_names:
                 idx = 0  # ALSA array index
@@ -290,10 +253,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
 
                     if "Playback Volume" in level_cap:
                         # Control supports control of an output level parameter
-                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_PLAYBACK, self.volume_units)
                         ctrl_multi = ctrl_array or len(levels) > 1
                         for chan, val in enumerate(levels):
-                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK, self.volume_units)
                             if ctrl_multi:
                                 name = f"{ctrl_name} {io_num}"
                             else:
@@ -326,6 +289,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 'value_max': ctrl_range[1],
                                 'is_toggle': is_toggle,
                                 'is_integer': True,
+                                'is_logarithmic': is_log,
                                 'labels': labels,
                                 'processor': self.processor,
                                 'group_symbol': "output",
@@ -335,10 +299,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             io_num += 1
                     elif "Capture Volume" in level_cap:
                         # Control supports control of an input level parameter
-                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_CAPTURE, self.volume_units)
                         ctrl_multi = ctrl_array or len(levels) > 1
                         for chan, val in enumerate(levels):
-                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_CAPTURE, self.volume_units)
                             if ctrl_multi:
                                 name = f"{ctrl_name} {io_num}"
                             else:
@@ -369,6 +333,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 'value_max': ctrl_range[1],
                                 'is_toggle': is_toggle,
                                 'is_integer': True,
+                                'is_logarithmic': is_log,
                                 'labels': labels,
                                 'processor': self.processor,
                                 'group_symbol': "input",
@@ -378,10 +343,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                             io_num += 1
                     elif "Volume" in level_cap:
                         # Control supports control of a misc? level parameter
-                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        levels = mixer_ctrl.getvolume(alsaaudio.PCM_PLAYBACK, self.volume_units)
                         ctrl_multi = ctrl_array or len(levels) > 1
                         for chan, val in enumerate(levels):
-                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                            ctrl_range = mixer_ctrl.getrange(alsaaudio.PCM_PLAYBACK, self.volume_units)
                             if ctrl_multi:
                                 name = f"{ctrl_name} {io_num}"
                             else:
@@ -412,6 +377,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 'value_max': ctrl_range[1],
                                 'is_toggle': is_toggle,
                                 'is_integer': True,
+                                'is_logarithmic': is_log,
                                 'labels': labels,
                                 'processor': self.processor,
                                 'group_symbol': "other",
@@ -589,9 +555,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 type = zctrl.graph_path[3]
                 if type == "level":
                     if zctrl.group_symbol == "output":
-                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_PLAYBACK, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_PLAYBACK, self.volume_units)
                     else:
-                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_CAPTURE, alsaaudio.VOLUME_UNITS_PERCENTAGE)
+                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_CAPTURE, self.volume_units)
                 elif type == "switch":
                     alsaaudio.Mixer(name, idx, -1, self.device).setmute(zctrl.value, chan)
                 elif type == "enum":
@@ -634,6 +600,78 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             self.ctrl_list = [item.strip() for item in scmix.split(',')]
         except:
             self.ctrl_list = None
+
+        if self.device_name in self.volume_units_raw_devices:
+            self.volume_units = alsaaudio.VOLUME_UNITS_RAW
+        else:
+            self.volume_units = alsaaudio.VOLUME_UNITS_PERCENTAGE
+
+        if self.device_name == "sndrpihifiberry":
+            self.set_sndrpihifiberry_overrides()
+        elif self.device_name == "US16x08":
+            self.set_sndrpihifiberry_overrides()
+
+    # ---------------------------------------------------------------------------
+    # Overrides
+    # ---------------------------------------------------------------------------
+
+    def set_sndrpihifiberry_overrides(self):
+        mylog = [0, 28, 44, 55, 64, 72, 78, 83, 88, 92, 96, 99, 103, 106, 108, 111, 113,
+                 116, 118, 120, 122, 124, 125, 127, 129, 130, 132, 133, 135, 136, 137]
+        output_level_labels = list(map(str, range(0, 101)))
+        output_level_ticks = mylog + list(range(138, 208))
+        # HifiBerry / ZynADAC
+        self.device_overrides["sndrpihifiberry"] = {
+            "Digital_0": {"name": f"Output 1 level", "labels":  output_level_labels, "ticks": output_level_ticks},
+            "Digital_1": {"name": f"Output 2 level", "labels":  output_level_labels, "ticks": output_level_ticks},
+            "Digital_0_switch": {"name": f"Output 1 mute"},
+            "Digital_1_switch": {"name": f"Output 2 mute"},
+            "ADC_0": {"name": f"Input 1 level"},
+            "ADC_1": {"name": f"Input 2 level"},
+            "PGA_Gain_Left": {"name": f"Input 1 Gain", "graph_path": ["PGA Gain Left", 0, 0, "enum", "input_0"],
+                              "group_symbol": "input", 'group_name': "Input levels"},
+            "PGA_Gain_Right": {"name": f"Input 2 Gain", "graph_path": ["PGA Gain Right", 0, 0, "enum", "input_1"],
+                               "group_symbol": "input", 'group_name': "Input levels"},
+            "ADC_Left_Input": {"name": f"Input 1 Mode",
+                               "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono",
+                                          "Balanced Mono TRS"], "graph_path": ["ADC", 0, 0, "enum", "input_0"],
+                               "group_symbol": "input", 'group_name': "Input levels"},
+            "ADC_Right_Input": {"name": f"Input 2 Mode",
+                                "labels": ["Disabled", "Unbalanced Mono TS", "Unbalanced Mono TR", "Stereo TRS to Mono",
+                                           "Balanced Mono TRS"], "graph_path": ["ADC", 0, 1, "enum", "input_1"],
+                                "group_symbol": "input", 'group_name': "Input levels"}
+        }
+
+        # ZynADAC fix
+        if self.soundcard_name == "ZynADAC":
+            self.device_overrides["sndrpihifiberry"]["ADC_Left_Input"]["labels"] = ["Disabled", "Unbalanced Mono TR",
+                                                                            "Unbalanced Mono TS", "Stereo TRS to Mono",
+                                                                            "Balanced Mono TRS"]
+            self.device_overrides["sndrpihifiberry"]["ADC_Right_Input"]["labels"] = ["Disabled", "Unbalanced Mono TR",
+                                                                            "Unbalanced Mono TS", "Stereo TRS to Mono",
+                                                                            "Balanced Mono TRS"]
+
+    def set_US16x08_overrides(self):
+        # Tascam US-16x08
+        overrides = {}
+        overrides[f"DSP_Bypass"] = {"name": "DSP enable"}
+        for i in range(16):
+            overrides[f"Compressor_{i}_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "labels": ["enabled", "disabled"], "display_priority": i}
+            overrides[f"Compressor_Threshold_{i}"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "graph_path": ["Compressor Threshold", i, 0, "level", f"input_{i}"], "display_priority": 21}
+            overrides[f"Compressor_Ratio_{i}"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "graph_path": ["Compressor Ratio", i, 0, "level", f"input_{i}"], "display_priority": 22}
+            overrides[f"Compressor_Attack_{i}"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Attack", i, 0, "level", f"input_{i}"], "display_priority": 23}
+            overrides[f"Compressor_Release_{i}"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Release", i, 0, "level", f"input_{i}"], "display_priority": 24}
+            overrides[f"Compressor_{i}"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "graph_path": ["Compressor", i, 0, "level", f"input_{i}"], "display_priority": 25}
+            overrides[f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
+            for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
+                overrides[f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 50 + j * 10}
+            overrides[f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
+            overrides[f"EQ_MidHigh_Frequency_{i}"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidHigh Frequency", i, 0, "level", f"input_{i}"], "display_priority": 61}
+            overrides[f"EQ_MidHigh_Q_{i}"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ MidHigh Q", i, 0, "level", f"input_{i}"], "display_priority": 62}
+            overrides[f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidLow Frequency", i, 0, "level", f"input_{i}"], "display_priority": 71}
+            overrides[f"EQ_MidLow_Q_{i}"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ Midow Q", i, 0, "level", f"input_{i}"], "display_priority": 72}
+            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=64)], "graph_path": [f"EQ Low Frequency", i, 0, "level", f"input_{i}"], "display_priority": 81}
+        self.device_overrides["US16x08"] = overrides
 
     # ---------------------------------------------------------------------------
     # API methods
