@@ -1334,18 +1334,21 @@ class LooperHandler(
     def nextModeNum(self, button):
         submode = getDeviceSetting("submode", self.state)
         index = 3 * (button - BUTTONS.BTN_KNOB_CTRL_VOLUME)
-        if submode == 0:
+        if submode == self.MODE_DEFAULT:
             # 0, 3, 6, 9 => 1 , 4, 7, 10
             return index + 1
         if submode == index + 1:
             # Is 1st submode of this button
             index = submode + 1
             if index not in self.MODE_NUMS:
-                return 0
+                return self.MODE_DEFAULT
             return index
         if submode == index + 2:
             # Is 2nd submode of this button
-            return 0
+            return self.MODE_DEFAULT
+        # Special case for default state
+        if (index == (self.MODE_SESSION_SAVE - 1)):
+            return self.MODE_DEFAULT
         return index + 1
 
     def handle_mode_buttons(self, button, evtype):
