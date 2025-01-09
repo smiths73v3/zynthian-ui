@@ -224,7 +224,6 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         self.filling_list = False
 
     def select_action(self, i, t='S'):
-        self.last_selected_index = i
         if self.list_data[i][0]:
             self.last_action = self.list_data[i][0]
             self.last_action()
