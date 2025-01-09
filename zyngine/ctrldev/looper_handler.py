@@ -797,7 +797,7 @@ def createAllPads(state):
             [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
-        if submode == LooperHandler.MODE_DEFAULT    # getDeviceMode(state) == 0  (set_syncs or showTrackLevels(state))
+        if submode == LooperHandler.MODE_DEFAULT
         else []
     )
     toprow = list(chain.from_iterable(toprow))
