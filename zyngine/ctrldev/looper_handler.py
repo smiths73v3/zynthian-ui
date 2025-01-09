@@ -83,13 +83,23 @@ TRACK_LEVELS = [
 LEVEL_COLORS = [
     COLORS.COLOR_RED,
     COLORS.COLOR_RED,
-    COLORS.COLOR_LIME,
-    COLORS.COLOR_BLUE,
+    COLORS.COLOR_LIME,COLORS.COLOR_BLUE,
     COLORS.COLOR_DARK_GREY,
     COLORS.COLOR_PURPLE,
     COLORS.COLOR_WHITE,
     COLORS.COLOR_WHITE,
 ]
+LEVEL_BOUNDS = {
+    "in_peak_meter": (0, 1),
+    "rec_thresh": (0, 1),
+    "input_gain": (0, 1),
+    "wet" : (0, 1),
+    "dry": (0, 1),
+    "feedback": (0, 1),
+    "pitch_shift": (-12, 12),
+    "none": (0, 1),
+}
+
 # @todo factor out this from here and zynthian_engine_sooperlooper?
 # ------------------------------------------------------------------------------
 # Sooper Looper State Codes
@@ -372,7 +382,10 @@ def makeSessionNumberReducer(color, last):
 
 
 # Pad coloring
-def padBrightnessForLevel(num, level):
+def padBrightnessForLevel(num, level, ctrl):
+    min, max = LEVEL_BOUNDS.get(ctrl)
+    scale = max - min
+    level = (level - min) / scale
     pos = num * level
     # logging.debug(f"{pos}--{num}--{level}")
     roundedpos = pos // 1
@@ -431,9 +444,10 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
         if submode == LooperHandler.MODE_LEVEL1:
             if y == 0:
                 return lambda x: padBrightnessForLevel(
-                    COLS, state.get("glob", {}).get("wet", 0)
+                    COLS, state.get("glob", {}).get("wet", 0),"wet"
+                    
                 )(x)
-            return lambda x: padBrightnessForLevel(COLS, track.get("wet", 0))(x)
+            return lambda x: padBrightnessForLevel(COLS, track.get("wet", 0), "wet")(x)
 
         # Check for track levels
         if submode == LooperHandler.MODE_LEVEL2:
@@ -447,7 +461,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
             def track_level_fn(track, i):
                 return lambda xpad: (
-                    padBrightnessForLevel(ROWS, theTrack.get(TRACK_LEVELS[xpad], 0))(
+                    padBrightnessForLevel(ROWS, theTrack.get(TRACK_LEVELS[xpad], 0), TRACK_LEVELS[xpad])(
                         ROWS - 1 - i
                     )
                 )
