@@ -328,7 +328,7 @@ def list_get(lst, index, default=None):
         if 0 <= index < len(lst):
             return lst[index]
         return default
-    except KeyError as e:
+    except KeyError:
         return default
 
 
