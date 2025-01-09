@@ -609,7 +609,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         if self.device_name == "sndrpihifiberry":
             self.set_sndrpihifiberry_overrides()
         elif self.device_name == "US16x08":
-            self.set_sndrpihifiberry_overrides()
+            self.set_US16x08_overrides()
 
     # ---------------------------------------------------------------------------
     # Overrides
