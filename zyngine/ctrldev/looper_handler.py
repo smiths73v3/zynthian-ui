@@ -872,9 +872,7 @@ class ButtonAutoLatch:
 class LooperHandler(
     ModeHandlerBase  # zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
 ):
-    """Zynthian Controller Device: Akai APC Key 25 SL"""
-
-    # dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
+    """Looper Handler for Zynthian Controller Device: Akai APC Key 25"""
 
     ctrls = [
         "channel_count",  # undocumented
