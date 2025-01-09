@@ -402,7 +402,7 @@ def panPads(value):
 
 def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
     submode = getDeviceSetting("submode", state)
-        
+
     def cond_fn(track, y):
         # Check for device pan
         if submode == LooperHandler.MODE_PAN:
@@ -483,7 +483,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
 def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
     submode = getDeviceSetting("submode", state)
-        
+
     def cond_fn(track, y):
         # Check for device pan
         if submode == LooperHandler.MODE_PAN:
@@ -521,12 +521,12 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
 
         # Check for selected loop levels
         if submode == LooperHandler.MODE_LEVEL2:
-        
+
             def track_level_fn(track, i):
                 return lambda xpad: LEVEL_COLORS[xpad]  # Example implementation
 
             return track_level_fn(track, 0)  # Example index
-        
+
         # Default case
         state_value = track.get("state", SL_STATE_UNKNOWN)
         statespec = SL_STATES[state_value]
@@ -706,20 +706,25 @@ def trackAction(track, ctrl, value):
 def getDeviceSetting(setting, state):
     return path(["device", setting], state)
 
+
 def getGlob(setting, state):
     return path(["glob", setting], state)
+
 
 def getLoopoffset(state):
     offset = path(PATH_LOOP_OFFSET, state)
     return 1 if offset is None else offset
 
+
 def doLevelsOfSelectedMode(state):
     submode = getDeviceSetting("submode", state)
     return submode == LooperHandler.MODE_LEVEL2
 
+
 def doSyncMode(state):
     submode = getDeviceSetting("submode", state)
     return submode == LooperHandler.MODE_SYNC
+
 
 # Reduce function
 def on_update_track(action, state):
@@ -734,35 +739,36 @@ def createAllPads(state):
     loopoffset = getLoopoffset(state)
     submode = getDeviceSetting("submode", state) or LooperHandler.MODE_DEFAULT
     set_syncs = submode == LooperHandler.MODE_SYNC
-    devicemode = (
-        1
-        if submode == LooperHandler.MODE_SESSION_SAVE
-        else 2
-        if submode == LooperHandler.MODE_SESSION_LOAD
-        else 0
-    )
-    levelmode = (
-        1
-        if submode == LooperHandler.MODE_LEVEL1
-        else 2
-        if submode == LooperHandler.MODE_LEVEL2
-        else 0
-    )
-    panmode = submode == LooperHandler.MODE_PAN
 
     def ctrl_btn(btn):
         if btn == BUTTONS.BTN_KNOB_CTRL_VOLUME:
-            return [0x90, btn, levelmode]
+            return [
+                0x90,
+                btn,
+                1
+                if submode == LooperHandler.MODE_LEVEL1
+                else 2
+                if submode == LooperHandler.MODE_LEVEL2
+                else 0,
+            ]
         if btn == BUTTONS.BTN_KNOB_CTRL_PAN:
             return [
                 0x90,
                 btn,
-                1 if panmode else 0,
+                1 if submode == LooperHandler.MODE_PAN else 0,
             ]  # @check Used to have to convert this to num
         if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
             return [0x90, btn, 1 if set_syncs else 0]
         if btn == BUTTONS.BTN_KNOB_CTRL_DEVICE:
-            return [0x90, btn, devicemode]
+            return [
+                0x90,
+                btn,
+                1
+                if submode == LooperHandler.MODE_SESSION_SAVE
+                else 2
+                if submode == LooperHandler.MODE_SESSION_LOAD
+                else 0,
+            ]
         return []
 
     ctrl_keys = functools.reduce(
@@ -1240,7 +1246,7 @@ class LooperHandler(
         if evtype == EV_NOTE_ON:
             if set_syncs:
                 return self.handle_syncs(numpad, track, stateTrack, tracks)
-            if submode  == self.MODE_SESSION_SAVE:
+            if submode == self.MODE_SESSION_SAVE:
                 return self.save_session(pad)
             if submode == self.MODE_SESSION_LOAD:
                 return self.load_session(pad)
@@ -1335,7 +1341,7 @@ class LooperHandler(
             # self.dispatch(deviceAction("submode", next))
             self.activateSubmode(next)
         return
-    
+
     def select_loop_for_button(self, button):
         row = button - 0x52
         track = (
@@ -1822,9 +1828,10 @@ class SubModeLevels1(ModeHandlerBase):
         self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
-        
+
     def set_active(self, active):
         super().set_active(active)
+
 
 class SubModeLevels2(ModeHandlerBase):
     """Submode for handling levels for selected loop"""
@@ -1888,7 +1895,6 @@ class SubModeSessionsSave(ModeHandlerBase):
         super().set_active(active)
         if active:
             self.parent.get_sessions()
-
 
 
 class SubModeSessionsLoad(ModeHandlerBase):
