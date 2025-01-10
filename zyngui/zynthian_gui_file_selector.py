@@ -36,6 +36,16 @@ from zyngui.zynthian_gui_selector import zynthian_gui_selector
 
 class zynthian_gui_file_selector(zynthian_gui_selector):
 
+    fext2dirname = {
+        "aidax": "Neural Models",
+        "aidadspmodel": "Neural Models",
+        "nam": "Neural Models",
+        "nammodel": "Neural Models",
+        "json": "Neural Models",
+        "wav": "IRs",
+        "scl": "Tuning"
+    }
+
     def __init__(self):
         self.cb_func = None
         self.root_dirs = []
@@ -44,24 +54,53 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
         self.dirpath = None
         super().__init__('File', True)
 
-    def config(self, cb_func, root_dirs, fexts, path=None):
-        self.cb_func = cb_func
-        self.root_dirs = root_dirs
-        self.fexts = fexts
-        if path:
-            self.path = path
-        else:
-            self.path = None
-        self.dirpath = self.get_dirpath(self.path)
-        self.set_select_path()
+    @classmethod
+    def get_root_dirnames(cls, fexts):
+        dirnames = []
+        for fext in fexts:
+            try:
+                dirnames.append(cls.fext2dirname[fext])
+            except:
+                pass
+        return set(dirnames)
 
-    def get_dirpath(self, path):
+    @staticmethod
+    def get_dirpath(path):
         if path:
             if os.path.isfile(path):
                 (dirpath, fname) = os.path.split(path)
                 return dirpath
             elif os.path.isdir(path):
                 return path
+
+    def config(self, cb_func, fexts=None, root_dirs=None, path=None):
+        self.cb_func = cb_func
+
+        if fexts:
+            self.fexts = fexts
+        else:
+            self.fexts = ["wav"]
+
+        if root_dirs:
+            self.root_dirs = root_dirs
+        else:
+            self.root_dirs = []
+            dirnames = self.get_root_dirnames(self.fexts)
+            for dirname in dirnames:
+                self.root_dirs.append((f"User {dirname}", zynthian_engine.my_data_dir + "/files/" + dirname))
+            for dirname in dirnames:
+                self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
+            if "wav" in self.fexts:
+                self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
+
+        if path:
+            self.path = path
+            self.dirpath = self.get_dirpath(self.path)
+        else:
+            self.path = None
+            self.dirpath = None
+
+        self.set_select_path()
 
     def fill_list(self):
         if self.dirpath:
@@ -71,7 +110,7 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
         super().fill_list()
 
     def show(self):
-        #if len(self.list_data) > 0:
+        # if len(self.list_data) > 0:
         super().show()
 
     def select_action(self, i, t='S'):

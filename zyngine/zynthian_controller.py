@@ -83,7 +83,6 @@ class zynthian_controller:
         self.is_logarithmic = False  # True if control uses logarithmic scale
         self.is_path = False  # True if the control is a file path (i.e. LV2's atom:Path)
         self.path_file_types = None  # List of supported file types
-        self.path_root_dirs = None
         self.not_on_gui = False  # True to hint to GUI to show control
         self.display_priority = float("inf")  # Hint of order in which to display control (higher comes first)
 
@@ -191,22 +190,6 @@ class zynthian_controller:
         self.value_range = None
 
         if self.is_path:
-            #logging.debug(f"PATH FILE TYPES => {self.path_file_types}")
-            if not self.path_file_types:
-                self.path_file_types = ["wav"]
-            if self.engine:
-                try:
-                    dirname = self.engine.plugin_name
-                except:
-                    dirname = self.engine.name
-            else:
-                dirname = ""
-            self.path_root_dirs = [
-                (f"User {dirname}", self.engine.my_data_dir + "/presets/" + dirname),
-                (f"System {dirname}", self.engine.data_dir + "/presets/" + dirname)
-            ]
-            if "wav" in self.path_file_types:
-                self.path_root_dirs.append(("System audio", self.engine.my_data_dir + "/audio"))
             return
 
         if self.labels:
@@ -354,8 +337,8 @@ class zynthian_controller:
             logging.debug(f"OPEN FILE SELECTOR FOR TYPES: {self.path_file_types} ")
             zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR,
                                   cb_func=self.set_value,
-                                  root_dirs=self.path_root_dirs,
                                   fexts=self.path_file_types,
+                                  root_dirs=None,
                                   path=self.value)
             return True
 
