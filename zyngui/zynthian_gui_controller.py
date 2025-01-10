@@ -164,12 +164,12 @@ class zynthian_gui_controller(tkinter.Canvas):
 	# Handle resize
 	def on_size(self, event):
 		self.on_size_graph(event)
-		self.plot_value_func()
 		self.set_title(self.title)
 		if self.zctrl:
 			self.calculate_value_font_size()
 			self.calculate_plot_values()
 			self.set_drag_scale()
+			self.plot_value_func()
 
 	def set_drag_scale(self):
 		hh = self.winfo_height()
@@ -505,7 +505,7 @@ class zynthian_gui_controller(tkinter.Canvas):
 		else:
 			maxlen = 1
 		fs = int(self.title_width * max_fs / maxlen)
-		fs = min(max_fs,max(int(0.8*zynthian_gui_config.font_size), fs))
+		fs = min(max_fs, max(int(0.8*zynthian_gui_config.font_size), fs))
 		#logging.debug("TITLE %s => MAXLEN=%d, FONTSIZE=%d" % (self.title,maxlen,fs))
 
 		# Set title label

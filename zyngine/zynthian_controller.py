@@ -191,6 +191,9 @@ class zynthian_controller:
         self.value_range = None
 
         if self.is_path:
+            #logging.debug(f"PATH FILE TYPES => {self.path_file_types}")
+            if not self.path_file_types:
+                self.path_file_types = ["wav"]
             if self.engine:
                 try:
                     dirname = self.engine.plugin_name
@@ -199,9 +202,11 @@ class zynthian_controller:
             else:
                 dirname = ""
             self.path_root_dirs = [
-                ('User', self.engine.my_data_dir + "/presets/" + dirname),
-                ('System', self.engine.data_dir + "/presets/" + dirname)
+                (f"User {dirname}", self.engine.my_data_dir + "/presets/" + dirname),
+                (f"System {dirname}", self.engine.data_dir + "/presets/" + dirname)
             ]
+            if "wav" in self.path_file_types:
+                self.path_root_dirs.append(("System audio", self.engine.my_data_dir + "/audio"))
             return
 
         if self.labels:

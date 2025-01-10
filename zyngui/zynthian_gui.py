@@ -25,7 +25,6 @@
 
 import os
 import liblo
-import ctypes
 import ffmpeg
 import logging
 import traceback

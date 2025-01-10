@@ -749,7 +749,7 @@ def sanitize_fname(s):
 
 def get_node_value(node):
     if node is None:
-        return None
+        return 0
     elif node.is_int():
         return int(node)
     elif node.is_float():
@@ -869,7 +869,7 @@ def get_plugin_ports(plugin_url):
                 'display_priority': display_priority,
                 'scale_points': sp
             }
-            # logging.debug("PORT {} => {}".format(i, info))
+            #logging.debug("CONTROL PORT {} => {}".format(i, ports_info[i]))
 
     # Property parameters
     i = len(ports_info)
@@ -889,7 +889,9 @@ def get_plugin_ports(plugin_url):
             is_enumeration = False
             is_logarithmic = False
             is_path = True
-            path_file_types = str(world.get(control, world.ns.mod.fileTypes, None))
+            path_file_types = world.get(control, world.ns.mod.fileTypes, None)
+            if path_file_types is not None:
+                path_file_types = str(path_file_types).split(",")
             envelope = None
             sp = []
         else:
@@ -897,8 +899,8 @@ def get_plugin_ports(plugin_url):
             vmin = get_node_value(world.get(control, world.ns.lv2.minimum, None))
             vmax = get_node_value(world.get(control, world.ns.lv2.maximum, None))
 
-            is_toggled = world.get(control, world.ns.lv2.toggled, None) is not None
-            is_integer = world.get(control, world.ns.lv2.integer, None) is not None
+            is_toggled = (range_type == world.ns.atom.Bool)
+            is_integer = (range_type == world.ns.atom.Int)
             is_enumeration = world.get(control, world.ns.lv2.enumeration, None) is not None
             is_logarithmic = world.get(control, world.ns.portprops.logarithmic, None) is not None
             is_path = False
@@ -975,6 +977,7 @@ def get_plugin_ports(plugin_url):
             'display_priority': display_priority,
             'scale_points': sp
         }
+        #logging.debug("CONTROL PROPERTY {} => {}".format(i, ports_info[i]))
         i += 1
 
     return ports_info

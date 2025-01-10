@@ -28,8 +28,9 @@ import sys
 import copy
 import shutil
 import logging
+import traceback
 from time import sleep
-from datetime import datetime
+#from datetime import datetime
 from threading import Thread
 from subprocess import Popen, check_output, STDOUT, PIPE
 
@@ -682,7 +683,6 @@ class zynthian_engine_jalv(zynthian_engine):
                     for p in info['scale_points']:
                         labels.append(p['label'])
                         values.append(p['value'])
-
                     zctrls[symbol] = zynthian_controller(self, symbol, {
                         'name': info['name'],
                         'group_symbol': info['group_symbol'],
@@ -691,6 +691,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'value': info['value'],
                         'labels': labels,
                         'ticks': values,
+                        'value_default': info['value'],
                         'value_min': values[0],
                         'value_max': values[-1],
                         'is_toggle': info['is_toggled'],
@@ -709,7 +710,6 @@ class zynthian_engine_jalv(zynthian_engine):
                             val = 'off'
                         else:
                             val = 'on'
-
                         zctrls[symbol] = zynthian_controller(self, symbol, {
                             'name': info['name'],
                             'group_symbol': info['group_symbol'],
@@ -718,6 +718,7 @@ class zynthian_engine_jalv(zynthian_engine):
                             'value': val,
                             'labels': ['off', 'on'],
                             'ticks': [int(info['range']['min']), int(info['range']['max'])],
+                            'value_default': val,
                             'value_min': int(info['range']['min']),
                             'value_max': int(info['range']['max']),
                             'is_toggle': True,
@@ -735,7 +736,7 @@ class zynthian_engine_jalv(zynthian_engine):
                             'group_name': info['group_name'],
                             #'graph_path': info['index'],
                             'value': int(info['value']),
-                            'value_default': int(info['range']['default']),
+                            'value_default': int(info['value']),
                             'value_min': int(info['range']['min']),
                             'value_max': int(info['range']['max']),
                             'is_toggle': False,
@@ -751,7 +752,6 @@ class zynthian_engine_jalv(zynthian_engine):
                         val = 'off'
                     else:
                         val = 'on'
-
                     zctrls[symbol] = zynthian_controller(self, symbol, {
                         'name': info['name'],
                         'group_symbol': info['group_symbol'],
@@ -760,6 +760,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'value': val,
                         'labels': ['off', 'on'],
                         'ticks': [info['range']['min'], info['range']['max']],
+                        'value_default': val,
                         'value_min': info['range']['min'],
                         'value_max': info['range']['max'],
                         'is_toggle': True,
@@ -771,20 +772,20 @@ class zynthian_engine_jalv(zynthian_engine):
                         'display_priority': info['display_priority']
                     })
                 elif info['is_path']:
-                    path_file_types = info['path_file_types'].split(",")
                     zctrls[symbol] = zynthian_controller(self, symbol, {
                         'name': info['name'],
                         'group_symbol': info['group_symbol'],
                         'group_name': info['group_name'],
                         #'graph_path': info['index'],
                         'value': None,
+                        'value_default': None,
                         'value_min': None,
                         'value_max': None,
                         'is_toggle': False,
                         'is_integer': False,
                         'is_logarithmic': False,
                         'is_path': True,
-                        'path_file_types': path_file_types,
+                        'path_file_types': info['path_file_types'],
                         'not_on_gui': info['not_on_gui'],
                         'display_priority': info['display_priority']
                     })
@@ -794,8 +795,8 @@ class zynthian_engine_jalv(zynthian_engine):
                         'group_symbol': info['group_symbol'],
                         'group_name': info['group_name'],
                         #'graph_path': info['index'],
-                        'value': info['value'],
-                        'value_default': float(info['range']['default']),
+                        'value': float(info['value']),
+                        'value_default': float(info['value']),
                         'value_min': float(info['range']['min']),
                         'value_max': float(info['range']['max']),
                         'is_toggle': False,
@@ -810,7 +811,8 @@ class zynthian_engine_jalv(zynthian_engine):
 
             # If control info is not OK
             except Exception as e:
-                logging.error(e)
+                #logging.error(e)
+                logging.exception(traceback.format_exc())
 
         # Sort by suggested display_priority
         new_index = sorted(zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
@@ -843,11 +845,16 @@ class zynthian_engine_jalv(zynthian_engine):
                 logging.error(f"Can't send controller '{zctrl.symbol}' with CC{zctrl.midi_cc} to zmop {zctrl.processor.chain.zmop_index} => {e}")
         elif zctrl.graph_path is not None:
             if zctrl.is_path:
+                #logging.debug("set %d %s" % (zctrl.graph_path, zctrl.value))
                 self.proc_cmd("set %d %s" % (zctrl.graph_path, zctrl.value))
             else:
                 self.proc_cmd("set %d %.6f" % (zctrl.graph_path, zctrl.value))
-        elif not zctrl.is_path:
-            self.proc_cmd("%s=%.6f" % (zctrl.symbol, zctrl.value))
+        else:
+            if zctrl.is_path:
+                #logging.debug("%s=%s" % (zctrl.symbol, zctrl.value))
+                self.proc_cmd("%s=%s" % (zctrl.symbol, zctrl.value))
+            else:
+                self.proc_cmd("%s=%.6f" % (zctrl.symbol, zctrl.value))
 
     # ---------------------------------------------------------------------------
     # API methods
