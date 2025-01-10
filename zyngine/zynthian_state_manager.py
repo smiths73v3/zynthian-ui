@@ -62,7 +62,7 @@ from zyngine.zynthian_ctrldev_manager import zynthian_ctrldev_manager
 # Zynthian State Manager Class
 # ----------------------------------------------------------------------------
 
-SNAPSHOT_SCHEMA_VERSION = 1
+SNAPSHOT_SCHEMA_VERSION = 1.1
 capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
 ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
 
@@ -1285,8 +1285,15 @@ class zynthian_state_manager:
         else:
             state = snapshot
             if state["schema_version"] < SNAPSHOT_SCHEMA_VERSION:
-                # self.set_busy_details("nothing to fix yet")
-                pass
+                if state["schema_version"] == 1:
+                    # Migrate stored Output Level values
+                    try:
+                        amixer_ctrls = snapshot["alsa_mixer"]["controllers"]
+                        for symbol in ["Digital_0", "Digital_1"]:
+                            v = amixer_ctrls[symbol]["value"]
+                            amixer_ctrls[symbol]["value"] = self.alsa_mixer_processor.controllers_dict[symbol].ticks[v]
+                    except:
+                        pass
         return state
 
     def backup_snapshot(self, path):
