@@ -63,8 +63,6 @@ SL_STATE_REDO = 18
 SL_STATE_REDO_ALL = 19
 SL_STATE_OFF_MUTED = 20
 
-SS_GUI_CONTROL_MODE = 2 #TODO: This should be sourced from a common place but should not import gui classes here
-
 # ------------------------------------------------------------------------------
 # Sooper Looper Engine Class
 # ------------------------------------------------------------------------------
@@ -854,7 +852,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		self._ctrl_screens[5][1][3] = f'single_pedal:{self.selected_loop}'
 		processor.refresh_controllers()
 
-		zynsigman.send_queued(zynsigman.S_GUI, SS_GUI_CONTROL_MODE, mode='control')
+		zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, mode='control')
 
 	def prev_loop(self):
 		self.processors[0].controllers_dict['prev/next'].nudge(-1)

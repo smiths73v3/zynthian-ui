@@ -368,15 +368,18 @@ class zynthian_engine_jalv(zynthian_engine):
     def proc_parse_ctrl_value(self, line):
         parts = line.split("=")
         if len(parts) == 2:
-            try:
-                val = float(parts[1])
-            except Exception as e:
-                logging.warning(f"Wrong controller value when parsing jalv output => {line}")
-                return
             symparts = parts[0].split("#", maxsplit=1)
             #logging.debug(f"#CTR> {symparts[1]} ({symparts[0]}) = {val}")
             try:
                 zctrl = self.lv2_zctrl_dict[symparts[1]]
+                if zctrl.is_path:
+                    val = parts[1]
+                else:
+                    try:
+                        val = float(parts[1])
+                    except Exception as e:
+                        logging.warning(f"Wrong controller value when parsing jalv output => {line}")
+                        return
                 zctrl.set_value(val, False)
                 if zctrl.graph_path is None:
                     try:
@@ -692,89 +695,118 @@ class zynthian_engine_jalv(zynthian_engine):
                         'value_max': values[-1],
                         'is_toggle': info['is_toggled'],
                         'is_integer': info['is_integer'],
+                        'is_logarithmic': False,
+                        'is_path': False,
+                        'path_file_types': None,
                         'not_on_gui': info['not_on_gui'],
                         'display_priority': info['display_priority'],
                     })
 
                 # If it's a numeric controller ...
-                else:
-                    if info['is_integer']:
-                        if info['is_toggled']:
-                            if info['value'] == 0:
-                                val = 'off'
-                            else:
-                                val = 'on'
-
-                            zctrls[symbol] = zynthian_controller(self, symbol, {
-                                'name': info['name'],
-                                'group_symbol': info['group_symbol'],
-                                'group_name': info['group_name'],
-                                #'graph_path': info['index'],
-                                'value': val,
-                                'labels': ['off', 'on'],
-                                'ticks': [int(info['range']['min']), int(info['range']['max'])],
-                                'value_min': int(info['range']['min']),
-                                'value_max': int(info['range']['max']),
-                                'is_toggle': True,
-                                'is_integer': True,
-                                'not_on_gui': info['not_on_gui'],
-                                'display_priority': info['display_priority']
-                            })
+                elif info['is_integer']:
+                    if info['is_toggled']:
+                        if info['value'] == 0:
+                            val = 'off'
                         else:
-                            zctrls[symbol] = zynthian_controller(self, symbol, {
-                                'name': info['name'],
-                                'group_symbol': info['group_symbol'],
-                                'group_name': info['group_name'],
-                                #'graph_path': info['index'],
-                                'value': int(info['value']),
-                                'value_default': int(info['range']['default']),
-                                'value_min': int(info['range']['min']),
-                                'value_max': int(info['range']['max']),
-                                'is_toggle': False,
-                                'is_integer': True,
-                                'is_logarithmic': info['is_logarithmic'],
-                                'not_on_gui': info['not_on_gui'],
-                                'display_priority': info['display_priority']
-                            })
+                            val = 'on'
+
+                        zctrls[symbol] = zynthian_controller(self, symbol, {
+                            'name': info['name'],
+                            'group_symbol': info['group_symbol'],
+                            'group_name': info['group_name'],
+                            #'graph_path': info['index'],
+                            'value': val,
+                            'labels': ['off', 'on'],
+                            'ticks': [int(info['range']['min']), int(info['range']['max'])],
+                            'value_min': int(info['range']['min']),
+                            'value_max': int(info['range']['max']),
+                            'is_toggle': True,
+                            'is_integer': True,
+                            'is_logarithmic': False,
+                            'is_path': False,
+                            'path_file_types': None,
+                            'not_on_gui': info['not_on_gui'],
+                            'display_priority': info['display_priority']
+                        })
                     else:
-                        if info['is_toggled']:
-                            if info['value'] == 0:
-                                val = 'off'
-                            else:
-                                val = 'on'
+                        zctrls[symbol] = zynthian_controller(self, symbol, {
+                            'name': info['name'],
+                            'group_symbol': info['group_symbol'],
+                            'group_name': info['group_name'],
+                            #'graph_path': info['index'],
+                            'value': int(info['value']),
+                            'value_default': int(info['range']['default']),
+                            'value_min': int(info['range']['min']),
+                            'value_max': int(info['range']['max']),
+                            'is_toggle': False,
+                            'is_integer': True,
+                            'is_logarithmic': info['is_logarithmic'],
+                            'is_path': False,
+                            'path_file_types': None,
+                            'not_on_gui': info['not_on_gui'],
+                            'display_priority': info['display_priority']
+                        })
+                elif info['is_toggled']:
+                    if info['value'] == 0:
+                        val = 'off'
+                    else:
+                        val = 'on'
 
-                            zctrls[symbol] = zynthian_controller(self, symbol, {
-                                'name': info['name'],
-                                'group_symbol': info['group_symbol'],
-                                'group_name': info['group_name'],
-                                #'graph_path': info['index'],
-                                'value': val,
-                                'labels': ['off', 'on'],
-                                'ticks': [info['range']['min'], info['range']['max']],
-                                'value_min': info['range']['min'],
-                                'value_max': info['range']['max'],
-                                'is_toggle': True,
-                                'is_integer': False,
-                                'not_on_gui': info['not_on_gui'],
-                                'display_priority': info['display_priority']
-                            })
-                        else:
-                            zctrls[symbol] = zynthian_controller(self, symbol, {
-                                'name': info['name'],
-                                'group_symbol': info['group_symbol'],
-                                'group_name': info['group_name'],
-                                #'graph_path': info['index'],
-                                'value': info['value'],
-                                'value_default': float(info['range']['default']),
-                                'value_min': float(info['range']['min']),
-                                'value_max': float(info['range']['max']),
-                                'is_toggle': False,
-                                'is_integer': False,
-                                'is_logarithmic': info['is_logarithmic'],
-                                'not_on_gui': info['not_on_gui'],
-                                'display_priority': info['display_priority'],
-                                'envelope': info['envelope']
-                            })
+                    zctrls[symbol] = zynthian_controller(self, symbol, {
+                        'name': info['name'],
+                        'group_symbol': info['group_symbol'],
+                        'group_name': info['group_name'],
+                        #'graph_path': info['index'],
+                        'value': val,
+                        'labels': ['off', 'on'],
+                        'ticks': [info['range']['min'], info['range']['max']],
+                        'value_min': info['range']['min'],
+                        'value_max': info['range']['max'],
+                        'is_toggle': True,
+                        'is_integer': False,
+                        'is_logarithmic': False,
+                        'is_path': False,
+                        'path_file_types': None,
+                        'not_on_gui': info['not_on_gui'],
+                        'display_priority': info['display_priority']
+                    })
+                elif info['is_path']:
+                    path_file_types = info['path_file_types'].split(",")
+                    zctrls[symbol] = zynthian_controller(self, symbol, {
+                        'name': info['name'],
+                        'group_symbol': info['group_symbol'],
+                        'group_name': info['group_name'],
+                        #'graph_path': info['index'],
+                        'value': None,
+                        'value_min': None,
+                        'value_max': None,
+                        'is_toggle': False,
+                        'is_integer': False,
+                        'is_logarithmic': False,
+                        'is_path': True,
+                        'path_file_types': path_file_types,
+                        'not_on_gui': info['not_on_gui'],
+                        'display_priority': info['display_priority']
+                    })
+                else:
+                    zctrls[symbol] = zynthian_controller(self, symbol, {
+                        'name': info['name'],
+                        'group_symbol': info['group_symbol'],
+                        'group_name': info['group_name'],
+                        #'graph_path': info['index'],
+                        'value': info['value'],
+                        'value_default': float(info['range']['default']),
+                        'value_min': float(info['range']['min']),
+                        'value_max': float(info['range']['max']),
+                        'is_toggle': False,
+                        'is_integer': False,
+                        'is_logarithmic': info['is_logarithmic'],
+                        'is_path': False,
+                        'path_file_types': None,
+                        'not_on_gui': info['not_on_gui'],
+                        'display_priority': info['display_priority'],
+                        'envelope': info['envelope']
+                    })
 
             # If control info is not OK
             except Exception as e:
@@ -810,8 +842,11 @@ class zynthian_engine_jalv(zynthian_engine):
             except Exception as e:
                 logging.error(f"Can't send controller '{zctrl.symbol}' with CC{zctrl.midi_cc} to zmop {zctrl.processor.chain.zmop_index} => {e}")
         elif zctrl.graph_path is not None:
-            self.proc_cmd("set %d %.6f" % (zctrl.graph_path, zctrl.value))
-        else:
+            if zctrl.is_path:
+                self.proc_cmd("set %d %s" % (zctrl.graph_path, zctrl.value))
+            else:
+                self.proc_cmd("set %d %.6f" % (zctrl.graph_path, zctrl.value))
+        elif not zctrl.is_path:
             self.proc_cmd("%s=%.6f" % (zctrl.symbol, zctrl.value))
 
     # ---------------------------------------------------------------------------

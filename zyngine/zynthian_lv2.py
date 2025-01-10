@@ -201,7 +201,8 @@ def init_lilv():
     world.ns.portgroups = lilv.Namespace(world, "http://lv2plug.in/ns/ext/port-groups#")
     world.ns.parameters = lilv.Namespace(world, "http://lv2plug.in/ns/ext/parameters#")
     world.ns.patch = lilv.Namespace(world, "http://lv2plug.in/ns/ext/patch#")
-
+    world.ns.atom = lilv.Namespace(world, "http://lv2plug.in/ns/ext/atom#")
+    world.ns.mod = lilv.Namespace(world, "http://moddevices.com/ns/mod#")
 
 # ------------------------------------------------------------------------------
 # Engines management
@@ -826,10 +827,6 @@ def get_plugin_ports(plugin_url):
 
             r = control.get_range()
             try:
-                vdef = get_node_value(r[0])
-            except:
-                vdef = vmin
-            try:
                 vmin = get_node_value(r[1])
             except:
                 if sp:
@@ -843,6 +840,10 @@ def get_plugin_ports(plugin_url):
                     vmax = max(sp, key=lambda x: x['value'])
                 else:
                     vmax = 1.0
+            try:
+                vdef = get_node_value(r[0])
+            except:
+                vdef = vmin
 
             ports_info[i] = {
                 'index': i,
@@ -861,6 +862,8 @@ def get_plugin_ports(plugin_url):
                 'is_integer': is_integer,
                 'is_enumeration': is_enumeration,
                 'is_logarithmic': is_logarithmic,
+                'is_path': False,
+                'path_file_types': None,
                 'envelope': envelope,
                 'not_on_gui': not_on_gui,
                 'display_priority': display_priority,
@@ -877,19 +880,42 @@ def get_plugin_ports(plugin_url):
         #logging.debug(f"Got property parameter with symbol {symbol} => {name}")
 
         range_type = str(world.get(control, world.ns.rdfs.range, None))
-        vdef = get_node_value(world.get(control, world.ns.lv2.default, None))
-        vmin = get_node_value(world.get(control, world.ns.lv2.minimum, None))
-        vmax = get_node_value(world.get(control, world.ns.lv2.maximum, None))
+        if range_type == world.ns.atom.Path:
+            vdef = None
+            vmin = None
+            vmax = None
+            is_toggled = False
+            is_integer = False
+            is_enumeration = False
+            is_logarithmic = False
+            is_path = True
+            path_file_types = str(world.get(control, world.ns.mod.fileTypes, None))
+            envelope = None
+            sp = []
+        else:
+            vdef = get_node_value(world.get(control, world.ns.lv2.default, None))
+            vmin = get_node_value(world.get(control, world.ns.lv2.minimum, None))
+            vmax = get_node_value(world.get(control, world.ns.lv2.maximum, None))
 
-        is_toggled = world.get(control, world.ns.lv2.toggled, None) is not None
-        is_integer = world.get(control, world.ns.lv2.integer, None) is not None
-        is_enumeration = world.get(control, world.ns.lv2.enumeration, None) is not None
-        is_logarithmic = world.get(control, world.ns.portprops.logarithmic, None) is not None
+            is_toggled = world.get(control, world.ns.lv2.toggled, None) is not None
+            is_integer = world.get(control, world.ns.lv2.integer, None) is not None
+            is_enumeration = world.get(control, world.ns.lv2.enumeration, None) is not None
+            is_logarithmic = world.get(control, world.ns.portprops.logarithmic, None) is not None
+            is_path = False
+            path_file_types = None
 
-        envelope = None
-        for env_type in ["delay", "attack", "hold", "decay", "sustain", "fade", "release"]:
-            if str(world.get(control, world.ns.lv2.designation, None)) == f"http://lv2plug.in/ns/ext/parameters#{env_type}":
-                envelope = env_type
+            envelope = None
+            for env_type in ["delay", "attack", "hold", "decay", "sustain", "fade", "release"]:
+                if str(world.get(control, world.ns.lv2.designation, None)) == f"http://lv2plug.in/ns/ext/parameters#{env_type}":
+                    envelope = env_type
+
+            sp = []
+            for p in world.find_nodes(control, world.ns.lv2.scalePoint, None):
+                sp.append({
+                    'label': str(world.get(p, world.ns.rdfs.label, None)),
+                    'value': get_node_value(world.get(p, world.ns.rdf.value, None))
+                })
+            sp = sorted(sp, key=lambda k: k['value'])
 
         not_on_gui = world.get(control, world.ns.portprops.notOnGUI, None) is not None
         display_priority = world.get(control, world.ns.lv2.displayPriority, None)
@@ -925,14 +951,6 @@ def get_plugin_ports(plugin_url):
         # else:
         # logging.debug("Control <{}> has no group.".format(symbol))
 
-        sp = []
-        for p in world.find_nodes(control, world.ns.lv2.scalePoint, None):
-            sp.append({
-                'label': str(world.get(p, world.ns.rdfs.label, None)),
-                'value': get_node_value(world.get(p, world.ns.rdf.value, None))
-            })
-        sp = sorted(sp, key=lambda k: k['value'])
-
         ports_info[i] = {
             'index': i,
             'symbol': symbol,
@@ -950,6 +968,8 @@ def get_plugin_ports(plugin_url):
             'is_integer': is_integer,
             'is_enumeration': is_enumeration,
             'is_logarithmic': is_logarithmic,
+            'is_path': is_path,
+            'path_file_types': path_file_types,
             'envelope': envelope,
             'not_on_gui': not_on_gui,
             'display_priority': display_priority,

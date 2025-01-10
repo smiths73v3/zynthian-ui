@@ -103,11 +103,12 @@ class zynthian_engine_fluidsynth(zynthian_engine):
 
         self.bank_config = {}
 
-        self.fs_options = "-o synth.midi-bank-select=mma -o synth.cpu-cores=3 -o synth.polyphony=64 -o midi.jack.id='{}' -o audio.jack.id='{}' -o audio.jack.autoconnect=0 -o audio.jack.multi='yes' -o synth.audio-groups=16 -o synth.audio-channels=16 -o synth.effects-groups=1 -o synth.chorus.active=0 -o synth.reverb.active=0".format(
-            self.jackname, self.jackname)
+        self.fs_options = "-o synth.midi-bank-select=mma -o synth.cpu-cores=3 -o synth.polyphony=64 \
+-o midi.jack.id='{}' -o audio.jack.id='{}' -o audio.jack.autoconnect=0 -o audio.jack.multi='yes' \
+-o synth.audio-groups=16 -o synth.audio-channels=16 -o synth.effects-groups=1 -o synth.chorus.active=0 \
+-o synth.reverb.active=0".format(self.jackname, self.jackname)
 
-        self.command = "fluidsynth -a jack -m jack -g 1 {}".format(
-            self.fs_options)
+        self.command = "fluidsynth -a jack -m jack -g 1 {}".format(self.fs_options)
         self.command_prompt = "\n> "
 
         self.start()
@@ -176,10 +177,9 @@ class zynthian_engine_fluidsynth(zynthian_engine):
 
         # External storage banks
         for exd in zynthian_gui_config.get_external_storage_dirs(cls.ex_data_dir):
-            flist = cls.find_all_preset_files(exd, recursion=2)
+            flist = cls.find_all_preset_files(exd, cls.preset_fexts, recursion=2)
             if not exclude_empty or len(flist) > 0:
-                banks.append(
-                    [None, None, f"USB> {os.path.basename(exd)}", None, None])
+                banks.append([None, None, f"USB> {os.path.basename(exd)}", None, None])
             for fpath in flist:
                 fname = os.path.basename(fpath)
                 title, filext = os.path.splitext(fname)
@@ -188,10 +188,9 @@ class zynthian_engine_fluidsynth(zynthian_engine):
 
         # Internal storage banks
         for root_bank_dir in cls.root_bank_dirs:
-            flist = cls.find_all_preset_files(root_bank_dir[1], recursion=2)
+            flist = cls.find_all_preset_files(root_bank_dir[1], cls.preset_fexts, recursion=2)
             if not exclude_empty or len(flist) > 0:
-                banks.append(
-                    [None, None, "SD> " + root_bank_dir[0], None, None])
+                banks.append([None, None, "SD> " + root_bank_dir[0], None, None])
             for fpath in flist:
                 fname = os.path.basename(fpath)
                 title, filext = os.path.splitext(fname)

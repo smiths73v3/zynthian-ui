@@ -29,7 +29,9 @@ from time import monotonic
 
 # Zynthian specific modules
 from zyncoder.zyncore import lib_zyncore
+from zyngine.zynthian_signal_manager import zynsigman
 
+# ----------------------------------------------------------------------------
 
 MIDI_CC_MODE_DETECT_TIMEOUT = 0.2
 MIDI_CC_MODE_DETECT_STEPS = 8
@@ -69,7 +71,8 @@ class zynthian_controller:
         self.value_mid = None
         self.value_max = None  # Maximum value of control range
         self.value_range = 0  # Span of permissible values
-        # Factor to scale each up/down nudge #TODO: This is not set if configure is not called or options not passed
+        # Factor to scale each up/down nudge
+        # TODO: This is not set if configure is not called or options not passed
         self.nudge_factor = None
         self.nudge_factor_fine = None  # Fine factor to scale
         self.labels = None  # List of discrete value labels
@@ -78,10 +81,13 @@ class zynthian_controller:
         self.is_toggle = False  # True if control is Boolean toggle
         self.is_integer = True  # True if control is Integer
         self.is_logarithmic = False  # True if control uses logarithmic scale
-        self.is_dirty = True  # True if control value changed since last UI update
+        self.is_path = False  # True if the control is a file path (i.e. LV2's atom:Path)
+        self.path_file_types = None  # List of supported file types
+        self.path_root_dirs = None
         self.not_on_gui = False  # True to hint to GUI to show control
-        # Hint of order in which to display control (higher comes first)
-        self.display_priority = float("inf")
+        self.display_priority = float("inf")  # Hint of order in which to display control (higher comes first)
+
+        self.is_dirty = True  # True if control value changed since last UI update
 
         # Parameters to send values if engine-specific send method not available
         self.midi_chan = None  # MIDI channel to send CC messages from control
@@ -157,6 +163,10 @@ class zynthian_controller:
             self.nudge_factor = options['nudge_factor']
         if 'is_logarithmic' in options:
             self.is_logarithmic = options['is_logarithmic']
+        if 'is_path' in options:
+            self.is_path = options['is_path']
+        if 'path_file_types' in options:
+            self.path_file_types = options['path_file_types']
         if 'midi_chan' in options:
             self.midi_chan = options['midi_chan']
         if 'midi_cc' in options:
@@ -179,6 +189,21 @@ class zynthian_controller:
         """Reconfigure based on current parameters"""
 
         self.value_range = None
+
+        if self.is_path:
+            if self.engine:
+                try:
+                    dirname = self.engine.plugin_name
+                except:
+                    dirname = self.engine.name
+            else:
+                dirname = ""
+            self.path_root_dirs = [
+                ('User', self.engine.my_data_dir + "/presets/" + dirname),
+                ('System', self.engine.data_dir + "/presets/" + dirname)
+            ]
+            return
+
         if self.labels:
             # Detect toggle (on/off)
             if len(self.labels) == 2:
@@ -267,7 +292,7 @@ class zynthian_controller:
                 else:
                     self.nudge_factor = self.value_range / 200
                     self.nudge_factor_fine = 1.0
-            else:
+            elif self.engine:
                 if self.value_range <= 250:
                     self.nudge_factor = 1
                     self.nudge_factor_fine = 1
@@ -286,6 +311,9 @@ class zynthian_controller:
                 else:
                     self.nudge_factor = 100000
                     self.nudge_factor_fine = 10000
+            else:
+                self.nudge_factor = 1
+                self.nudge_factor_fine = 1
         # Set a good default for fine adjustment if coarse factor was specified
         elif not self.nudge_factor_fine:
             self.nudge_factor_fine = 0.1 * self.nudge_factor
@@ -317,6 +345,15 @@ class zynthian_controller:
         return self.value
 
     def nudge(self, val, send=True, fine=False):
+        if self.is_path:
+            logging.debug(f"OPEN FILE SELECTOR FOR TYPES: {self.path_file_types} ")
+            zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR,
+                                  cb_func=self.set_value,
+                                  root_dirs=self.path_root_dirs,
+                                  fexts=self.path_file_types,
+                                  path=self.value)
+            return True
+
         if self.ticks:
             index = self.get_value2index() + val
             if index < 0:
@@ -349,6 +386,9 @@ class zynthian_controller:
                 self.set_value(self.value_min, send=True)
 
     def _set_value(self, val):
+        if self.is_path:
+            self.value = str(val)
+            return
         if isinstance(val, str):
             self.value = self.get_label2value(val)
             return
@@ -384,7 +424,6 @@ class zynthian_controller:
         self._set_value(val)
         if old_val == self.value:
             return
-
         self.send_value(send)
         self.is_dirty = True
 
@@ -433,11 +472,9 @@ class zynthian_controller:
         if mval is None:
             mval = self.get_ctrl_midi_val()
         try:
-            lib_zyncore.ctrlfb_send_ccontrol_change(
-                self.midi_feedback[0], self.midi_feedback[1], mval)
+            lib_zyncore.ctrlfb_send_ccontrol_change(self.midi_feedback[0], self.midi_feedback[1], mval)
         except Exception as e:
-            logging.warning(
-                "Can't send controller feedback '{}' => Val={}".format(self.symbol, e))
+            logging.warning("Can't send controller feedback '{}' => Val={}".format(self.symbol, e))
 
     # Get index of list entry closest to given value
     def get_value2index(self, val=None):
@@ -514,12 +551,15 @@ class zynthian_controller:
         full : True to get state of all parameters or false for off-default values
         """
         state = {}
-        if full:
-            if math.isnan(self.value):
-                state['value'] = None
-            else:
+        try:
+            if full:
+                if math.isnan(self.value):
+                    state['value'] = None
+                else:
+                    state['value'] = self.value
+            elif self.value != self.value_default:
                 state['value'] = self.value
-        elif self.value != self.value_default:
+        except:
             state['value'] = self.value
         if self.midi_cc_momentary_switch:
             state['midi_cc_momentary_switch'] = self.midi_cc_momentary_switch
