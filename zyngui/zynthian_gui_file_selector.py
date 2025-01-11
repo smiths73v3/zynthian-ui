@@ -59,7 +59,7 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
         dirnames = []
         for fext in fexts:
             try:
-                dirnames.append(cls.fext2dirname[fext])
+                dirnames.append(cls.fext2dirname[fext.lower()])
             except:
                 pass
         return set(dirnames)
@@ -74,13 +74,12 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
                 return path
 
     def config(self, cb_func, fexts=None, root_dirs=None, path=None):
+        self.list_data = []
         self.cb_func = cb_func
-
         if fexts:
             self.fexts = fexts
         else:
             self.fexts = ["wav"]
-
         if root_dirs:
             self.root_dirs = root_dirs
         else:
@@ -92,26 +91,47 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
                 self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
             if "wav" in self.fexts:
                 self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
-
         if path:
             self.path = path
             self.dirpath = self.get_dirpath(self.path)
         else:
             self.path = None
             self.dirpath = None
-
         self.set_select_path()
 
     def fill_list(self):
+        # Get dir/file list
         if self.dirpath:
             self.list_data = zynthian_engine.get_filelist(self.dirpath, self.fexts)
         else:
             self.list_data = zynthian_engine.get_bank_dirlist(recursion=0, fexts=self.fexts, root_bank_dirs=self.root_dirs)
+        # Find selected index
+        self.index = 0
+        for i, item in enumerate(self.list_data):
+            if item[0] == self.path:
+                self.index = i
         super().fill_list()
 
     def show(self):
-        # if len(self.list_data) > 0:
         super().show()
+        if (autosel_i := self.get_auto_select()) >= 0:
+            if self.dirpath:
+                self.path = self.dirpath
+                self.dirpath = None
+                self.update_list()
+                self.set_select_path()
+            else:
+                self.select_action(autosel_i)
+
+    def get_auto_select(self):
+        sel_i = -1
+        for i, item in enumerate(self.list_data):
+            if item[0] is not None:
+                if sel_i >= 0:
+                    return -1
+                else:
+                    sel_i = i
+        return sel_i
 
     def select_action(self, i, t='S'):
         if self.list_data and i < len(self.list_data):
@@ -121,6 +141,8 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
                 self.dirpath = self.get_dirpath(path)
                 self.update_list()
                 self.set_select_path()
+                if (autosel_i := self.get_auto_select()) >= 0:
+                    self.select_action(autosel_i)
             elif os.path.isfile(path):
                 self.path = path
                 self.cb_func(path)
@@ -130,10 +152,12 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
 
     def back_action(self):
         if self.dirpath:
+            self.path = self.dirpath
             self.dirpath = None
             self.update_list()
             self.set_select_path()
-            return True
+            if self.get_auto_select() < 0:
+                return True
         return False
 
     def set_selector(self, zs_hidden=False):
