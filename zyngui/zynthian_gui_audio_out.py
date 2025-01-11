@@ -144,7 +144,7 @@ class zynthian_gui_audio_out(zynthian_gui_selector_info):
                 self.zyngui.state_manager.audio_recorder.toggle_arm(self.chain.mixer_chan)
                 self.fill_list()
         elif t == 'S':
-            self.chain.toggle_audio_in(self.list_data[i][0])
+            self.chain.toggle_audio_out(self.list_data[i][0])
             self.fill_list()
         elif t == "B":
             self.zyngui.state_manager.start_busy("alsa_output")
