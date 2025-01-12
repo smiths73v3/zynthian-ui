@@ -54,7 +54,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # Config variables
     # ----------------------------------------------------------------------------
 
-    volume_units_raw_devices = ["sndrpihifiberry"]
+    volume_units_raw_devices = ["sndrpihifiberry", "US16x08"]
 
     # ---------------------------------------------------------------------------
     # Translations by device
@@ -283,7 +283,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 io_num = 0  # Clumsey but we are only guestimating here
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name, idx, chan, "level", f"output_{io_num - 1}"],
+                                'graph_path': [ctrl_name, idx, chan, "playback_level", f"output_{io_num - 1}"],
                                 'value': val,
                                 'value_min': ctrl_range[0],
                                 'value_max': ctrl_range[1],
@@ -327,7 +327,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name, idx, chan, "level", f"input_{io_num - 1}"],
+                                'graph_path': [ctrl_name, idx, chan, "capture_level", f"input_{io_num - 1}"],
                                 'value': val,
                                 'value_min': ctrl_range[0],
                                 'value_max': ctrl_range[1],
@@ -371,7 +371,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                                 display_priority = 10000 - io_num
                             _ctrls[symbol] = {
                                 'name': name,
-                                'graph_path': [ctrl_name, idx, chan, "level", "other"],
+                                'graph_path': [ctrl_name, idx, chan, "playback_level", "other"],
                                 'value': val,
                                 'value_min': ctrl_range[0],
                                 'value_max': ctrl_range[1],
@@ -553,11 +553,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 idx = zctrl.graph_path[1]
                 chan = zctrl.graph_path[2]
                 type = zctrl.graph_path[3]
-                if type == "level":
-                    if zctrl.group_symbol == "output":
-                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_PLAYBACK, self.volume_units)
-                    else:
-                        alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_CAPTURE, self.volume_units)
+                if type == "playback_level":
+                    alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_PLAYBACK, self.volume_units)
+                elif type == "capture_level":
+                    alsaaudio.Mixer(name, idx, -1, self.device).setvolume(zctrl.value, chan, alsaaudio.PCM_CAPTURE, self.volume_units)
                 elif type == "switch":
                     alsaaudio.Mixer(name, idx, -1, self.device).setmute(zctrl.value, chan)
                 elif type == "enum":
@@ -656,21 +655,21 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         overrides = {}
         overrides[f"DSP_Bypass"] = {"name": "DSP enable"}
         for i in range(16):
-            overrides[f"Compressor_{i}_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor", i, 0, "switch", f"input_{i}"], "labels": ["enabled", "disabled"], "display_priority": i}
-            overrides[f"Compressor_Threshold_{i}"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "graph_path": ["Compressor Threshold", i, 0, "level", f"input_{i}"], "display_priority": 21}
-            overrides[f"Compressor_Ratio_{i}"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "graph_path": ["Compressor Ratio", i, 0, "level", f"input_{i}"], "display_priority": 22}
-            overrides[f"Compressor_Attack_{i}"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Attack", i, 0, "level", f"input_{i}"], "display_priority": 23}
-            overrides[f"Compressor_Release_{i}"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "graph_path": ["Compressor Release", i, 0, "level", f"input_{i}"], "display_priority": 24}
-            overrides[f"Compressor_{i}"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "graph_path": ["Compressor", i, 0, "level", f"input_{i}"], "display_priority": 25}
-            overrides[f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["enabled", "disabled"], "graph_path": ["EQ", i, 0, "switch", f"input_{i}"], "display_priority": 30 + i}
+            overrides[f"Compressor_{i}_switch"] = {"name": f"Compressor {i + 1} disable", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["enabled", "disabled"], "display_priority": i}
+            overrides[f"Compressor_Threshold_{i}"] = {"name": f"Compressor {i + 1} threshold", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(-32, 1)], "display_priority": 21}
+            overrides[f"Compressor_Ratio_{i}"] = {"name": f"Compressor {i + 1} ratio", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": ["1.0:1", "1.1:1", "1.3:1", "1.5:1", "1.7:1", "2.0:1", "2.5:1", "3.0:1", "3.5:1", "4:1", "5:1", "6:1", "8:1", "16:1", "inf:1"], "display_priority": 22}
+            overrides[f"Compressor_Attack_{i}"] = {"name": f"Compressor {i + 1} attack", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}ms" for j in range(2, 201)], "display_priority": 23}
+            overrides[f"Compressor_Release_{i}"] = {"name": f"Compressor {i + 1} release", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}ms" for j in range(10, 1010, 10)], "display_priority": 24}
+            overrides[f"Compressor_{i}"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j}dB" for j in range(21)], "display_priority": 25}
+            overrides[f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["enabled", "disabled"], "display_priority": 30 + i}
             for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
-                overrides[f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "graph_path": [f"EQ {param}", i, 0, "level", f"input_{i}"], "display_priority": 50 + j * 10}
-            overrides[f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "graph_path": [f"EQ High Frequency", i, 0, "level", f"input_{i}"], "display_priority": 51}
-            overrides[f"EQ_MidHigh_Frequency_{i}"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidHigh Frequency", i, 0, "level", f"input_{i}"], "display_priority": 61}
-            overrides[f"EQ_MidHigh_Q_{i}"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ MidHigh Q", i, 0, "level", f"input_{i}"], "display_priority": 62}
-            overrides[f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "graph_path": [f"EQ MidLow Frequency", i, 0, "level", f"input_{i}"], "display_priority": 71}
-            overrides[f"EQ_MidLow_Q_{i}"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "graph_path": [f"EQ Midow Q", i, 0, "level", f"input_{i}"], "display_priority": 72}
-            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=64)], "graph_path": [f"EQ Low Frequency", i, 0, "level", f"input_{i}"], "display_priority": 81}
+                overrides[f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} capture_level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "display_priority": 50 + j * 10}
+            overrides[f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "display_priority": 51}
+            overrides[f"EQ_MidHigh_Frequency_{i}"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 61}
+            overrides[f"EQ_MidHigh_Q_{i}"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 62}
+            overrides[f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 71}
+            overrides[f"EQ_MidLow_Q_{i}"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 72}
+            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=64)], "display_priority": 81}
         self.device_overrides["US16x08"] = overrides
 
     # ---------------------------------------------------------------------------
