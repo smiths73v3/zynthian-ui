@@ -54,7 +54,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     # Config variables
     # ----------------------------------------------------------------------------
 
-    volume_units_raw_devices = ["sndrpihifiberry", "US16x08"]
+    volume_units_percent_devices = []
 
     # ---------------------------------------------------------------------------
     # Translations by device
@@ -600,10 +600,10 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         except:
             self.ctrl_list = None
 
-        if self.device_name in self.volume_units_raw_devices:
-            self.volume_units = alsaaudio.VOLUME_UNITS_RAW
-        else:
+        if self.device_name in self.volume_units_percent_devices:
             self.volume_units = alsaaudio.VOLUME_UNITS_PERCENTAGE
+        else:
+            self.volume_units = alsaaudio.VOLUME_UNITS_RAW
 
         if self.device_name == "sndrpihifiberry":
             self.set_sndrpihifiberry_overrides()
@@ -669,7 +669,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             overrides[f"EQ_MidHigh_Q_{i}"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 62}
             overrides[f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 71}
             overrides[f"EQ_MidLow_Q_{i}"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 72}
-            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=64)], "display_priority": 81}
+            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=32)], "display_priority": 81}
         self.device_overrides["US16x08"] = overrides
 
     # ---------------------------------------------------------------------------
