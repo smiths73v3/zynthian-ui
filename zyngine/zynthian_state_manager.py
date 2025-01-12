@@ -2388,7 +2388,7 @@ class zynthian_state_manager:
 
         self.end_busy("start_netump")
 
-    def stop_rtpmidi(self, save_config=True, wait=0):
+    def stop_netump(self, save_config=True, wait=0):
         service = "jacknetumpd"
         if not zynconf.is_service_active(service):
             zynthian_gui_config.midi_netump_enabled = 0
