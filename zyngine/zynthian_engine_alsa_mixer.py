@@ -663,13 +663,22 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             overrides[f"Compressor_{i}"] = {"name": f"Compressor {i + 1} gain", "group_symbol": f"comp{i}", "group_name": f"Compressor {i + 1}", "labels": [f"{j} dB" for j in range(21)], "display_priority": 25}
             overrides[f"EQ_{i}"] = {"name": f"EQ {i + 1} disable", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["enabled", "disabled"], "display_priority": 30 + i}
             for j, param in enumerate(["High", "MidHigh", "MidLow", "Low"]):
-                overrides[f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} capture_level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j}dB" for j in range(-12, 13)], "display_priority": 50 + j * 10}
-            overrides[f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f}kHz" for j in numpy.geomspace(1.7, 18, num=32)], "display_priority": 51}
-            overrides[f"EQ_MidHigh_Frequency_{i}"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 61}
+                overrides[f"EQ_{param}_{i}"] = {"name": f"EQ {i + 1} {param.lower()} capture_level", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j} dB" for j in range(-12, 13)], "display_priority": 50 + j * 10}
+            overrides[f"EQ_High_Frequency_{i}"] = {"name": f"EQ {i + 1} high freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{j:.1f} kHz" for j in numpy.geomspace(1.7, 18, num=32)], "display_priority": 51}
+            overrides[f"EQ_MidHigh_Frequency_{i}"] = {"name": f"EQ {i + 1} midhigh freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)} Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 61}
             overrides[f"EQ_MidHigh_Q_{i}"] = {"name": f"EQ {i + 1} midhigh Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 62}
-            overrides[f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 71}
+            overrides[f"EQ_MidLow_Frequency_{i}"] = {"name": f"EQ {i + 1} midlow freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)} Hz" for j in numpy.geomspace(32, 18000, num=64)], "display_priority": 71}
             overrides[f"EQ_MidLow_Q_{i}"] = {"name": f"EQ {i + 1} midlow Q", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": ["0.25", "0.5", "1", "2", "4", "8", "16"], "display_priority": 72}
-            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)}Hz" for j in numpy.geomspace(32, 16000, num=32)], "display_priority": 81}
+            overrides[f"EQ_Low_Frequency_{i}"] = {"name": f"EQ {i + 1} low freq", "group_symbol": f"eq{i}", "group_name": f"EQ {i + 1}", "labels": [f"{int(j)} Hz" for j in numpy.geomspace(32, 16000, num=32)], "display_priority": 81}
+            overrides[f"Line_Out_{i}"] = {"group_symbol": "output"}
+            overrides[f"Line_{i}"] = {"name": f"Fader {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}", "labels": [f"{j} dB" for j in range(-127, 7)]}
+            overrides[f"Pan_Left-Right_{i}"] = {"name": f"Pan {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}", "labels": [f"{j}" for j in range(-127, 128)]}
+            overrides[f"Phase_{i}"] = {"name": f"Phase {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}", "labels": ["on", "off"]}
+            overrides[f"Mute_{i}"] = {"name": f"Mute {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}", "labels": ["mute", "unmute"]}
+            #overrides[f"Level_Meter_{i}"] = {"name": f"Meter {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}"}
+        overrides["Buss_Out"] = {"name": "Mixdown", "group_symbol": f"output", "group_name": f"Global"}
+        overrides["Master"] = {"name": "Main Fader", "group_symbol": f"output", "labels": ["on", "off"], "labels": [f"{j} dB" for j in range(-127, 7)]}
+        overrides["Master_Mute"] = {"name": "Main Mute", "group_symbol": f"output", "labels": ["mute", "unmute"]}
         self.device_overrides["US16x08"] = overrides
 
     # ---------------------------------------------------------------------------
