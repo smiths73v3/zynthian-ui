@@ -80,7 +80,8 @@ class zynthian_engine_jalv(zynthian_engine):
         'http://gareus.org/oss/lv2/tuna#one': "/zynthian/zynthian-ui/zyngui/zynthian_widget_tunaone.py",
         'http://gareus.org/oss/lv2/tuna#mod': "/zynthian/zynthian-ui/zyngui/zynthian_widget_tunaone.py",
         'http://looperlative.com/plugins/lp3-basic': "/zynthian/zynthian-ui/zyngui/zynthian_widget_looper.py",
-        'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader': "/zynthian/zynthian-ui/zyngui/zynthian_widget_aidax.py"
+        'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader': "/zynthian/zynthian-ui/zyngui/zynthian_widget_aidax.py",
+        'http://github.com/mikeoliphant/neural-amp-modeler-lv2': "/zynthian/zynthian-ui/zyngui/zynthian_widget_nam.py"
     }
 
     # ------------------------------------------------------------------------------
