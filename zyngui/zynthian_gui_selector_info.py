@@ -124,8 +124,9 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
 
     def get_icon(self, icon_fname):
         if not icon_fname:
-            return zynthian_gui_config.loading_imgs[0]
-        elif icon_fname not in self.icons:
+            #return zynthian_gui_config.loading_imgs[0]
+            icon_fname = "zynthian_logo.png"
+        if icon_fname not in self.icons:
             try:
                 img = Image.open(f"/zynthian/zynthian-ui/icons/{icon_fname}")
                 icon = ImageTk.PhotoImage(img.resize(self.icon_size))

@@ -84,7 +84,7 @@ class zynthian_gui_audio_in(zynthian_gui_selector_info):
         if t == 'S':
             self.chain.toggle_audio_in(self.list_data[i][0])
             self.fill_list()
-        else:
+        elif t == "B":
             self.zyngui.state_manager.start_busy("alsa_input")
             zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
             ctrl_list = []

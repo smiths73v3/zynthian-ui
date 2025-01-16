@@ -63,8 +63,6 @@ SL_STATE_REDO = 18
 SL_STATE_REDO_ALL = 19
 SL_STATE_OFF_MUTED = 20
 
-SS_GUI_CONTROL_MODE = 2 #TODO: This should be sourced from a common place but should not import gui classes here
-
 # ------------------------------------------------------------------------------
 # Sooper Looper Engine Class
 # ------------------------------------------------------------------------------
@@ -77,7 +75,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 	SL_PORT = ServerPort["sooperlooper_osc"]
 	MAX_LOOPS = 6
 
-	# SL_LOOP_SEL_PARAM act on the selected loop - send with osc command /sl/#/set where #=-3 for selected or index of loop (0..5) 
+	# SL_LOOP_SEL_PARAM act on the selected loop - send with osc command /sl/#/set where #=-3 for selected or index of loop (0..5)
 	SL_LOOP_SEL_PARAM = [
 		'record',
 		'overdub',
@@ -99,7 +97,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		#'dry',						# range 0 -> 1
 		'wet',						# range 0 -> 1
 		#'input_gain',				# range 0 -> 1
-		'rate',        				# range 0.25 -> 4.0
+		'rate',                                 # range 0.25 -> 4.0
 		#'scratch_pos',				# range 0 -> 1
 		#'delay_trigger',			# any changes
 		#'quantize',				# 0 = off, 1 = cycle, 2 = 8th, 3 = loop
@@ -870,7 +868,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			self.osc_server.send(self.osc_target, '/set', ('s', 'selected_loop_num'), ('f', self.selected_loop))
 		processor.refresh_controllers()
 		self.state_manager.send_cuia("refresh_screen", ["control"])
-		zynsigman.send_queued(zynsigman.S_GUI, SS_GUI_CONTROL_MODE, mode='control')
+		zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, mode='control')
 
 	def prev_loop(self):
 		self.processors[0].controllers_dict['prev/next'].nudge(-1)

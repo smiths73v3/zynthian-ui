@@ -138,13 +138,15 @@ class zynthian_gui_audio_out(zynthian_gui_selector_info):
 
         super().fill_list()
 
-    def fill_listbox(self):
-        super().fill_listbox()
-
     def select_action(self, i, t='S'):
         if self.list_data[i][0] == 'record':
-            self.zyngui.state_manager.audio_recorder.toggle_arm(self.chain.mixer_chan)
-        else:
+            if t == 'S':
+                self.zyngui.state_manager.audio_recorder.toggle_arm(self.chain.mixer_chan)
+                self.fill_list()
+        elif t == 'S':
+            self.chain.toggle_audio_out(self.list_data[i][0])
+            self.fill_list()
+        elif t == "B":
             self.zyngui.state_manager.start_busy("alsa_output")
             zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
             ctrl_list = []
