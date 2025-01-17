@@ -93,10 +93,10 @@ SCALES = {
 CHORD_MODES = [
     "Single note",
     "Chord",
-    "Tonal major key",
-    "Tonal major key 7th",
-    "Tonal minor key",
-    "Tonal minor key 7th"
+    "Diatonic triads, major key",
+    "Diatonic 7ths, major key",
+    "Diatonic triads, minor key",
+    "Diatonic 7ths, minor key"
 ]
 
 CHORDS = [
@@ -385,7 +385,10 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     title = f"{group}{title}"
             except:
                 pass
-            if title:
+            if self.chord_mode:
+                self.set_title(f"Pattern {self.pattern} [Chord Entry]",
+                    zynthian_gui_config.color_panel_tx, zynthian_gui_config.color_header_bg)
+            elif title:
                 self.set_title(f"Pattern {self.pattern} ({title})")
             else:
                 self.set_title(f"Pattern {self.pattern}")
@@ -1905,7 +1908,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                         f"Chord type: {CHORDS[self.chord_type][0]}")
                 else:
                     self.set_title(
-                        f"Tonal centre (tonic): {NOTE_NAMES[self.tonic]}")
+                        f"Diatonic key: {NOTE_NAMES[self.tonic]}")
 
         self.init_buttonbar([(f"ZYNPOT {zynpot},-1", f"-{delta}"), (f"ZYNPOT {zynpot},+1", f"+{delta}"),
                             ("ZYNPOT 3,-1", "PREV\nPARAM"), ("ZYNPOT 3,+1", "NEXT\nPARAM"), (3, "OK")])
