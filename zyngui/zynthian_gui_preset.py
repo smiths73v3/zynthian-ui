@@ -23,12 +23,10 @@
 #
 # ******************************************************************************
 
-import sys
 import copy
 import logging
 
 # Zynthian specific modules
-from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector import zynthian_gui_selector
 from zyngui.zynthian_gui_save_preset import zynthian_gui_save_preset
 

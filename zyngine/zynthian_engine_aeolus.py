@@ -630,15 +630,16 @@ class zynthian_engine_aeolus(zynthian_engine):
         #logging.debug(f"Aeolus Controller ({zctrl.symbol} => {zctrl.value}")
         for c in self.swell_ctrls + self.common_ctrls + self.audio_ctrls:
             if zctrl.symbol == c[0]:
-                try:
-                    izmop = zctrl.processor.chain.zmop_index
-                    if isinstance(zctrl.midi_cc, int) and izmop is not None and izmop >= 0:
-                        mval = zctrl.get_ctrl_midi_val()
-                        lib_zyncore.zmop_send_ccontrol_change(izmop, zctrl.processor.midi_chan, zctrl.midi_cc, mval)
-                    else:
-                        raise Exception(f"Bad ZMOP index {izmop} or CC number {zctrl.midi_cc}.")
-                except Exception as e:
-                    logging.error(f"Can't send controller value for '{zctrl.symbol}' => {e}")
+                if zctrl.midi_cc:
+                    try:
+                        lib_zyncore.zmop_send_ccontrol_change(zctrl.processor.chain.zmop_index,
+                                                              zctrl.processor.midi_chan,
+                                                              zctrl.midi_cc,
+                                                              zctrl.get_ctrl_midi_val())
+                    except Exception as e:
+                        logging.error(f"Can't send controller '{zctrl.symbol}' with CC{zctrl.midi_cc} to zmop {zctrl.processor.chain.zmop_index} => {e}")
+                else:
+                    logging.error(f"Can't send controller '{zctrl.symbol}' => No CC number!")
                 #self.state_manager.zynmidi.set_midi_control(zctrl.processor.midi_chan, zctrl.midi_cc, zctrl.value)
                 #raise Exception("MIDI handler")
                 return
