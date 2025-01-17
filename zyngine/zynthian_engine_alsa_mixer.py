@@ -685,7 +685,7 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
     def set_US16x08_overrides(self):
         # Tascam US-16x08
         overrides = {}
-        overrides[f"DSP_Bypass"] = {"name": "DSP enable"}
+        overrides[f"DSP_Bypass"] = {"name": "DSP enable", "group_name": "Global"}
         self.stereo_controls = ["Compressor", "Compressor Threshold", "Compressor Ratio", "Compressor Attack", "Compressor Release", "EQ", "EQ High", "EQ High Frequencey", "EQ Low", "EQ Low Frequency", "EQ MidHigh", "EQ MidHigh Frequency", "EQ MidHigh Q", "EQ MidLow", "EQ MidLow Frequency", "EQ MidLow Q", "Line", "Mute", "Pan Left-Right", "Phase"]
         self.stereo_channels = 8
         for i in range(16):
@@ -710,9 +710,9 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
             overrides[f"Phase_{i}"] = {"name": f"Phase {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}", "labels": ["on", "off"], "display_priority": 1}
             overrides[f"Mute_{i}"] = {"name": f"Mute {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}", "labels": ["mute", "unmute"], "display_priority": 2}
             #overrides[f"Level_Meter_{i}"] = {"name": f"Meter {i + 1}", "group_symbol": f"mixer{i}", "group_name": f"Mixer {i + 1}"}
-        overrides["Buss_Out"] = {"name": "Mixdown", "group_symbol": f"output", "group_name": f"Global"}
-        overrides["Master"] = {"name": "Main Fader", "group_symbol": f"output", "labels": ["on", "off"], "labels": [f"{j} dB" for j in range(-127, 7)]}
-        overrides["Master_Mute"] = {"name": "Main Mute", "group_symbol": f"output", "labels": ["mute", "unmute"]}
+        overrides["Buss_Out"] = {"name": "Mixdown", "group_symbol": "mixer_main", "group_name": "Mixer Main", "display_priority": 7}
+        overrides["Master"] = {"name": "Main Fader", "group_symbol": "mixer_main", "group_name": "Mixer Main", "labels": ["on", "off"], "labels": [f"{j} dB" for j in range(-127, 7)], "display_priority": 6}
+        overrides["Master_Mute"] = {"name": "Main Mute", "group_symbol": "mixer_main", "group_name": "Mixer Main", "labels": ["mute", "unmute"], "display_priority": 5}
         self.device_overrides["US16x08"] = overrides
 
     # ---------------------------------------------------------------------------
