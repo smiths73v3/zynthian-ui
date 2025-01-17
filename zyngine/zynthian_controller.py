@@ -583,24 +583,30 @@ class zynthian_controller:
 
         elif self.midi_cc_mode > 0:
             # CC mode relative (1, 2 or 3)
-            if self.midi_cc_mode == 1:
-                if val == 64:
+            match self.midi_cc_mode:
+                case 1:
+                    if val == 64:
+                        return
+                    dval = val - 64
+                case 2:
+                    if val == 0:
+                        return
+                    if val >= 64:
+                        dval = val - 128
+                    else:
+                        dval = val
+                case 3:
+                    if val == 16:
+                        return
+                    dval = val - 16
+                case 4:
+                    if val < 64:
+                        dval = -1
+                    else:
+                        dval = 1
+                case _:
+                    logging.error(f"Wrong MIDI CC mode {self.midi_cc_mode}")
                     return
-                dval = val - 64
-            elif self.midi_cc_mode == 2:
-                if val == 0:
-                    return
-                if val >= 64:
-                    dval = val - 128
-                else:
-                    dval = val
-            elif self.midi_cc_mode == 3:
-                if val == 16:
-                    return
-                dval = val - 16
-            else:
-                logging.error(f"Wrong MIDI CC mode {self.midi_cc_mode}")
-                return
 
             if self.is_logarithmic:
                 if dval > 0:
@@ -645,6 +651,9 @@ class zynthian_controller:
         this “0” value has been made to prevent browsing issues in Ableton Live.
         This parameter was called “knob fix” in Midi Control Center, but has been hard implemented
         in the last firmware versions.
+
+        Relative 4: The knob will send a value < 64 when turned in a negative direction and a value >= 64
+        when turned in a positive direction. No acceleration. (Not auto-detected)
         """
 
         #logging.debug(f"CC val={val} => current mode={self.midi_cc_mode}, detecting mode {self.midi_cc_mode_detecting}"
