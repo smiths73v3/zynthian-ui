@@ -211,7 +211,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         else:
             self.list_data.append((self.workflow_capture_start, 0, "\u2610 Capture Workflow", ["Start workflow capture session.\n\nZynthian display, encoder and button actions are saved to file until this option is deselected.", None]))
         if self.state_manager.update_available:
-            self.list_data.append((self.update_software, 0, "Update Software", ["Updates zynthian firmware and software from Internet.\n\nThis option is only shown when there are updates availale, as indicated by the \u21bb icon in the topbar.\nUpdates may take several minutes. Do not poweroff during an update.", None]))
+            self.list_data.append((self.update_software, 0, "Update Software", ["Updates firmware and software from Internet.\n\nThis option is only shown when updates are availale, indicated by the \u21bb icon in the topbar.\nDo not poweroff during update which may take several minutes.", None]))
         # self.list_data.append((self.update_system, 0, "Update Operating System"))
         # self.list_data.append((None, 0, "> POWER"))
         # self.list_data.append((self.restart_gui, 0, "Restart UI"))
