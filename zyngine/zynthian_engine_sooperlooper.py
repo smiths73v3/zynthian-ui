@@ -31,6 +31,7 @@ import os
 from glob import glob
 from subprocess import Popen, DEVNULL
 from time import sleep, monotonic
+from threading import Timer
 
 from . import zynthian_controller
 from zynconf import ServerPort
@@ -375,6 +376,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		})
 		self.pedal_time = 0  # Time single pedal was asserted
 		self.pedal_taps = 0  # Quantity of taps on single pedal
+		self.single_pedal_timer = None # Timer used for long pedal press
 
 		# MIDI Controllers
 		loop_labels = []
@@ -608,39 +610,62 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 				Play->Overdub
 				Overdub->Play
 				Double press: pause
-				Double press and hold: Clear
+				Triple press or double press and hold: Clear
+				Press once and hold to record/overdub until release
 			"""
 			ts = monotonic()
 			pedal_dur = ts - self.pedal_time
+			if pedal_dur < 0.05:
+				return # debounce
 
-			# Pedal push
 			if zctrl.value:
-				self.pedal_time = ts
-				if 0 < pedal_dur < 0.5:
+				# Pedal push
+				if pedal_dur < 0.5:
 					self.pedal_taps += 1
 				else:
-					self.pedal_taps = 0
-				# Triple tap
-				if self.pedal_taps == 2:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'undo_all'))
-				# Double tap
-				elif self.pedal_taps == 1:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'pause'))
-				# Single tap
-				elif self.state[self.selected_loop] in (SL_STATE_UNKNOWN, SL_STATE_OFF, SL_STATE_OFF_MUTED):
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
-				elif self.state[self.selected_loop] == SL_STATE_RECORDING:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
-				elif self.state[self.selected_loop] in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
-				elif self.state[self.selected_loop] == SL_STATE_PAUSED:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'trigger'))
-			# Pedal release: so check loop state, pedal press duration, etc.
-			else:
-				# Long press
-				if pedal_dur > 1.5:
-					if self.pedal_taps:
+					self.pedal_taps = 1
+
+				self.pedal_time = ts
+
+				try:
+					self.single_pedal_timer.cancel()
+					self.single_pedal_timer = None()
+				except:
+					pass
+
+				match self.pedal_taps:
+					case 1:
+					# Single tap
+						if self.state[self.selected_loop] in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
+						if self.state[self.selected_loop] in (SL_STATE_UNKNOWN, SL_STATE_OFF, SL_STATE_OFF_MUTED):
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
+						elif self.state[self.selected_loop] == SL_STATE_RECORDING:
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
+						elif self.state[self.selected_loop] == SL_STATE_PAUSED:
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'trigger'))
+					case 2:
+					# Double tap
+						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'pause'))
+					case 3:
+						# Triple tap
 						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'undo_all'))
+				self.single_pedal_timer = Timer(1.5, self.single_pedal_cb)
+				self.single_pedal_timer.start()
+			else:
+				# Pedal release: so check loop state, pedal press duration, etc.
+				try:
+					self.single_pedal_timer.cancel()
+					self.single_pedal_timer = None
+				except:
+					pass
+				if pedal_dur > 1.5:
+					# Handle press and hold record
+					if self.state[self.selected_loop] == SL_STATE_OVERDUBBING:
+						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
+					elif self.state[self.selected_loop] == SL_STATE_RECORDING:
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
+
 		elif symbol == 'selected_loop_num':
 			self.select_loop(zctrl.value - 1, True)
 		elif symbol in self.SL_LOOP_PARAMS:  # Selected loop
@@ -678,6 +703,14 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 				# Don't remove loops - let GUI offer option to (confirm and) remove
 				zctrl.set_value(self.loop_count, False)
 				self.monitors_dict['loop_del'] = True
+
+	def single_pedal_cb(self):
+		match self.pedal_taps:
+			case 2:
+				# Double tap + hold - clear loop
+				self.osc_server.send(self.osc_target, f'/sl/-3/hit', ('s', 'undo_all'))
+		self.pedal_taps = 0
+		self.single_pedal_timer = None
 
 	def get_monitors_dict(self):
 		return self.monitors_dict
