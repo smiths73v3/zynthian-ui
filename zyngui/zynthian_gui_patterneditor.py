@@ -100,90 +100,41 @@ CHORD_MODES = [
 ]
 
 CHORDS = [
-    ["Major",  [0, 4, 7]],
+    # Triads
+    ["Major", [0, 4, 7]],
     ["Minor", [0, 3, 7]],
     ["Diminished", [0, 3, 6]],
-    ["Major seventh", [0, 4, 7, 11]],
-    ["Minor seventh", [0, 3, 7, 10]],
-    ["Dominant Seventh", [0, 4, 7, 10]],
-    ["Suspended second", [0, 2, 7]],
-    ["Suspended fourth", [0, 5, 7]],
     ["Augmented", [0, 4, 8]],
-    ["Major ninth", [0, 4, 7, 11, 14]],
-    ["Minor ninth", [0, 3, 7, 10, 14]],
-    ["Dominant ninth", [0, 4, 7, 10, 14]],
-    ["Major eleventh", [0, 4, 7, 11, 14, 17]],
-    ["Minor eleventh", [0, 3, 7, 10, 14, 17]],
-    ["Augmented minor seventh", [0, 4, 8, 10]],
-    ["Augmented major seventh", [0, 4, 8, 11]],
-    ["Suspended seventh", [0, 5, 7, 10]],
-    ["Suspended second triad", [0, 2, 7]],
-    ["Suspended fourth triad", [0, 5, 7]],
-    ["Eleventh", [0, 7, 10, 5]],
-    ["Suspended fourth ninth", [0, 5, 7, 1]],
-    ["Minor seventh", [0, 3, 7, 10]],
-    ["Major seventh", [0, 4, 7, 11]],
-    ["Dominant seventh", [0, 4, 7, 10]],
-    ["Half diminished seventh", [0, 3, 6, 10]],
-    ["Diminished seventh", [0, 3, 6, 9]],
-    ["Minor/major seventh", [0, 3, 7, 11]],
-    ["Minor/major seventh", [0, 3, 7, 9]],
-    ["Minor sixth", [0, 4, 7, 9]],
-    ["Major sixth", [0, 4, 7, 9, 10]],
-    ["Dominant sixth", [0, 4, 7, 9, 2]],
-]
-"""
-    'sixth ninth': [],
-    'dominant ninth': [],
-    'dominant flat ninth': [],
-    'dominant sharp ninth': [],
-    'major ninth': [],
-    'minor ninth': [],
-    'lydian dominant seventh': [],
-    'minor eleventh': [],
-    'major thirteenth': [],
-    'minor thirteenth': [],
-    'dominant thirteenth': [],
-    'dominant flat five': [],
-    'hendrix chord': [],
-    'perfect fifth': []
-"""
-
-# These are not used!!!
-TONAL_CHORDS = [
-    [ # Diatonic triad chords in the major key
-        "I (major tonic)",
-        "II (major supertonic)",
-        "iii (major mediant)",
-        "IV (major subdominant)",
-        "V (major dominant)",
-        "vi (major submediant)",
-        "vii° (major leading tone)"],
-    [ # Diatonic seventh chords in the major key
-        "I7 (major tonic 7th)",
-        "ii7 (major supertonic 7th)",
-        "iii7 (major mediant 7th)",
-        "IV7 (major subdominant 7th)",
-        "V7 (major dominant 7th)",
-        "vi7 (major submediant 7th)",
-        "viiø7 (major leading tone)",
-    ],
-    [ # Diatonic triad chords in the minor key
-        "i (minor tonic)",
-        "ii° (minor supertonic)",
-        "biii (minor mediant)",
-        "iv (minor subdominant)",
-        "v (minor dominant)",
-        "bVI (minor submediant)",
-        "bVII (minor subtonic)"],
-    [ # Diatonic seventh chords in the minor key
-        "i7 (minor tonic 7th)",
-        "iiø7 (minor supertonic 7th)",
-        "biii (minor mediant 7th)",
-        "iv (minor subdominant 7th)",
-        "v (minor dominant 7th)",
-        "bVI (minor submediant 7th)",
-        "bVII (minor subtonic7th)"]
+    # Seventh chords
+    ["Major 7th", [0, 4, 7, 11]], # (maj7)
+    ["Minor 7th", [0, 3, 7, 10]], # (m7)
+    ["Dominant 7th", [0, 4, 7, 10]], # (7)
+    ["Half-Diminished 7th", [0, 3, 6, 10]], # (m7♭5)
+    ["Diminished 7th", [0, 3, 6, 9]], # (dim7)
+    ["Minor-Major 7th", [0, 3, 7, 11]], # (m(maj7))
+    ["Augmented Major 7th", [0, 4, 8, 11]], # (+maj7)
+    ["Augmented 7th", [0, 4, 8, 10]], # (+7)
+    # Extended chords
+    ["Major 9th", [0, 4, 7, 11, 14]], # (maj9)
+    ["Dominant 9th", [0, 4, 7, 10, 14]], # (9)
+    ["Minor 9th", [0, 3, 7, 10, 14]], # (m9)
+    ["Minor-Major 9th", [0, 3, 7, 11, 14]], # (m(maj9))
+    ["Dominant 11th", [0, 4, 7, 10, 14, 17]], # (11)
+    ["Minor 11th", [0, 3, 7, 10, 14, 17]], # (m11)
+    ["Dominant 13th", [0, 4, 7, 10, 14, 17, 21]], # (13)
+    ["Minor 13th", [0, 3, 7, 10, 14, 17, 21]], #  (m13)
+    # Suspended chords
+    ["Suspended 2nd", [0, 2, 7]], # (sus2)
+    ["Suspended 4th", [0, 5, 7]], # (sus4)
+    ["7sus4", [0, 5, 7, 10]],
+    # Add chords
+    ["Add9", [0, 4, 7, 14]],
+    ["Minor Add9", [0, 3, 7, 14]], # (madd9)
+    # 6th chords
+    ["Major 6th", [0, 4, 7, 9]], # (6)
+    ["Minor 6th", [0, 3, 7, 9]], # (m6)
+    # Altered 7th chords
+    ["Half-Diminished Dominant", [0, 4, 6, 10]] # (7♭5)
 ]
 
 # -----------------------------------------------------------------------------
@@ -241,8 +192,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
         self.changed_ts = 0
         self.midi_record = False  # True when record from MIDI enabled
         self.chord_mode = 0 # Chord entry mode. 0 for single note entry
-        self.chord_type = 0 # Chord type. Index of CHORD or TONAL_CHORD, depending on chord_mode
-        self.tonic = 0 # Tonic of tonal chords
+        self.chord_type = 0 # Chord type. Index of CHORD
+        self.diatonic_scale_tonic = 0 # Tonic of diatonic scale used for chords
 
         # Touch control variables
         self.swiping = 0
@@ -586,7 +537,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
             self.zyngui.show_keyboard(
                 self.export_smf, "pat#{}".format(self.pattern))
 
-    def get_tonal_chord(self, trigger_note):
+    def get_diatonic_chord(self, trigger_note):
         chord = []
         match self.chord_mode:
             case 2 | 3:
@@ -599,7 +550,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
             chord_len = 4
         else:
             chord_len = 3
-        scale_offset = trigger_note % 12 + self.tonic
+        scale_offset = trigger_note % 12 + self.diatonic_scale_tonic
         if scale_offset not in scale_template:
             return [] # Trigger note not in diatonic scale
         note_offset = scale_template.index(scale_offset)
@@ -1234,8 +1185,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                 # Chord entry mode
                 chord = CHORDS[self.chord_type][1]
             case _:
-                # Tonal chord entry mode
-                chord = self.get_tonal_chord(note)
+                # Diatonic chord entry mode
+                chord = self.get_diatonic_chord(note)
         for offset in chord:
             if self.add_event(step, note + offset, self.velocity, self.duration):
                 self.play_note(note + offset)
@@ -1255,8 +1206,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                 # Chord entry mode
                 chord = CHORDS[self.chord_type][1]
             case _:
-                # Tonal chord entry mode
-                chord = self.get_tonal_chord(note)
+                # Diatonic chord entry mode
+                chord = self.get_diatonic_chord(note)
         for offset in chord:
             self.remove_event(step, note + offset)
 
@@ -1908,7 +1859,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                         f"Chord type: {CHORDS[self.chord_type][0]}")
                 else:
                     self.set_title(
-                        f"Diatonic key: {NOTE_NAMES[self.tonic]}")
+                        f"Diatonic key: {NOTE_NAMES[self.diatonic_scale_tonic]}")
 
         self.init_buttonbar([(f"ZYNPOT {zynpot},-1", f"-{delta}"), (f"ZYNPOT {zynpot},+1", f"+{delta}"),
                             ("ZYNPOT 3,-1", "PREV\nPARAM"), ("ZYNPOT 3,+1", "NEXT\nPARAM"), (3, "OK")])
@@ -2055,8 +2006,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                         if self.chord_type > len(CHORDS) - 1:
                             self.chord_type = len(CHORDS) - 1
                     elif self.chord_mode > 1:
-                        self.tonic += dval
-                        self.tonic %= len(NOTE_NAMES)
+                        self.diatonic_scale_tonic += dval
+                        self.diatonic_scale_tonic %= len(NOTE_NAMES)
                 self.set_edit_title()
             elif self.edit_mode == EDIT_MODE_ALL:
                 if self.edit_param == EDIT_PARAM_DUR:
