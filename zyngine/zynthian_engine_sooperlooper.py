@@ -420,7 +420,8 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['loop_count', {'name': 'loop count', 'value': 1, 'value_min': 1, 'value_max': self.MAX_LOOPS}],
 			['selected_loop_num', {'name': 'selected loop', 'value': 1, 'value_min': 1, 'value_max': 6}],
 			['single_pedal', {'name': 'single pedal', 'value': 0, 'value_max': 1, 'labels': ['>', '<'], 'is_toggle': True}],
-			['selected_loop_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}]
+			['selected_loop_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}],
+			['load_file', {'name': 'load file', 'is_path': True, 'path_file_types': ["wav"]}]
 		]
 
 		# Controller Screens
@@ -431,7 +432,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['Loop time/pitch', ['reverse:0', 'rate', 'stretch_ratio', 'pitch_shift']],
 			['Loop levels', ['wet', 'dry', 'feedback', 'selected_loop_num']],
 			['Global loop', ['selected_loop_num', 'loop_count', 'next_loop', 'single_pedal:0']],
-			['Global levels', ['rec_thresh', 'input_gain']],
+			['Global levels', ['rec_thresh', 'input_gain', 'load_file']],
 			['Global quantize', ['quantize', 'mute_quantized', 'overdub_quantized', 'replace_quantized']],
 			['Global sync 1', ['sync_source', 'sync', 'playback_sync', 'relative_sync']],
 			['Global sync 2', ['round', 'use_feedback_play', 'selected_loop_cc']]
@@ -589,6 +590,10 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		if zctrl.symbol == "selected_loop_cc":
 			self.selected_loop_cc_binding = zctrl.value != 0
 			return
+		elif zctrl.symbol == "load_file":
+			#self.osc_server.send(self.osc_target, f"/sl/{self.selected_loop}/load_loop", ("s", zctrl.value), ('s', self.osc_server_url), ('s', '/error'))
+			self.osc_server.send(self.osc_target, f"/sl/0/load_loop", ("s", zctrl.value), ('s', self.osc_server_url), ('s', '/error'))
+			return
 		if ":" in zctrl.symbol:
 			symbol, chan = zctrl.symbol.split(":")
 			if self.selected_loop_cc_binding:
@@ -629,7 +634,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 
 				try:
 					self.single_pedal_timer.cancel()
-					self.single_pedal_timer = None()
+					self.single_pedal_timer = None
 				except:
 					pass
 
