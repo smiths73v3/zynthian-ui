@@ -389,7 +389,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['substitute', {'name': 'substitute', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['insert', {'name': 'insert', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['undo/redo', {'value': 1, 'labels': ['<', '<>', '>']}],
-			['prev/next', {'value': 63, 'value_max': 127, 'labels': ['<', '<>', '>']}],
+			['next_loop', {'name': 'next loop', 'value': 0, 'value_max': 127, 'labels': ['>', '']}],
 			['trigger', {'name': 'trigger', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['mute', {'name': 'mute', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['oneshot', {'name': 'oneshot', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
@@ -428,7 +428,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['Loop control', ['trigger', 'oneshot', 'mute', 'pause']],
 			['Loop time/pitch', ['reverse', 'rate', 'stretch_ratio', 'pitch_shift']],
 			['Loop levels', ['wet', 'dry', 'feedback', 'selected_loop_num']],
-			['Global loop', ['selected_loop_num', 'loop_count', 'prev/next', 'single_pedal']],
+			['Global loop', ['selected_loop_num', 'loop_count', 'next_loop', 'single_pedal']],
 			['Global levels', ['rec_thresh', 'input_gain']],
 			['Global quantize', ['quantize', 'mute_quantized', 'overdub_quantized', 'replace_quantized']],
 			['Global sync 1', ['sync_source', 'sync', 'playback_sync', 'relative_sync']],
@@ -671,6 +671,11 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		elif symbol in self.SL_GLOBAL_PARAMS:  # Global params
 			self.osc_server.send(self.osc_target, '/set', ('s', symbol), ('f', zctrl.value))
 
+		elif symbol == 'next_loop':
+			# Use single controller to perform next (CW)
+			if zctrl.value:
+				self.select_loop(self.selected_loop + 1, True, True)
+			zctrl.set_value(0, False)
 		elif zctrl.is_toggle:
 			# Use is_toggle to indicate the SL function is a toggle, i.e. press to engage, press to release
 			if symbol == 'record' and zctrl.value == 0 and self.state[chan] == SL_STATE_REC_STARTING:
@@ -687,13 +692,6 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			elif zctrl.value == 2:
 				self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'redo'))
 			zctrl.set_value(1, False)
-		elif symbol == 'prev/next':
-			# Use single controller to perform prev(CCW) and next (CW)
-			if zctrl.value  < 63:
-				self.select_loop(self.selected_loop - 1, True)
-			elif zctrl.value  > 63:
-				self.select_loop(self.selected_loop + 1, True)
-			zctrl.set_value(63, False)
 		elif symbol == 'loop_count':
 			for loop in range(self.loop_count, zctrl.value):
 				self.osc_server.send(self.osc_target, '/loop_add', ('i', self.channels), ('f', 30), ('i', 0))
@@ -848,11 +846,13 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			logging.error(e)
 		#self.processors[0].status = self.SL_STATES[self.state]['icon']
 
-	def select_loop(self, loop, send=False):
+	def select_loop(self, loop, send=False, wrap=False):
 		try:
 			processor = self.processors[0]
 		except IndexError:
 			return
+		if wrap and loop >= self.loop_count:
+			loop = 0
 		if loop < 0 or loop >= self.loop_count:
 			return  # TODO: Handle -1 == all loops
 		self.selected_loop = int(loop)
@@ -871,10 +871,10 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, mode='control')
 
 	def prev_loop(self):
-		self.processors[0].controllers_dict['prev/next'].nudge(-1)
+		self.select_loop(self.selected_loop - 1, True)
 
 	def next_loop(self):
-		self.processors[0].controllers_dict['prev/next'].nudge(1)
+		self.select_loop(self.selected_loop + 1, True)
 
 	def undo(self):
 		self.processors[0].controllers_dict['undo/redo'].nudge(-1)
