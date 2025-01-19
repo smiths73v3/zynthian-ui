@@ -596,10 +596,11 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			return
 		if ":" in zctrl.symbol:
 			symbol, chan = zctrl.symbol.split(":")
+			chan = int(chan)
 			if self.selected_loop_cc_binding:
-				if int(chan) != self.selected_loop:
+				if chan != self.selected_loop:
 					return
-				chan = -3
+				chan = self.selected_loop
 		else:
 			symbol = zctrl.symbol
 			chan = -3
@@ -620,6 +621,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			"""
 			ts = monotonic()
 			pedal_dur = ts - self.pedal_time
+			self.pedal_time = ts
 			if pedal_dur < 0.05:
 				return # debounce
 
@@ -630,8 +632,6 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 				else:
 					self.pedal_taps = 1
 
-				self.pedal_time = ts
-
 				try:
 					self.single_pedal_timer.cancel()
 					self.single_pedal_timer = None
@@ -641,13 +641,13 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 				match self.pedal_taps:
 					case 1:
 					# Single tap
-						if self.state[self.selected_loop] in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
+						if self.state[chan] in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
 							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
-						if self.state[self.selected_loop] in (SL_STATE_UNKNOWN, SL_STATE_OFF, SL_STATE_OFF_MUTED):
+						if self.state[chan] in (SL_STATE_UNKNOWN, SL_STATE_OFF, SL_STATE_OFF_MUTED):
 							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
-						elif self.state[self.selected_loop] == SL_STATE_RECORDING:
+						elif self.state[chan] == SL_STATE_RECORDING:
 							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
-						elif self.state[self.selected_loop] == SL_STATE_PAUSED:
+						elif self.state[chan] == SL_STATE_PAUSED:
 							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'trigger'))
 					case 2:
 					# Double tap
@@ -666,9 +666,9 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 					pass
 				if pedal_dur > 1.5:
 					# Handle press and hold record
-					if self.state[self.selected_loop] == SL_STATE_OVERDUBBING:
+					if self.state[chan] == SL_STATE_OVERDUBBING:
 						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
-					elif self.state[self.selected_loop] == SL_STATE_RECORDING:
+					elif self.state[chan] == SL_STATE_RECORDING:
 							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
 
 		elif symbol == 'selected_loop_num':
