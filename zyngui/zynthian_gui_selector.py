@@ -214,17 +214,10 @@ class zynthian_gui_selector(zynthian_gui_base):
             self.list_data = []
         for i, item in enumerate(self.list_data):
             label = item[2]
-            if len(item) > 5 and isinstance(item[5], str):
-                label += item[5]
             self.listbox.insert(tkinter.END, label)
             if item[0] is None:
-                self.listbox.itemconfig(i,
-                                        {'bg': zynthian_gui_config.color_panel_hl,
-                                         'fg': zynthian_gui_config.color_tx_off})
-            # Can't find any engine currently using this "format" feature:
-            # last_param = item[len(item) - 1]
-            # if isinstance(last_param, dict) and 'format' in last_param:
-            # self.listbox.itemconfig(i, last_param['format'])
+                self.listbox.itemconfig(i, {'bg': zynthian_gui_config.color_panel_hl,
+                                            'fg': zynthian_gui_config.color_tx_off})
 
     def set_selector(self, zs_hidden=True):
         self.zselector_hidden = zs_hidden

@@ -39,7 +39,7 @@ from zyngui.zynthian_gui_selector import zynthian_gui_selector
 class zynthian_gui_selector_info(zynthian_gui_selector):
 
     def __init__(self, selcap='Select'):
-        # Custom layout for GUI engine
+        # Custom layout for GUI selector info
         self.layout = {
             'name': 'gui_selector_ext',
             'columns': 2,
@@ -112,8 +112,13 @@ class zynthian_gui_selector_info(zynthian_gui_selector):
 
     def get_info(self):
         try:
-            return self.list_data[self.index][3]
+            info = self.list_data[self.index][-1]
         except:
+            return None
+
+        if isinstance(info, list):
+            return info
+        else:
             return ["", ""]
 
     def update_info(self):
