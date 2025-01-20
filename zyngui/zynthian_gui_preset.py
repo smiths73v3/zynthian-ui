@@ -127,10 +127,11 @@ class zynthian_gui_preset(zynthian_gui_selector, zynthian_gui_save_preset):
                 # TODO: Confirm rename if overwriting existing preset or duplicate name
                 self.processor.engine.rename_preset(self.processor.bank_info, preset, new_name)
                 if preset[0] == self.processor.preset_info[0]:
+                    #TODO: This is not updating the display name of the current preset which is what I think it should be doing
                     self.zyngui.state_manager.start_busy("set preset")
                     self.processor.set_preset_by_id(preset[0])
-                    self.fill_list()
                     self.zyngui.state_manager.end_busy("set preset")
+                self.fill_list()
             except Exception as e:
                 logging.error("Failed to rename preset => {}".format(e))
 

@@ -31,6 +31,7 @@ import os
 from glob import glob
 from subprocess import Popen, DEVNULL
 from time import sleep, monotonic
+from threading import Timer
 
 from . import zynthian_controller
 from zynconf import ServerPort
@@ -375,6 +376,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		})
 		self.pedal_time = 0  # Time single pedal was asserted
 		self.pedal_taps = 0  # Quantity of taps on single pedal
+		self.single_pedal_timer = None # Timer used for long pedal press
 
 		# MIDI Controllers
 		loop_labels = []
@@ -389,7 +391,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['substitute', {'name': 'substitute', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['insert', {'name': 'insert', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['undo/redo', {'value': 1, 'labels': ['<', '<>', '>']}],
-			['prev/next', {'value': 63, 'value_max': 127, 'labels': ['<', '<>', '>']}],
+			['next_loop', {'name': 'next loop', 'value': 0, 'value_max': 127, 'labels': ['>', '']}],
 			['trigger', {'name': 'trigger', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['mute', {'name': 'mute', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
 			['oneshot', {'name': 'oneshot', 'value': 0, 'value_max': 1, 'labels': ['off', 'on'], 'is_toggle': True}],
@@ -418,7 +420,8 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['loop_count', {'name': 'loop count', 'value': 1, 'value_min': 1, 'value_max': self.MAX_LOOPS}],
 			['selected_loop_num', {'name': 'selected loop', 'value': 1, 'value_min': 1, 'value_max': 6}],
 			['single_pedal', {'name': 'single pedal', 'value': 0, 'value_max': 1, 'labels': ['>', '<'], 'is_toggle': True}],
-			['selected_loop_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}]
+			['selected_loop_cc', {'name': 'midi cc to selected loop', 'value': 127, 'labels':['off', 'on']}],
+			['load_file', {'name': 'load file', 'is_path': True, 'path_file_types': ["wav"]}]
 		]
 
 		# Controller Screens
@@ -428,8 +431,8 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			['Loop control', ['trigger:0', 'oneshot:0', 'mute:0', 'pause:0']],
 			['Loop time/pitch', ['reverse:0', 'rate', 'stretch_ratio', 'pitch_shift']],
 			['Loop levels', ['wet', 'dry', 'feedback', 'selected_loop_num']],
-			['Global loop', ['selected_loop_num', 'loop_count', 'prev/next', 'single_pedal:0']],
-			['Global levels', ['rec_thresh', 'input_gain']],
+			['Global loop', ['selected_loop_num', 'loop_count', 'next_loop', 'single_pedal:0']],
+			['Global levels', ['rec_thresh', 'input_gain', 'load_file']],
 			['Global quantize', ['quantize', 'mute_quantized', 'overdub_quantized', 'replace_quantized']],
 			['Global sync 1', ['sync_source', 'sync', 'playback_sync', 'relative_sync']],
 			['Global sync 2', ['round', 'use_feedback_play', 'selected_loop_cc']]
@@ -587,12 +590,17 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		if zctrl.symbol == "selected_loop_cc":
 			self.selected_loop_cc_binding = zctrl.value != 0
 			return
+		elif zctrl.symbol == "load_file":
+			#self.osc_server.send(self.osc_target, f"/sl/{self.selected_loop}/load_loop", ("s", zctrl.value), ('s', self.osc_server_url), ('s', '/error'))
+			self.osc_server.send(self.osc_target, f"/sl/0/load_loop", ("s", zctrl.value), ('s', self.osc_server_url), ('s', '/error'))
+			return
 		if ":" in zctrl.symbol:
 			symbol, chan = zctrl.symbol.split(":")
+			chan = int(chan)
 			if self.selected_loop_cc_binding:
-				if int(chan) != self.selected_loop:
+				if chan != self.selected_loop:
 					return
-				chan = -3
+				chan = self.selected_loop
 		else:
 			symbol = zctrl.symbol
 			chan = -3
@@ -608,39 +616,61 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 				Play->Overdub
 				Overdub->Play
 				Double press: pause
-				Double press and hold: Clear
+				Triple press or double press and hold: Clear
+				Press once and hold to record/overdub until release
 			"""
 			ts = monotonic()
 			pedal_dur = ts - self.pedal_time
+			self.pedal_time = ts
+			if pedal_dur < 0.05:
+				return # debounce
 
-			# Pedal push
 			if zctrl.value:
-				self.pedal_time = ts
-				if 0 < pedal_dur < 0.5:
+				# Pedal push
+				if pedal_dur < 0.5:
 					self.pedal_taps += 1
 				else:
-					self.pedal_taps = 0
-				# Triple tap
-				if self.pedal_taps == 2:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'undo_all'))
-				# Double tap
-				elif self.pedal_taps == 1:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'pause'))
-				# Single tap
-				elif self.state[self.selected_loop] in (SL_STATE_UNKNOWN, SL_STATE_OFF, SL_STATE_OFF_MUTED):
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
-				elif self.state[self.selected_loop] == SL_STATE_RECORDING:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
-				elif self.state[self.selected_loop] in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
-				elif self.state[self.selected_loop] == SL_STATE_PAUSED:
-					self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'trigger'))
-			# Pedal release: so check loop state, pedal press duration, etc.
-			else:
-				# Long press
-				if pedal_dur > 1.5:
-					if self.pedal_taps:
+					self.pedal_taps = 1
+
+				try:
+					self.single_pedal_timer.cancel()
+					self.single_pedal_timer = None
+				except:
+					pass
+
+				match self.pedal_taps:
+					case 1:
+					# Single tap
+						if self.state[chan] in (SL_STATE_PLAYING, SL_STATE_OVERDUBBING):
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
+						if self.state[chan] in (SL_STATE_UNKNOWN, SL_STATE_OFF, SL_STATE_OFF_MUTED):
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
+						elif self.state[chan] == SL_STATE_RECORDING:
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
+						elif self.state[chan] == SL_STATE_PAUSED:
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'trigger'))
+					case 2:
+					# Double tap
+						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'pause'))
+					case 3:
+						# Triple tap
 						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'undo_all'))
+				self.single_pedal_timer = Timer(1.5, self.single_pedal_cb)
+				self.single_pedal_timer.start()
+			else:
+				# Pedal release: so check loop state, pedal press duration, etc.
+				try:
+					self.single_pedal_timer.cancel()
+					self.single_pedal_timer = None
+				except:
+					pass
+				if pedal_dur > 1.5:
+					# Handle press and hold record
+					if self.state[chan] == SL_STATE_OVERDUBBING:
+						self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'overdub'))
+					elif self.state[chan] == SL_STATE_RECORDING:
+							self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'record'))
+
 		elif symbol == 'selected_loop_num':
 			self.select_loop(zctrl.value - 1, True)
 		elif symbol in self.SL_LOOP_PARAMS:  # Selected loop
@@ -650,6 +680,11 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		elif symbol in self.SL_GLOBAL_PARAMS:  # Global params
 			self.osc_server.send(self.osc_target, '/set', ('s', symbol), ('f', zctrl.value))
 
+		elif symbol == 'next_loop':
+			# Use single controller to perform next (CW)
+			if zctrl.value:
+				self.select_loop(self.selected_loop + 1, True, True)
+			zctrl.set_value(0, False)
 		elif zctrl.is_toggle:
 			# Use is_toggle to indicate the SL function is a toggle, i.e. press to engage, press to release
 			if symbol == 'record' and zctrl.value == 0 and self.state[self.selected_loop] == SL_STATE_REC_STARTING:
@@ -666,13 +701,6 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			elif zctrl.value == 2:
 				self.osc_server.send(self.osc_target, f'/sl/{chan}/hit', ('s', 'redo'))
 			zctrl.set_value(1, False)
-		elif symbol == 'prev/next':
-			# Use single controller to perform prev(CCW) and next (CW)
-			if zctrl.value  < 63:
-				self.select_loop(self.selected_loop - 1, True)
-			elif zctrl.value  > 63:
-				self.select_loop(self.selected_loop + 1, True)
-			zctrl.set_value(63, False)
 		elif symbol == 'loop_count':
 			for loop in range(self.loop_count, zctrl.value):
 				self.osc_server.send(self.osc_target, '/loop_add', ('i', self.channels), ('f', 30), ('i', 0))
@@ -680,6 +708,14 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 				# Don't remove loops - let GUI offer option to (confirm and) remove
 				zctrl.set_value(self.loop_count, False)
 				self.monitors_dict['loop_del'] = True
+
+	def single_pedal_cb(self):
+		match self.pedal_taps:
+			case 2:
+				# Double tap + hold - clear loop
+				self.osc_server.send(self.osc_target, f'/sl/-3/hit', ('s', 'undo_all'))
+		self.pedal_taps = 0
+		self.single_pedal_timer = None
 
 	def get_monitors_dict(self):
 		return self.monitors_dict
@@ -827,11 +863,13 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			logging.error(e)
 		#self.processors[0].status = self.SL_STATES[self.state]['icon']
 
-	def select_loop(self, loop, send=False):
+	def select_loop(self, loop, send=False, wrap=False):
 		try:
 			processor = self.processors[0]
 		except:
 			return
+		if wrap and loop >= self.loop_count:
+			loop = 0
 		if loop < 0 or loop >= self.loop_count:
 			return  # TODO: Handle -1 == all loops
 		self.selected_loop = int(loop)
@@ -855,10 +893,10 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 		zynsigman.send_queued(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, mode='control')
 
 	def prev_loop(self):
-		self.processors[0].controllers_dict['prev/next'].nudge(-1)
+		self.select_loop(self.selected_loop - 1, True)
 
 	def next_loop(self):
-		self.processors[0].controllers_dict['prev/next'].nudge(1)
+		self.select_loop(self.selected_loop + 1, True)
 
 	def undo(self):
 		self.processors[0].controllers_dict['undo/redo'].nudge(-1)
