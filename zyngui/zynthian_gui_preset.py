@@ -27,7 +27,7 @@ import copy
 import logging
 
 # Zynthian specific modules
-from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 from zyngui.zynthian_gui_save_preset import zynthian_gui_save_preset
 
 # -------------------------------------------------------------------------------
@@ -35,11 +35,11 @@ from zyngui.zynthian_gui_save_preset import zynthian_gui_save_preset
 # -------------------------------------------------------------------------------
 
 
-class zynthian_gui_preset(zynthian_gui_selector, zynthian_gui_save_preset):
+class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
 
     def __init__(self):
         self.processor = None
-        super().__init__('Preset', True)
+        super().__init__('Preset', default_icon="preset.png")
 
     def fill_list(self):
         if not self.processor:
@@ -76,17 +76,17 @@ class zynthian_gui_preset(zynthian_gui_selector, zynthian_gui_save_preset):
             preset[2] = preset[2][1:]
         preset_name = preset[2]
         if self.processor.engine.is_preset_fav(preset):
-            options["\u2612 Favourite"] = [preset, ["Remove from favorites list", None]]
+            options["\u2612 Favourite"] = [preset, ["Remove from favorites list", "favorite_remove.png"]]
         else:
-            options["\u2610 Favourite"] = [preset, ["Add to favorites list", None]]
+            options["\u2610 Favourite"] = [preset, ["Add to favorites list", "favorite_add.png"]]
         if engine.is_preset_user(preset):
             if hasattr(engine, "rename_preset"):
                 options["Rename"] = [preset, ["Rename preset", None]]
             if hasattr(engine, "delete_preset"):
-                options["Delete"] = [preset, ["Delete preset", None]]
+                options["Delete"] = [preset, ["Delete preset", "file_delete.png"]]
         global_options = {}
         if hasattr(engine, "save_preset"):
-            global_options["Save new preset"] = [True, ["Save as new preset", None]]
+            global_options["Save new preset"] = [True, ["Save as new preset", "file_save.png"]]
         if self.processor.eng_code.startswith("JV/"):
             global_options["Scan for new presets"] = [True, ["Scan new presets, e.g. added via webconf", None]]
         if global_options:

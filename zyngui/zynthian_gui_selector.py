@@ -169,6 +169,9 @@ class zynthian_gui_selector(zynthian_gui_base):
         self.main_frame.columnconfigure(self.layout['list_pos'][1], minsize=lb_width, weight=lb_weight)
         self.main_frame.columnconfigure(self.layout['list_pos'][1] + 1, minsize=ctrl_width, weight=self.sidebar_shown)
 
+        if self.loading_canvas:
+            self.loading_canvas.configure(height=int(0.5 * self.height))
+
     def build_view(self):
         self.fill_list()
         self.set_selector()

@@ -192,7 +192,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                     touch_navigation_option = "None"
             self.list_data.append((self.touch_navigation_menu, 0, f"Touch Navigation: {touch_navigation_option}", ["Select touch interface mode.\n\nFor touch-only devices with 5\" screen or less, select touch-widgets.\nFor large touch screen, select V5...\nFor full hardware device, e.g. V5, select None", "settings.png"]))
         if "brightness_config" in self.zyngui.screens and self.zyngui.screens["brightness_config"].get_num_zctrls() > 0:
-            self.list_data.append((self.zyngui.brightness_config, 0, "Brightness", ["Adjust display and LED brightness.", "settings.png"]))
+            self.list_data.append((self.zyngui.brightness_config, 0, "Brightness", ["Adjust display and LED brightness.", "bright_settings.png"]))
         if "cv_config" in self.zyngui.screens:
             self.list_data.append((self.show_cv_config, 0, "CV Settings", ["Control Voltage configuration.", "settings.png"]))
         self.list_data.append((self.zyngui.calibrate_touchscreen, 0, "Calibrate Touchscreen", ["Show touchscreen calibration.\nTouch each crosshair until it changes color.\nScreen closes after 15s of inactivity.", "settings.png"]))
