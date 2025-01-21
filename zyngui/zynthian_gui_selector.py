@@ -45,7 +45,7 @@ class zynthian_gui_selector(zynthian_gui_base):
     swipe_roll_scale = [1, 0, 1, 1, 2, 2, 2, 4,
                         4, 4, 4, 4]  # 1, 0, 1, 0, 1, 0, 1, 0,
 
-    def __init__(self, selcap='Select', wide=False, loading_anim=True, info=True):
+    def __init__(self, selcap='Select', wide=False, loading_anim=True, tiny_ctrls=True):
         super().__init__()
 
         # If the children class has not defined a custom GUI layout, use the default from config
@@ -81,13 +81,13 @@ class zynthian_gui_selector(zynthian_gui_base):
                                        selectmode=tkinter.SINGLE)
 
         # Configure layout
-        if info:
+        if tiny_ctrls:
             if self.layout['rows'] == 2:
-                self.main_frame.rowconfigure(0, weight=3, uniform='info_row')
+                self.main_frame.rowconfigure(0, weight=0)
                 self.main_frame.rowconfigure(1, weight=1, uniform='ctrl_row')
             elif self.layout['rows'] == 4:
-                self.main_frame.rowconfigure(0, weight=2, uniform='info_row')
-                self.main_frame.rowconfigure(1, weight=2, uniform='info_row')
+                self.main_frame.rowconfigure(0, weight=0)
+                self.main_frame.rowconfigure(1, weight=1, uniform='ctrl_row')
                 self.main_frame.rowconfigure(2, weight=1, uniform='ctrl_row')
                 self.main_frame.rowconfigure(3, weight=1, uniform='ctrl_row')
         else:

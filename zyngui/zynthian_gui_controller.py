@@ -535,9 +535,9 @@ class zynthian_gui_controller(tkinter.Canvas):
 			elif maxlen > 30:
 				font_scale = 1.2
 			elif maxlen > 20:
-				font_scale = 1.3
+				font_scale = 1.25
 			else:
-				font_scale = 1.4
+				font_scale = 1.3
 		else:
 			if self.format_print:
 				maxlen = 5
@@ -551,9 +551,9 @@ class zynthian_gui_controller(tkinter.Canvas):
 				font_scale = 1.1
 			else:
 				if self.zctrl.value_min >= 0 and self.zctrl.value_max < 200:
-					font_scale = 1.4
-				else:
 					font_scale = 1.3
+				else:
+					font_scale = 1.2
 		# If tiny controllers => reduce value font size
 		if self.winfo_height() // zynthian_gui_config.font_size < 6:
 			font_scale *= 0.9

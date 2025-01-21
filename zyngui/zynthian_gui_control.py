@@ -72,7 +72,7 @@ class zynthian_gui_control(zynthian_gui_selector):
             ("arrow_right", 'Next >>')
         ]
 
-        super().__init__(selcap, wide=False, loading_anim=False, info=False)
+        super().__init__(selcap, wide=False, loading_anim=False, tiny_ctrls=False)
 
         # Configure layout
         for ctrl_pos in self.layout['ctrl_pos']:
