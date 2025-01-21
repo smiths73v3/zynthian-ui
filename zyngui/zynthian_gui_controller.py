@@ -519,7 +519,7 @@ class zynthian_gui_controller(tkinter.Canvas):
 		elif self.zctrl.labels:
 			maxlen = len(max(self.zctrl.labels, key=len))
 			if maxlen > 3:
-				rfont = tkFont.Font(family = zynthian_gui_config.font_family, size=zynthian_gui_config.font_size)
+				rfont = tkFont.Font(family=zynthian_gui_config.font_family, size=zynthian_gui_config.font_size)
 				maxlen = max([rfont.measure(w) for w in self.zctrl.labels])
 			#print("LONGEST VALUE: %d" % maxlen)
 			if maxlen > 100:
@@ -554,6 +554,9 @@ class zynthian_gui_controller(tkinter.Canvas):
 					font_scale = 1.4
 				else:
 					font_scale = 1.3
+		# If tiny controllers => reduce value font size
+		if self.winfo_height() // zynthian_gui_config.font_size < 6:
+			font_scale *= 0.9
 		# Calculate value font size
 		self.value_font_size = int(font_scale * zynthian_gui_config.font_size)
 		# Update font config in text object
