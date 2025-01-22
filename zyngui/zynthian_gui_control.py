@@ -46,7 +46,6 @@ MIDI_LEARNING_GLOBAL = 2
 
 
 class zynthian_gui_control(zynthian_gui_selector):
-    SS_GUI_CONTROL_MODE = 2
 
     def __init__(self, selcap='Controllers'):
         self.mode = "control"
@@ -73,7 +72,7 @@ class zynthian_gui_control(zynthian_gui_selector):
             ("arrow_right", 'Next >>')
         ]
 
-        super().__init__(selcap, wide=False, loading_anim=False, info=False)
+        super().__init__(selcap, wide=False, loading_anim=False, tiny_ctrls=False)
 
         # Configure layout
         for ctrl_pos in self.layout['ctrl_pos']:
@@ -96,7 +95,7 @@ class zynthian_gui_control(zynthian_gui_selector):
             zynsigman.register(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self.cb_midi_pc)
             if zynthian_gui_config.enable_touch_navigation:
                 zynsigman.register(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, self.cb_show_sidebar)
-                zynsigman.register(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, self.cb_control_mode)
+                zynsigman.register(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, self.cb_control_mode)
         #self.set_mode_control()
         return True
 
@@ -107,7 +106,7 @@ class zynthian_gui_control(zynthian_gui_selector):
             zynsigman.unregister(zynsigman.S_MIDI, zynsigman.SS_MIDI_PC, self.cb_midi_pc)
             if zynthian_gui_config.enable_touch_navigation:
                 zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SIDEBAR, self.cb_show_sidebar)
-                zynsigman.unregister(zynsigman.S_GUI, self.SS_GUI_CONTROL_MODE, self.cb_control_mode)
+                zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_CONTROL_MODE, self.cb_control_mode)
         super().hide()
 
     def cb_midi_pc(self, izmip, chan, num):
@@ -681,10 +680,13 @@ class zynthian_gui_control(zynthian_gui_selector):
                     else:
                         options["\u2610 Momentary => Latch"] = i
                 elif mcparams:
-                    if zctrl.midi_cc_mode == 0:
-                        options["\u2610 Relative Mode"] = i
-                    else:
-                        options["\u2612 Relative Mode"] = i
+                    match zctrl.midi_cc_mode:
+                        case -1:
+                            options["Relative Mode learning..."] = i
+                        case 0:
+                            options["Absolute Mode"] = i
+                        case _:
+                            options[f"Relative Mode {zctrl.midi_cc_mode}"] = i 
                 options[f"Chain learn '{zctrl.name}'..."] = i
                 options[f"Global learn '{zctrl.name}'..."] = i
             else:
@@ -732,11 +734,20 @@ class zynthian_gui_control(zynthian_gui_selector):
             else:
                 self.zgui_controllers[param].zctrl.midi_cc_momentary_switch = 1
             self.midi_learn_options(param)
-        elif parts[1] == "Relative":
-            if parts[0] == '\u2612':
-                self.zgui_controllers[param].zctrl.midi_cc_mode_set(0)
-            else:
-                self.zgui_controllers[param].zctrl.midi_cc_mode_set(-1)
+        elif parts[0] in ["Relative", "Absolute"]:
+            options = {
+                "Absolute Mode": (param, 0),
+                "Learn Relative Mode": (param, -1),
+                "Relative Mode 1": (param, 1),
+                "Relative Mode 2": (param, 2),
+                "Relative Mode 3": (param, 3),
+                "Relative Mode 4": (param, 4),
+            }
+            self.zyngui.screens['option'].config("Select CC mode", options, self.set_cc_mode)
+            self.zyngui.show_screen('option')
+
+    def set_cc_mode(self, option, param):
+        self.zgui_controllers[param[0]].zctrl.midi_cc_mode_set(param[1])
 
     def show_xy(self, params=None):
         self.zyngui.show_screen("control_xy")

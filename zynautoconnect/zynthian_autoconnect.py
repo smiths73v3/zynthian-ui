@@ -740,16 +740,16 @@ def midi_autoconnect():
     # Each engine sending controller feedback should use a different zmip
     # Only setBfree is using this, so we have just one: "ctrl_in"
     for proc in chain_manager.processors.values():
-        if proc.engine.options["ctrl_fb"]:
-            try:
+        try:
+            if proc.engine.options["ctrl_fb"]:
                 ports = jclient.get_ports(proc.get_jackname(
                     True), is_midi=True, is_output=True)
                 required_routes["ZynMidiRouter:ctrl_in"].add(ports[0].name)
                 ctrl_fb_procs.append(proc)
                 # logging.debug(f"Routed controller feedback from {proc.get_jackname(True)}")
-            except Exception as e:
-                # logging.error(f"Can't route controller feedback from {proc.get_name()} => {e}")
-                pass
+        except Exception as e:
+            # logging.error(f"Can't route controller feedback from {proc.get_name()} => {e}")
+            pass
 
     # Remove from control feedback list those processors removed from chains
     for i, proc in enumerate(ctrl_fb_procs):
