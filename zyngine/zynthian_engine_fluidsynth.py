@@ -261,8 +261,7 @@ class zynthian_engine_fluidsynth(zynthian_engine):
                     bank_lsb = int(bank_msb/128)
                     bank_msb = bank_msb % 128
                     title = str.replace(f[8:-1], '_', ' ')
-                    preset_list.append(
-                        [bank[0] + '/' + f.strip(), [bank_msb, bank_lsb, prg], title, bank[0]])
+                    preset_list.append([bank[0] + '/' + f.strip(), [bank_msb, bank_lsb, prg], title, bank[0]])
                 except:
                     pass
 

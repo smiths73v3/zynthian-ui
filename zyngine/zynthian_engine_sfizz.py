@@ -172,6 +172,7 @@ class zynthian_engine_sfizz(zynthian_engine):
                         preset_list.append([f, i, title, engine, "{}{}".format(filename, filext)])
                         i += 1
 
+        preset_list.sort(key=lambda x:x[2].casefold())
         return preset_list
 
     def get_preset_list(self, bank):
