@@ -564,6 +564,8 @@ class zynthian_controller:
 
         # CC mode absolute
         if self.midi_cc_mode == 0:
+            if self.range_reversed:
+                val = 127 - val
             if self.is_logarithmic:
                 value = self.value_min + self.value_range * (math.pow(10, val/127) - 1) / 9
             elif self.is_toggle:
