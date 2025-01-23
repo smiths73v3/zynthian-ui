@@ -4,7 +4,7 @@
 #
 # zynthian_engine implementation for sooper looper
 #
-# Copyright (C) 2022-2024 Brian Walton <riban@zynthian.org>
+# Copyright (C) 2022-2025 Brian Walton <riban@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -616,14 +616,15 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			zctrl.value = ""
 			return
 
-		if processor.controllers_dict["selected_loop_cc"].value:
+		if ":" in zctrl.symbol:
+			if processor.controllers_dict["selected_loop_cc"].value:
+				return
+			symbol, loop = zctrl.symbol.split(":")
+			loop = int(loop)
+		else:
 			symbol = zctrl.symbol
 			loop = self.selected_loop
-		else:
-			if ":" in zctrl.symbol:
-				symbol, loop = zctrl.symbol.split(":")
-				loop = int(loop)
-			else:
+			if not processor.controllers_dict["selected_loop_cc"].value and zctrl.symbol in self.SL_LOOP_SEL_PARAM:
 				return
 
 		if self.osc_server is None or symbol in ['oneshot', 'trigger'] and zctrl.value == 0:
