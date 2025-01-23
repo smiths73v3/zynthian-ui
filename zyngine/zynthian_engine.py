@@ -313,12 +313,13 @@ class zynthian_engine(zynthian_basic_engine):
                 for f in sorted(os.listdir(dp)):
                     if not f.startswith('.') and isfile(join(dp, f)):
                         parts = os.path.splitext(f)
-                        if parts[1][1:].lower() in fext:
+                        ext = parts[1][1:].lower()
+                        if ext in fext:
                             title = str.replace(parts[0], '_', ' ')
                             if dn != '_':
                                 title = dn + '/' + title
                             # print("filelist => " + title)
-                            res.append([join(dp, f), i, title, dn, f])
+                            res.append([join(dp, f), i, title, dn, f, ext])
                             i = i + 1
             except Exception as e:
                 # logging.warning("Can't access directory '{}' => {}".format(dp,e))
