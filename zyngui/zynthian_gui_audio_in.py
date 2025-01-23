@@ -24,6 +24,7 @@
 # ******************************************************************************
 
 import logging
+from time import sleep
 
 # Zynthian specific modules
 import zynautoconnect
@@ -84,16 +85,25 @@ class zynthian_gui_audio_in(zynthian_gui_selector_info):
         if t == 'S':
             self.chain.toggle_audio_in(self.list_data[i][0])
             self.fill_list()
-        else:
-            self.zyngui.state_manager.start_busy("alsa_input")
-            zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
+        elif t == "B":
+            if not self.list_data[i][1].startswith("system:"):
+                return
+            self.zyngui.state_manager.start_busy("alsa_input", "Getting audio level parameters...")
+            sleep(0.1)
             ctrl_list = []
-            for symbol, zctrl in zctrls.items():
-                try:
-                    if zctrl.graph_path[4] in self.list_data[i][1]:
+            try:
+                sel_chan = int(self.list_data[i][1].split("_")[-1]) - 1
+                zctrls = self.zyngui.state_manager.alsa_mixer_processor.engine.get_controllers_dict()
+                for symbol, zctrl in zctrls.items():
+                    if zctrl.graph_path[4]:
+                        chan = zctrl.graph_path[1]
+                    else:
+                        chan = zctrl.graph_path[2]
+                    if chan == sel_chan:
                         ctrl_list.append(symbol)
-                except:
-                    pass
+                    sleep(0.01)
+            except:
+                pass
             self.zyngui.state_manager.end_busy("alsa_input")
             if ctrl_list:
                 self.zyngui.show_screen("alsa_mixer", params=ctrl_list)
