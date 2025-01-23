@@ -24,6 +24,7 @@
 # ******************************************************************************
 
 import os
+import logging
 
 # Zynthian specific modules
 from zyngine.zynthian_engine import zynthian_engine
@@ -142,7 +143,8 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
                 self.dirpath = self.get_dirpath(path)
                 self.update_list()
                 self.set_select_path()
-                if (autosel_i := self.get_auto_select()) >= 0:
+                if (autosel_i := self.get_auto_select()) >= 0 and os.path.isdir(self.list_data[autosel_i][0]):
+                    # Drill down empty directories
                     self.select_action(autosel_i)
             elif os.path.isfile(path):
                 self.path = path
