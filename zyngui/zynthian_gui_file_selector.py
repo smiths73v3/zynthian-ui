@@ -124,6 +124,7 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
                 self.select_action(autosel_i)
 
     def get_auto_select(self):
+        """ Return the index of a solitary list entry or -1 if there are zero or > 1 entries"""
         sel_i = -1
         for i, item in enumerate(self.list_data):
             if item[0] is not None:

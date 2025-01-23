@@ -644,9 +644,6 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			ts = monotonic()
 			pedal_dur = ts - self.pedal_time
 			self.pedal_time = ts
-			if pedal_dur < 0.05:
-				return # debounce
-
 			if zctrl.value:
 				# Pedal push
 				if pedal_dur < 0.5:
