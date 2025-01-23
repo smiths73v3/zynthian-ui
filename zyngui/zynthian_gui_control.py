@@ -684,7 +684,10 @@ class zynthian_gui_control(zynthian_gui_selector):
                         case -1:
                             options["Relative Mode learning..."] = i
                         case 0:
-                            options["Absolute Mode"] = i
+                            if zctrl.range_reversed:
+                                options["Absolute Reverse"] = i
+                            else:
+                                options["Absolute Mode"] = i
                         case _:
                             options[f"Relative Mode {zctrl.midi_cc_mode}"] = i 
                 options[f"Chain learn '{zctrl.name}'..."] = i
@@ -737,17 +740,19 @@ class zynthian_gui_control(zynthian_gui_selector):
         elif parts[0] in ["Relative", "Absolute"]:
             options = {
                 "Absolute Mode": (param, 0),
+                "Absolute Reverse": (param, 0),
                 "Learn Relative Mode": (param, -1),
                 "Relative Mode 1": (param, 1),
                 "Relative Mode 2": (param, 2),
                 "Relative Mode 3": (param, 3),
-                "Relative Mode 4": (param, 4),
+                "Relative Mode 4": (param, 4)
             }
             self.zyngui.screens['option'].config("Select CC mode", options, self.set_cc_mode)
             self.zyngui.show_screen('option')
 
     def set_cc_mode(self, option, param):
         self.zgui_controllers[param[0]].zctrl.midi_cc_mode_set(param[1])
+        self.zgui_controllers[param[0]].zctrl.range_reversed = "Reverse" in option
 
     def show_xy(self, params=None):
         self.zyngui.show_screen("control_xy")
