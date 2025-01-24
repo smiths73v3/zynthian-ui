@@ -297,8 +297,8 @@ class zynthian_engine(zynthian_basic_engine):
                 res.append(item)
         return sorted(res, key=str.casefold)
 
-    @staticmethod
-    def get_filelist(dpath, fext, include_dirs=False):
+    @classmethod
+    def get_filelist(cls, dpath, fext, include_dirs=False, exclude_empty_dirs=True):
         res = []
         if isinstance(dpath, str):
             dpath = [('_', dpath)]
@@ -323,15 +323,11 @@ class zynthian_engine(zynthian_basic_engine):
                             # print("filelist => " + title)
                             res.append([os.path.join(dp, f), i, title, dn, f, ext])
                             i += 1
-                    elif include_dirs and os.path.isdir(path):
-                        title, ext = os.path.splitext(f)
-                        title = str.replace(title, '_', ' ')
-                        if dn != '_':
-                            title = dn + '/' + title
-                        res.append([path, i, title, dn, f])
+                    elif include_dirs and os.path.isdir(path) and (not exclude_empty_dirs or cls.find_some_preset_file(path, fext)):
+                        res.append([path, i, f, dn, f])
                         i += 1
             except Exception as e:
-                # logging.warning("Can't access directory '{}' => {}".format(dp,e))
+                #logging.warning(f"Can't access directory '{dp}' => {e}")
                 pass
 
         return res
