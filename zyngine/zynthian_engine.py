@@ -299,7 +299,8 @@ class zynthian_engine(zynthian_basic_engine):
 
     @classmethod
     def get_filelist(cls, dpath, fext, include_dirs=False, exclude_empty_dirs=True):
-        res = []
+        files = []
+        dirs = []
         if isinstance(dpath, str):
             dpath = [('_', dpath)]
         if isinstance(fext, str):
@@ -321,16 +322,16 @@ class zynthian_engine(zynthian_basic_engine):
                             if dn != '_':
                                 title = dn + '/' + title
                             # print("filelist => " + title)
-                            res.append([os.path.join(dp, f), i, title, dn, f, ext])
+                            files.append([os.path.join(dp, f), i, title, dn, f, ext])
                             i += 1
                     elif include_dirs and os.path.isdir(path) and (not exclude_empty_dirs or cls.find_some_preset_file(path, fext)):
-                        res.append([path, i, "> " + f, dn, f])
+                        dirs.append([path, i, "> " + f, dn, f])
                         i += 1
             except Exception as e:
                 #logging.warning(f"Can't access directory '{dp}' => {e}")
                 pass
 
-        return res
+        return dirs + files
 
     @staticmethod
     def get_dirlist(dpath, exclude_empty=True):
