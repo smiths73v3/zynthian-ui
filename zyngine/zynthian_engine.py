@@ -32,7 +32,6 @@ import logging
 import pexpect
 import fnmatch
 from time import sleep
-from os.path import isfile, isdir, join
 
 import zynautoconnect
 from . import zynthian_controller
@@ -299,7 +298,7 @@ class zynthian_engine(zynthian_basic_engine):
         return sorted(res, key=str.casefold)
 
     @staticmethod
-    def get_filelist(dpath, fext):
+    def get_filelist(dpath, fext, include_dirs=False):
         res = []
         if isinstance(dpath, str):
             dpath = [('_', dpath)]
@@ -311,7 +310,10 @@ class zynthian_engine(zynthian_basic_engine):
             dn = dpd[0]
             try:
                 for f in sorted(os.listdir(dp)):
-                    if not f.startswith('.') and isfile(join(dp, f)):
+                    if f.startswith('.'):
+                        continue
+                    path = os.path.join(dp, f)
+                    if os.path.isfile(path):
                         parts = os.path.splitext(f)
                         ext = parts[1][1:].lower()
                         if ext in fext:
@@ -319,8 +321,15 @@ class zynthian_engine(zynthian_basic_engine):
                             if dn != '_':
                                 title = dn + '/' + title
                             # print("filelist => " + title)
-                            res.append([join(dp, f), i, title, dn, f, ext])
-                            i = i + 1
+                            res.append([os.path.join(dp, f), i, title, dn, f, ext])
+                            i += 1
+                    elif include_dirs and os.path.isdir(path):
+                        title, ext = os.path.splitext(f)
+                        title = str.replace(title, '_', ' ')
+                        if dn != '_':
+                            title = dn + '/' + title
+                        res.append([path, i, title, dn, f])
+                        i += 1
             except Exception as e:
                 # logging.warning("Can't access directory '{}' => {}".format(dp,e))
                 pass
@@ -338,16 +347,16 @@ class zynthian_engine(zynthian_basic_engine):
             dn = dpd[0]
             try:
                 for f in sorted(os.listdir(dp)):
-                    dpath = join(dp, f)
+                    dpath = os.path.join(dp, f)
                     if not os.path.isdir(dpath) or (exclude_empty and next(os.scandir(dpath), None) is None):
                         continue
-                    if not f.startswith('.') and isdir(dpath):
+                    if not f.startswith('.') and os.path.isdir(dpath):
                         title, ext = os.path.splitext(f)
                         title = str.replace(title, '_', ' ')
                         if dn != '_':
                             title = dn + '/' + title
                         res.append([dpath, i, title, dn, f])
-                        i = i + 1
+                        i += 1
             except Exception as e:
                 # logging.warning("Can't access directory '{}' => {}".format(dp,e))
                 pass

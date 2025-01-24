@@ -74,24 +74,22 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
             elif os.path.isdir(path):
                 return path
 
-    def config(self, cb_func, fexts=None, root_dirs=None, path=None):
+    def config(self, cb_func, fexts=None, dirnames=None, path=None):
         self.list_data = []
         self.cb_func = cb_func
         if fexts:
             self.fexts = fexts
         else:
             self.fexts = ["wav"]
-        if root_dirs:
-            self.root_dirs = root_dirs
-        else:
-            self.root_dirs = []
+        self.root_dirs = []
+        if dirnames is None:
             dirnames = self.get_root_dirnames(self.fexts)
-            for dirname in dirnames:
-                self.root_dirs.append((f"User {dirname}", zynthian_engine.my_data_dir + "/files/" + dirname))
-            for dirname in dirnames:
-                self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
-            if "wav" in self.fexts:
-                self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
+        for dirname in dirnames:
+            self.root_dirs.append((f"User {dirname}", zynthian_engine.my_data_dir + "/files/" + dirname))
+        for dirname in dirnames:
+            self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
+        if "wav" in self.fexts:
+            self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
         if path:
             self.path = path
             self.dirpath = self.get_dirpath(self.path)
@@ -103,7 +101,7 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
     def fill_list(self):
         # Get dir/file list
         if self.dirpath:
-            self.list_data = zynthian_engine.get_filelist(self.dirpath, self.fexts)
+            self.list_data = zynthian_engine.get_filelist(self.dirpath, self.fexts, include_dirs=True)
         else:
             self.list_data = zynthian_engine.get_dir_file_list(fexts=self.fexts,
                                                                root_dirs=self.root_dirs,
