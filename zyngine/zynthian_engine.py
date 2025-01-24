@@ -324,7 +324,7 @@ class zynthian_engine(zynthian_basic_engine):
                             res.append([os.path.join(dp, f), i, title, dn, f, ext])
                             i += 1
                     elif include_dirs and os.path.isdir(path) and (not exclude_empty_dirs or cls.find_some_preset_file(path, fext)):
-                        res.append([path, i, f, dn, f])
+                        res.append([path, i, "> " + f, dn, f])
                         i += 1
             except Exception as e:
                 #logging.warning(f"Can't access directory '{dp}' => {e}")
@@ -377,6 +377,11 @@ class zynthian_engine(zynthian_basic_engine):
     def get_dir_file_list(cls, fexts, root_dirs, recursion=1, exclude_empty=True, internal_include_empty=False, dirs_only=False):
         res = []
 
+        if not dirs_only:
+            dir_marker = "> "
+        else:
+            dir_marker = ""
+
         # External storage banks
         for exd in zynthian_gui_config.get_external_storage_dirs(cls.ex_data_dir):
             if not os.path.isdir(exd):
@@ -397,11 +402,13 @@ class zynthian_engine(zynthian_basic_engine):
                     for dir in walk[1]:
                         dpath = walk[0] + "/" + dir
                         if not exclude_empty or cls.find_some_preset_file(dpath, fexts, recursion):
-                            sres.append([dpath, None, root_dir + "/" + dir, None, dir])
+                            title = dir_marker + root_dir + "/" + dir
+                            sres.append([dpath, None, title, None, dir])
                             count += 1
                     # If there is no banks inside, the root is the bank
                     if count == 0:
-                        sres.append([root_path, None, root_dir, None, root_dir])
+                        title = dir_marker + root_dir
+                        sres.append([root_path, None, title, None, root_dir])
 
             # Add files in root dir
             if not dirs_only:
@@ -422,7 +429,8 @@ class zynthian_engine(zynthian_basic_engine):
             for dir in walk[1]:
                 dpath = walk[0] + "/" + dir
                 if (not exclude_empty or internal_include_empty) or cls.find_some_preset_file(dpath, fexts, recursion):
-                    sres.append([dpath, None, dir, None, dir])
+                    title = dir_marker + dir
+                    sres.append([dpath, None, title, None, dir])
 
             # Add files in root dir
             if not dirs_only:
