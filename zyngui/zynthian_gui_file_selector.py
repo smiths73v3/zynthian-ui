@@ -105,7 +105,9 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
         if self.dirpath:
             self.list_data = zynthian_engine.get_filelist(self.dirpath, self.fexts)
         else:
-            self.list_data = zynthian_engine.get_bank_dirlist(recursion=0, fexts=self.fexts, root_bank_dirs=self.root_dirs)
+            self.list_data = zynthian_engine.get_dir_file_list(fexts=self.fexts,
+                                                               root_dirs=self.root_dirs,
+                                                               recursion=0)
         # Add info and find selected index
         self.index = 0
         for i, item in enumerate(self.list_data):
