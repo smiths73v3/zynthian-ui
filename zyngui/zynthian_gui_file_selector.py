@@ -28,23 +28,23 @@ import logging
 
 # Zynthian specific modules
 from zyngine.zynthian_engine import zynthian_engine
-from zyngui.zynthian_gui_selector import zynthian_gui_selector
+from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 
 # ------------------------------------------------------------------------------
 # Zynthian File Selector GUI Class
 # ------------------------------------------------------------------------------
 
 
-class zynthian_gui_file_selector(zynthian_gui_selector):
+class zynthian_gui_file_selector(zynthian_gui_selector_info):
 
     fext2dirname = {
-        "aidax": "Neural Models",
-        "aidadspmodel": "Neural Models",
-        "nam": "Neural Models",
-        "nammodel": "Neural Models",
-        "json": "Neural Models",
-        "wav": "IRs",
-        "scl": "Tuning"
+        "aidax": ["Neural Models", "file_model.png"],
+        "aidadspmodel": ["Neural Models", "file_model.png"],
+        "nam": ["Neural Models", "file_model.png"],
+        "nammodel": ["Neural Models", "file_model.png"],
+        "json": ["Neural Models", "file_model.png"],
+        "wav": ["IRs", "file_audio.png"],
+        "scl": ["Tuning", "file.png"]
     }
 
     def __init__(self):
@@ -53,14 +53,14 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
         self.fexts = []
         self.path = None
         self.dirpath = None
-        super().__init__('File', True)
+        super().__init__('File', default_icon="folder.png")
 
     @classmethod
     def get_root_dirnames(cls, fexts):
         dirnames = []
         for fext in fexts:
             try:
-                dirnames.append(cls.fext2dirname[fext.lower()])
+                dirnames.append(cls.fext2dirname[fext.lower()][0])
             except:
                 pass
         return set(dirnames)
@@ -74,24 +74,28 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
             elif os.path.isdir(path):
                 return path
 
-    def config(self, cb_func, fexts=None, root_dirs=None, path=None):
+    def is_confined_to_root_dirs(self, path):
+        for dpath in self.root_dirs:
+            if path.startswith(dpath):
+                return True
+        return False
+
+    def config(self, cb_func, fexts=None, dirnames=None, path=None):
         self.list_data = []
         self.cb_func = cb_func
         if fexts:
             self.fexts = fexts
         else:
             self.fexts = ["wav"]
-        if root_dirs:
-            self.root_dirs = root_dirs
-        else:
-            self.root_dirs = []
+        self.root_dirs = []
+        if dirnames is None:
             dirnames = self.get_root_dirnames(self.fexts)
-            for dirname in dirnames:
-                self.root_dirs.append((f"User {dirname}", zynthian_engine.my_data_dir + "/files/" + dirname))
-            for dirname in dirnames:
-                self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
-            if "wav" in self.fexts:
-                self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
+        for dirname in dirnames:
+            self.root_dirs.append((f"User {dirname}", zynthian_engine.my_data_dir + "/files/" + dirname))
+        for dirname in dirnames:
+            self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
+        if "wav" in self.fexts:
+            self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
         if path:
             self.path = path
             self.dirpath = self.get_dirpath(self.path)
@@ -103,37 +107,21 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
     def fill_list(self):
         # Get dir/file list
         if self.dirpath:
-            self.list_data = zynthian_engine.get_filelist(self.dirpath, self.fexts)
+            self.list_data = zynthian_engine.get_filelist(self.dirpath, self.fexts, include_dirs=True)
         else:
-            self.list_data = zynthian_engine.get_bank_dirlist(recursion=0, fexts=self.fexts, root_bank_dirs=self.root_dirs)
-        # Find selected index
+            self.list_data = zynthian_engine.get_dir_file_list(fexts=self.fexts,
+                                                               root_dirs=self.root_dirs,
+                                                               recursion=0)
+        # Add info and find selected index
         self.index = 0
         for i, item in enumerate(self.list_data):
+            if len(item) == 6:
+                item.append(["", self.fext2dirname[item[5]][1]])
+            else:
+                item.append(["", "folder.png"])
             if item[0] == self.path:
                 self.index = i
         super().fill_list()
-
-    def show(self):
-        super().show()
-        if (autosel_i := self.get_auto_select()) >= 0:
-            if self.dirpath:
-                self.path = self.dirpath
-                self.dirpath = None
-                self.update_list()
-                self.set_select_path()
-            else:
-                self.select_action(autosel_i)
-
-    def get_auto_select(self):
-        """ Return the index of a solitary list entry or -1 if there are zero or > 1 entries"""
-        sel_i = -1
-        for i, item in enumerate(self.list_data):
-            if item[0] is not None:
-                if sel_i >= 0:
-                    return -1
-                else:
-                    sel_i = i
-        return sel_i
 
     def select_action(self, i, t='S'):
         if self.list_data and i < len(self.list_data):
@@ -143,9 +131,6 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
                 self.dirpath = self.get_dirpath(path)
                 self.update_list()
                 self.set_select_path()
-                if (autosel_i := self.get_auto_select()) >= 0 and os.path.isdir(self.list_data[autosel_i][0]):
-                    # Drill down empty directories
-                    self.select_action(autosel_i)
             elif os.path.isfile(path):
                 self.path = path
                 self.cb_func(path)
@@ -155,11 +140,12 @@ class zynthian_gui_file_selector(zynthian_gui_selector):
 
     def back_action(self):
         if self.dirpath:
-            self.path = self.dirpath
-            self.dirpath = None
-            self.update_list()
-            self.set_select_path()
-            if self.get_auto_select() < 0:
+            parts = os.path.split(self.dirpath)
+            if self.is_confined_to_root_dirs(parts[0]):
+                self.path = self.dirpath
+                self.dirpath = parts[0]
+                self.update_list()
+                self.set_select_path()
                 return True
         return False
 
