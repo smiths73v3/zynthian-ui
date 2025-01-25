@@ -361,6 +361,27 @@ def rowPads(track):
 def padRow(pad):
     return range(ROWS - 1, -1, -1).index((pad / COLS) // 1)
 
+def confirmrow(pad, cols):
+    row = int(pad / cols) - 1
+    if pad < cols:              # Last row
+        row = 1
+    return row
+
+def confirmcols(pad, cols):
+    numpad = (pad % cols)
+    if numpad == 0: # First pad
+        return [0,1]
+    if numpad == cols - 1: # Last pad
+        return [cols - 2, cols - 1]
+    return [numpad - 1, numpad + 1]
+
+def get_pad(cols, col, row):
+    return (row * cols) + col
+
+def confirmers(pad, cols):
+    row = confirmrow(pad, cols)
+    [no, yes] = confirmcols(pad, cols)
+    return [get_pad(cols, no, row), get_pad(cols, yes, row)]
 
 def shiftedTrack(track, offset):
     return track - offset
@@ -809,7 +830,15 @@ def createAllPads(state):
             return acc + functools.reduce(emptycellreducer, rowPads(cur), [])
 
         emptycells = functools.reduce(emptyrowreducer, range(0, ROWS), [])
-        return overlay(sessionnums, emptycells) + ctrl_keys
+        
+        confirmpad = getDeviceSetting("confirm-save", state)
+        
+        confirmation_pads = []
+        if (confirmpad is not None):
+            [no, yes] = confirmers(confirmpad, COLS)
+            confirmation_pads = [BRIGHTS.LED_BRIGHT_100, no, COLORS.COLOR_RED, BRIGHTS.LED_BRIGHT_100, yes, COLORS.COLOR_GREEN]
+        
+        return overlay(confirmation_pads, sessionnums, emptycells) + ctrl_keys
 
     tracks = state.get("tracks", [])
     toprow = (
@@ -1261,7 +1290,7 @@ class LooperHandler(
             if set_syncs:
                 return self.handle_syncs(numpad, track, stateTrack, tracks)
             if submode == self.MODE_SESSION_SAVE:
-                return self.save_session(pad)
+                return self.on_save_session_pad(pad)
             if submode == self.MODE_SESSION_LOAD:
                 return self.load_session(pad)
             if doLevelsOfSelectedMode(self.state):
@@ -1442,6 +1471,29 @@ class LooperHandler(
         # Use time.sleep to mimic setTimeout
         time.sleep(1)  # Wait for 1 second
         self.request_feedback("/ping", "/pong")
+
+    def on_save_session_pad(self, pad):
+        # @todo: check whether there is already a session
+        confirmpad = getDeviceSetting("confirm-save", self.state)
+        if (confirmpad is not None):
+            [no, yes] = confirmers(confirmpad, COLS)
+            # print(f"Check whether pad is one of no or yes")
+            if no == pad:
+                # print(f"If no -> unset confirm-save")
+                self.dispatch(deviceAction("confirm-save", None))
+            if yes == pad:
+                # print(f"If yes -> save, and unset confirm-save")
+                self.dispatch(deviceAction("confirm-save", None))
+                self.save_session(confirmpad)
+            return
+        sessions = getDeviceSetting("sessions", self.state) or []
+        for session in sessions:
+            if session[:-7] == str(pad):
+                # print(f"Need to confirm {pad}")
+                self.dispatch(deviceAction("confirm-save", pad))
+                return
+
+        self.save_session(pad)
 
     def save_session(self, pad):
         # Create the filepath
@@ -1912,6 +1964,8 @@ class SubModeSessionsSave(ModeHandlerBase):
         super().set_active(active)
         if active:
             self.parent.get_sessions()
+        else:
+            self.parent.dispatch(deviceAction("confirm-save", None))
 
 
 class SubModeSessionsLoad(ModeHandlerBase):
