@@ -1050,7 +1050,7 @@ class LooperHandler(
         self.domute = False
         self.undoing = False
         self.redoing = False
-        self.force_alt1 = False
+        self.alt = False
 
         self._leds = leds
         self._is_shifted = False
@@ -1424,7 +1424,7 @@ class LooperHandler(
             ):
                 self.shift_up()  # Assuming shift_up is a method of self
                 return
-            self.force_alt1 = evtype == EV_NOTE_ON
+            self.alt = evtype == EV_NOTE_ON
             return
 
         if button == BUTTONS.BTN_TRACK_2:
@@ -1603,8 +1603,8 @@ class LooperHandler(
         state = stateTrack.get("state", SL_STATE_UNKNOWN)
         if (
             state < SL_STATE_RECORDING
-            or (not self.force_alt1 and state == SL_STATE_RECORDING)
-            or (self.force_alt1 and state != SL_STATE_RECORDING)
+            or (not self.alt and state == SL_STATE_RECORDING)
+            or (self.alt and state != SL_STATE_RECORDING)
         ):
             self.just_send(f"/sl/{track}/{sus}", ("s", "record"))
         else:
@@ -1619,7 +1619,7 @@ class LooperHandler(
         if numpad == 2:
             if self.undoing:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "undo"))
-            elif self.force_alt1:
+            elif self.alt:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "reverse"))
             else:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "insert"))
@@ -1628,7 +1628,7 @@ class LooperHandler(
         if numpad == 3:
             if self.redoing:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "redo"))
-            elif self.force_alt1:
+            elif self.alt:
                 if evtype == EV_NOTE_ON:
                     self.just_send(
                         f"/sl/{track}/set",
