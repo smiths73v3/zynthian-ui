@@ -1619,6 +1619,8 @@ class LooperHandler(
         if numpad == 2:
             if self.undoing:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "undo"))
+            elif self.force_alt1:
+                self.just_send(f"/sl/{track}/{sus}", ("s", "reverse"))
             else:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "insert"))
             return
@@ -1627,11 +1629,18 @@ class LooperHandler(
             if self.redoing:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "redo"))
             elif self.force_alt1:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "reverse"))
+                if evtype == EV_NOTE_ON:
+                    self.just_send(
+                        f"/sl/{track}/set",
+                        ("s", "delay_trigger"),
+                        ("f", random.random()),
+                    )
+                else:
+                    pass
             else:
                 self.just_send(f"/sl/{track}/{sus}", ("s", "replace"))
             return
-
+        
         if numpad == 4:
             self.just_send(f"/sl/{track}/{sus}", ("s", "substitute"))
             return
@@ -1643,17 +1652,7 @@ class LooperHandler(
             self.just_send(f"/sl/{track}/{sus}", ("s", "trigger"))
 
         if numpad == 7:
-            if getDeviceSetting("shifted", self.state):
-                if evtype == EV_NOTE_ON:
-                    self.just_send(
-                        f"/sl/{track}/set",
-                        ("s", "delay_trigger"),
-                        ("f", random.random()),
-                    )
-                else:
-                    pass
-            else:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "pause"))
+            self.just_send(f"/sl/{track}/{sus}", ("s", "pause"))
 
     def request_feedback(self, address, path, *args):
         self.osc_server.send(self.osc_target, address, *args, self.osc_server_url, path)
