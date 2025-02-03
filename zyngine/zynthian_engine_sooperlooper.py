@@ -25,7 +25,6 @@
 from collections import OrderedDict
 import logging
 
-from zyngui import zynthian_gui_config
 from . import zynthian_engine
 import os
 from glob import glob
@@ -613,7 +612,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 			return
 		elif zctrl.symbol == "load_file":
 			self.osc_server.send(self.osc_target, f"/sl/{self.selected_loop}/load_loop", ("s", zctrl.value), ('s', self.osc_server_url), ('s', '/error'))
-			zctrl.value = ""
+			zctrl.value = os.path.dirname(zctrl.value)
 			return
 
 		if ":" in zctrl.symbol:
