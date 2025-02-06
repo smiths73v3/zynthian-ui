@@ -592,7 +592,6 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
                 elif type == "switch":
                     alsaaudio.Mixer(name, idx, -1, self.device).setmute(zctrl.value, chan)
                 elif type == "enum":
-                    logging.debug(f"ALSA MIXER {name} ({idx}) => {zctrl.value}")
                     alsaaudio.Mixer(name, idx, -1, self.device).setenum(zctrl.value)
         except Exception as err:
             logging.error(err)
