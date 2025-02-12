@@ -437,7 +437,7 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
                 engine_type = get_plugin_type(plugin).value
                 engine_cat = get_plugin_cat(plugin)
                 engine_index = 9999
-                engine_descr = get_engine_description(key)
+                engine_descr = get_plugin_description(plugin)
                 engine_quality = 0
                 engine_complex = 0
                 engine_edit = 0
@@ -574,6 +574,15 @@ def get_plugin_cat(plugin):
         return lv2class2engcat[plugin_class]
     except:
         return "Other"
+
+
+def get_plugin_description(plugin):
+    # Get plugin description from rdfs:comment
+    res = str(world.get(plugin, world.ns.rdfs.comment, None))
+    # If not, use "Lorem Ipsum" default
+    if not res:
+        res = get_engine_description(key)
+    return res
 
 # ------------------------------------------------------------------------------
 # LV2 Bank/Preset management
@@ -872,7 +881,6 @@ def get_plugin_ports(plugin_url):
             #logging.debug("CONTROL PORT {} => {}".format(i, ports_info[i]))
 
     # Property parameters
-    i = len(ports_info)
     for control in world.find_nodes(plugin.get_uri(), world.ns.patch.writable, None):
         symbol = world.get_symbol(control)
         name = str(world.get(control, world.ns.rdfs.label, None))
@@ -953,6 +961,7 @@ def get_plugin_ports(plugin_url):
         # else:
         # logging.debug("Control <{}> has no group.".format(symbol))
 
+        i += 1
         ports_info[i] = {
             'index': i,
             'symbol': symbol,
@@ -978,7 +987,6 @@ def get_plugin_ports(plugin_url):
             'scale_points': sp
         }
         #logging.debug("CONTROL PROPERTY {} => {}".format(i, ports_info[i]))
-        i += 1
 
     return ports_info
 
