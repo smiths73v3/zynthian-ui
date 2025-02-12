@@ -436,13 +436,18 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
             except:
                 engine_edit = 0
         except:
+            # Get plugin description
+            engine_description = get_plugin_description(plugin)
+            # If not, use "Lorem Ipsum" default
+            if not engine_description:
+                engine_description = get_engine_description(key)
             hash.update(key.encode())
             engine_id = hash.hexdigest()[:10]
             engine_title = engine_name
             engine_type = get_plugin_type(plugin).value
             engine_cat = get_plugin_cat(plugin)
             engine_index = 9999
-            engine_descr = get_plugin_description(plugin)
+            engine_descr = engine_description
             engine_quality = 0
             engine_complex = 0
             engine_edit = 0
@@ -480,7 +485,6 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
         engines_mtime = os.stat(ENGINE_CONFIG_FILE).st_mtime
     except Exception as e:
         logging.error(f"Can't save engines DB => {e}")
-
 
     dt = int(round(time.time())) - start
     logging.debug('Generating engine config file took {}s'.format(dt))
@@ -576,15 +580,10 @@ def get_plugin_cat(plugin):
 def get_plugin_description(plugin):
     # Get plugin description from rdfs:comment
     try:
-        # TODO!!
-        #res = str(plugin.get_value(world.ns.rdfs.comment))
-        res = None
+        res = str(plugin.get_value(world.ns.rdfs.comment)[0]).strip()
     except:
-        logging.warning(f"Can't get plugin {plugin.get_name()} description. Using default.")
+        logging.debug(f"Can't get plugin {plugin.get_name()} description. Using default.")
         res = None
-    # If not, use "Lorem Ipsum" default
-    if not res:
-        res = get_engine_description(key)
     return res
 
 # ------------------------------------------------------------------------------
@@ -1014,7 +1013,7 @@ if __name__ == '__main__':
                         stream=sys.stderr, level=log_level)
     logging.getLogger().setLevel(level=log_level)
 
-    start = int(round(time.time()))
+    gstart = int(round(time.time()))
     if len(sys.argv) > 1:
         if sys.argv[1] == "engines":
             prev_engines = engines.keys()
@@ -1058,6 +1057,6 @@ if __name__ == '__main__':
     # generate_plugin_presets_cache("http://code.google.com/p/amsynth/amsynth")
     # print(get_plugin_presets("Dexed"))
 
-    logging.info('Command took {}s'.format(int(round(time.time())) - start))
+    logging.info('Command took {}s'.format(int(round(time.time())) - gstart))
 
 # ------------------------------------------------------------------------------
