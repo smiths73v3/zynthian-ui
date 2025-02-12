@@ -345,137 +345,142 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
 
     hash = hashlib.new('sha1')
     start = int(round(time.time()))
-    try:
-        if refresh:
-            init_lilv()
+    if refresh:
+        init_lilv()
 
-        # Add standalone engines
-        i = 0
-        for key, engine_info in standalone_engine_info.items():
-            engine_name = engine_info[0]
-            engine_type = engine_info[2]
-            try:
-                engine_id = engines[key]['ID']
-                engine_title = engines[key]['TITLE']
-                engine_cat = engines[key]['CAT']
-                if engine_cat not in engine_categories[engine_type]:
-                    engine_cat = engine_info[3]
-                engine_index = engines[key]['INDEX']
-                engine_descr = engines[key]['DESCR']
-                engine_quality = engines[key]['QUALITY']
-                engine_complex = engines[key]['COMPLEX']
-                try:
-                    engine_edit = engines[key]['EDIT']
-                except:
-                    engine_edit = 0
-            except:
-                hash.update(key.encode())
-                engine_id = hash.hexdigest()[:10]
-                engine_title = engine_info[1]
+    # Add standalone engines
+    i = 0
+    for key, engine_info in standalone_engine_info.items():
+        engine_name = engine_info[0]
+        engine_type = engine_info[2]
+        try:
+            engine_id = engines[key]['ID']
+            engine_title = engines[key]['TITLE']
+            engine_cat = engines[key]['CAT']
+            if engine_cat not in engine_categories[engine_type]:
                 engine_cat = engine_info[3]
-                engine_index = i
-                engine_descr = get_engine_description(key)
-                engine_quality = 0
-                engine_complex = 0
+            engine_index = engines[key]['INDEX']
+            engine_descr = engines[key]['DESCR']
+            engine_quality = engines[key]['QUALITY']
+            engine_complex = engines[key]['COMPLEX']
+            try:
+                engine_edit = engines[key]['EDIT']
+            except:
                 engine_edit = 0
+        except:
+            hash.update(key.encode())
+            engine_id = hash.hexdigest()[:10]
+            engine_title = engine_info[1]
+            engine_cat = engine_info[3]
+            engine_index = i
+            engine_descr = get_engine_description(key)
+            engine_quality = 0
+            engine_complex = 0
+            engine_edit = 0
 
-            if reset_rankings == 1:
-                engine_quality = engine_complex = 0
-            elif reset_rankings == 2:
-                engine_quality = randrange(5)
-                engine_complex = randrange(5)
+        if reset_rankings == 1:
+            engine_quality = engine_complex = 0
+        elif reset_rankings == 2:
+            engine_quality = randrange(5)
+            engine_complex = randrange(5)
 
-            genengines[key] = {
-                'ID': engine_id,
-                'NAME': engine_name,
-                'TITLE': engine_title,
-                'TYPE': engine_type,
-                'CAT': engine_cat,
-                'ENABLED': is_engine_enabled(key, True),
-                'INDEX': engine_index,
-                'URL': "",
-                'UI': "",
-                'DESCR': engine_descr,
-                "QUALITY": engine_quality,
-                "COMPLEX": engine_complex,
-                "EDIT": engine_edit
-            }
-            logging.debug("Standalone Engine '{}' => {}".format(
-                key, genengines[key]))
-            i += 1
+        genengines[key] = {
+            'ID': engine_id,
+            'NAME': engine_name,
+            'TITLE': engine_title,
+            'TYPE': engine_type,
+            'CAT': engine_cat,
+            'ENABLED': is_engine_enabled(key, True),
+            'INDEX': engine_index,
+            'URL': "",
+            'UI': "",
+            'DESCR': engine_descr,
+            "QUALITY": engine_quality,
+            "COMPLEX": engine_complex,
+            "EDIT": engine_edit
+        }
+        logging.debug("Standalone Engine '{}' => {}".format(
+            key, genengines[key]))
+        i += 1
 
-        # Add LV2 plugins
-        for plugin in world.get_all_plugins():
+    # Add LV2 plugins
+    for plugin in world.get_all_plugins():
+        try:
             engine_name = str(plugin.get_name())
             engine_uri = str(plugin.get_uri())
-            # Skip plugins that doesn't work in the detected RBPi version
-            if rbpi_version_number < 5 and engine_uri in rpi5_plugins:
-                continue
-            key = f"JV/{engine_name}"
-            try:
-                engine_id = engines[key]['ID']
-                engine_title = engines[key]['TITLE']
-                engine_type = engines[key]['TYPE']
-                engine_cat = engines[key]['CAT']
-                if engine_cat not in engine_categories[engine_type]:
-                    try:
-                        engine_cat = lv2class2engcat[engine_cat]
-                    except:
-                        engine_cat = get_plugin_cat(plugin)
-                engine_index = engines[key]['INDEX']
-                engine_descr = engines[key]['DESCR']
-                engine_quality = engines[key]['QUALITY']
-                engine_complex = engines[key]['COMPLEX']
+        except Exception as e:
+            logging.warning(f"Can't get basic info for plugin => {e}")
+            continue
+
+        # Skip plugins that doesn't work in the detected RBPi version
+        if rbpi_version_number < 5 and engine_uri in rpi5_plugins:
+            continue
+
+        key = f"JV/{engine_name}"
+        try:
+            engine_id = engines[key]['ID']
+            engine_title = engines[key]['TITLE']
+            engine_type = engines[key]['TYPE']
+            engine_cat = engines[key]['CAT']
+            if engine_cat not in engine_categories[engine_type]:
                 try:
-                    engine_edit = engines[key]['EDIT']
+                    engine_cat = lv2class2engcat[engine_cat]
                 except:
-                    engine_edit = 0
+                    engine_cat = get_plugin_cat(plugin)
+            engine_index = engines[key]['INDEX']
+            engine_descr = engines[key]['DESCR']
+            engine_quality = engines[key]['QUALITY']
+            engine_complex = engines[key]['COMPLEX']
+            try:
+                engine_edit = engines[key]['EDIT']
             except:
-                hash.update(key.encode())
-                engine_id = hash.hexdigest()[:10]
-                engine_title = engine_name
-                engine_type = get_plugin_type(plugin).value
-                engine_cat = get_plugin_cat(plugin)
-                engine_index = 9999
-                engine_descr = get_plugin_description(plugin)
-                engine_quality = 0
-                engine_complex = 0
                 engine_edit = 0
+        except:
+            hash.update(key.encode())
+            engine_id = hash.hexdigest()[:10]
+            engine_title = engine_name
+            engine_type = get_plugin_type(plugin).value
+            engine_cat = get_plugin_cat(plugin)
+            engine_index = 9999
+            engine_descr = get_plugin_description(plugin)
+            engine_quality = 0
+            engine_complex = 0
+            engine_edit = 0
 
-            if reset_rankings == 1:
-                engine_quality = engine_complex = 0
-            elif reset_rankings == 2:
-                engine_quality = randrange(5)
-                engine_complex = randrange(5)
+        if reset_rankings == 1:
+            engine_quality = engine_complex = 0
+        elif reset_rankings == 2:
+            engine_quality = randrange(5)
+            engine_complex = randrange(5)
 
-            genengines[key] = {
-                'ID': engine_id,
-                'NAME': engine_name,
-                'TITLE': engine_title,
-                'TYPE': engine_type,
-                'CAT': engine_cat,
-                'ENABLED': is_engine_enabled(key, False),
-                'INDEX': engine_index,
-                'URL': engine_uri,
-                'UI': is_plugin_ui(plugin),
-                'DESCR': engine_descr,
-                "QUALITY": engine_quality,
-                "COMPLEX": engine_complex,
-                "EDIT": engine_edit
-            }
-            logging.debug("LV2 Plugin '{}' => {}".format(
-                engine_name, genengines[key]))
+        genengines[key] = {
+            'ID': engine_id,
+            'NAME': engine_name,
+            'TITLE': engine_title,
+            'TYPE': engine_type,
+            'CAT': engine_cat,
+            'ENABLED': is_engine_enabled(key, False),
+            'INDEX': engine_index,
+            'URL': engine_uri,
+            'UI': is_plugin_ui(plugin),
+            'DESCR': engine_descr,
+            "QUALITY": engine_quality,
+            "COMPLEX": engine_complex,
+            "EDIT": engine_edit
+        }
+        logging.debug("LV2 Plugin '{}' => {}".format(
+            engine_name, genengines[key]))
 
+    try:
         # Sort using title, so user can customize order by changing title from webconf
-        engines = dict(sorted(genengines.items(),
-                       key=lambda r: r[1]['TITLE'].casefold()))
-
+        engines = dict(sorted(genengines.items(), key=lambda r: r[1]['TITLE'].casefold()))
+        # Write to file
         with open(ENGINE_CONFIG_FILE, 'w') as f:
             json.dump(engines, f)
         engines_mtime = os.stat(ENGINE_CONFIG_FILE).st_mtime
-
     except Exception as e:
-        logging.error(e)
+        logging.error(f"Can't save engines DB => {e}")
+
 
     dt = int(round(time.time())) - start
     logging.debug('Generating engine config file took {}s'.format(dt))
@@ -524,42 +529,34 @@ def is_plugin_ui(plugin):
 
 def get_plugin_type(plugin):
     # Try to determine the plugin type from the LV2 class ...
-    plugin_class = re.sub(' Plugin', '', str(plugin.get_class().get_label()))
+    try:
+        plugin_class = re.sub(' Plugin', '', str(plugin.get_class().get_label()))
+    except:
+        plugin_class = None
 
     if plugin_class in lv2_plugin_classes["MIDI_SYNTH"]:
         return EngineType.MIDI_SYNTH
-
     elif plugin_class in lv2_plugin_classes["AUDIO_EFFECT"]:
         return EngineType.AUDIO_EFFECT
-
     elif plugin_class in lv2_plugin_classes["AUDIO_GENERATOR"]:
         return EngineType.AUDIO_GENERATOR
 
     # If failed to determine the plugin type using the LV2 class,
     # inspect the input/output ports ...
-
-    n_audio_in = plugin.get_num_ports_of_class(
-        world.ns.lv2.InputPort, world.ns.lv2.AudioPort)
-    n_audio_out = plugin.get_num_ports_of_class(
-        world.ns.lv2.OutputPort, world.ns.lv2.AudioPort)
-    n_midi_in = plugin.get_num_ports_of_class(
-        world.ns.lv2.InputPort, world.ns.ev.EventPort)
-    n_midi_out = plugin.get_num_ports_of_class(
-        world.ns.lv2.OutputPort, world.ns.ev.EventPort)
-    n_midi_in += plugin.get_num_ports_of_class(
-        world.ns.lv2.InputPort, world.ns.atom.AtomPort)
-    n_midi_out += plugin.get_num_ports_of_class(
-        world.ns.lv2.OutputPort, world.ns.atom.AtomPort)
+    n_audio_in = plugin.get_num_ports_of_class(world.ns.lv2.InputPort, world.ns.lv2.AudioPort)
+    n_audio_out = plugin.get_num_ports_of_class(world.ns.lv2.OutputPort, world.ns.lv2.AudioPort)
+    n_midi_in = plugin.get_num_ports_of_class(world.ns.lv2.InputPort, world.ns.ev.EventPort)
+    n_midi_out = plugin.get_num_ports_of_class(world.ns.lv2.OutputPort, world.ns.ev.EventPort)
+    n_midi_in += plugin.get_num_ports_of_class(world.ns.lv2.InputPort, world.ns.atom.AtomPort)
+    n_midi_out += plugin.get_num_ports_of_class(world.ns.lv2.OutputPort, world.ns.atom.AtomPort)
 
     if n_audio_out > 0 and n_audio_in == 0:
         if n_midi_in > 0:
             return EngineType.MIDI_SYNTH
         else:
             return EngineType.AUDIO_GENERATOR
-
     if n_audio_out > 0 and n_audio_in > 0 and n_midi_out == 0:
         return EngineType.AUDIO_EFFECT
-
     if n_midi_in > 0 and n_midi_out > 0 and n_audio_in == n_audio_out == 0:
         return EngineType.MIDI_TOOL
 
@@ -578,7 +575,13 @@ def get_plugin_cat(plugin):
 
 def get_plugin_description(plugin):
     # Get plugin description from rdfs:comment
-    res = str(world.get(plugin, world.ns.rdfs.comment, None))
+    try:
+        # TODO!!
+        #res = str(plugin.get_value(world.ns.rdfs.comment))
+        res = None
+    except:
+        logging.warning(f"Can't get plugin {plugin.get_name()} description. Using default.")
+        res = None
     # If not, use "Lorem Ipsum" default
     if not res:
         res = get_engine_description(key)
@@ -607,9 +610,13 @@ def generate_all_presets_cache(refresh=True):
 def generate_plugin_presets_cache(plugin_url, refresh=True):
     if refresh:
         init_lilv()
-
     wplugins = world.get_all_plugins()
-    return _generate_plugin_presets_cache(wplugins[plugin_url])
+    try:
+        plugin = wplugins[plugin_url]
+    except:
+        logging.debug(f"Plugin {plugin_url} not found.")
+        return None
+    return _generate_plugin_presets_cache(plugin)
 
 
 def _get_plugin_preset_cache_fpath(plugin_name):
@@ -708,13 +715,11 @@ def get_plugin_presets_cache(plugin_name):
         with open(fpath_cache) as f:
             presets_info = json.load(f)
     except Exception as e:
-        logging.error(
-            "Can't load presets cache file '{}': {}".format(fpath_cache, e))
+        logging.error("Can't load presets cache file '{}': {}".format(fpath_cache, e))
         try:
             return generate_plugin_presets_cache(engines["JV/" + plugin_name]['URL'])
         except Exception as e:
-            logging.error(
-                "Error generating presets cache for '{}': {}".format(plugin_name, e))
+            logging.error("Error generating presets cache for '{}': {}".format(plugin_name, e))
             presets_info = {}
 
     return presets_info
@@ -731,8 +736,7 @@ def save_plugin_presets_cache(plugin_name, presets_info):
         with open(fpath_cache, 'w') as f:
             json.dump(presets_info, f)
     except Exception as e:
-        logging.error(
-            "Can't save presets cache file '{}': {}".format(fpath_cache, e))
+        logging.error("Can't save presets cache file '{}': {}".format(fpath_cache, e))
 
 
 def sanitize_fname(s):
