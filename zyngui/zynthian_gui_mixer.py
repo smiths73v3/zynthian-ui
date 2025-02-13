@@ -766,6 +766,7 @@ class zynthian_gui_mixer_strip():
             else:
                 zynthian_gui_config.zyngui.chain_control(self.chain_id)
         self.dragging = False
+        self.strip_drag_start = None
         self.parent.end_moving_chain()
 
     def on_strip_motion(self, event):

@@ -1500,6 +1500,9 @@ class zynthian_gui:
                             self.replace_screen('bank')
                     elif len(bank_list) > 0 and bank_list[0][0] != '':
                         self.show_screen('bank', hmode=zynthian_gui.SCREEN_HMODE_ADD)
+                    else:
+                        self.show_screen('preset', hmode=zynthian_gui.SCREEN_HMODE_NONE)
+                        self.screens['preset'].show_preset_options()
 
     cuia_preset = cuia_bank_preset
 
@@ -2116,7 +2119,9 @@ class zynthian_gui:
         self.show_screen("file_selector")
 
     def cb_set_active_chain(self, active_chain):
-        self.zynswitches_midi_setup(self.chain_manager.get_active_chain().midi_chan)
+        active_chain = self.chain_manager.get_active_chain()
+        if active_chain:
+            self.zynswitches_midi_setup(active_chain.midi_chan)
 
     # ------------------------------------------------------------------
     # Zynpot Thread
