@@ -255,8 +255,6 @@ SETTINGCOLORS = [
     ],
 ]
 PATH_LOOP_OFFSET = ["device", "loopoffset"]
-DEVICEMODES = ["loops", "sessionsave", "sessionload"]
-LEVELMODES = [None, "all", "selected"]
 CHARS = {
     1: ["_._", ".._", "_._", "_._", "..."],
     2: ["_._", "._.", "__.", "_._", "..."],
