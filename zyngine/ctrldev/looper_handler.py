@@ -99,7 +99,18 @@ LEVEL_BOUNDS = {
     "pitch_shift": (-12, 12),
     "none": (0, 1),
 }
-
+SYNC_SOURCE_CHARS = {
+    # -3 = internal, -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
+    -3: 'I',
+    -2: 'M',
+    -1: 'J',
+     0:  '-'
+}
+def syncSourceChar(source):
+    if source > 0:
+        return source
+    return SYNC_SOURCE_CHARS.get(source, '')
+    
 # @todo factor out this from here and zynthian_engine_sooperlooper?
 # ------------------------------------------------------------------------------
 # Sooper Looper State Codes
@@ -266,6 +277,11 @@ CHARS = {
     8: ["...", "._.", "...", "._.", "..."],
     9: ["_._", "._.", "...", "__.", "..."],
     0: ["_._", "._.", "._.", "._.", "_._"],
+   'J': ["...", "__.", "__.", "._.", "_._"],
+   'M': ["._.", "...", "._.", "._.", "._."],
+   'I': ["...", "_._", "_._", "_._", "..."],
+   '': ["___", "___", "___", "___", "___"],
+   '-': ["___", "___", "...", "___", "___"],
 }
 matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_BRIGHT_10}
 matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
@@ -869,6 +885,8 @@ def createAllPads(state):
                 )
             else:
                 return overlay(make_loopnum_overlay(firstLoop, 5), pads)
+        elif getDeviceSetting("showsource", state):
+            return overlay(make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 1), pads)
         else:
             return overlay(eighths, pads)
 
@@ -1284,9 +1302,9 @@ class LooperHandler(
             if track == -1
             else path(["tracks", track], self.state)
         )
+        if set_syncs:
+            return self.handle_syncs(numpad, track, stateTrack, tracks, evtype)
         if evtype == EV_NOTE_ON:
-            if set_syncs:
-                return self.handle_syncs(numpad, track, stateTrack, tracks)
             if submode == self.MODE_SESSION_SAVE:
                 return self.on_save_session_pad(pad)
             if submode == self.MODE_SESSION_LOAD:
@@ -1315,7 +1333,11 @@ class LooperHandler(
             return self.handle_loop_actions(numpad, track, evtype)
         pass
 
-    def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks):
+    def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks, evtype):
+        if evtype == EV_NOTE_OFF:
+            if track == -1 and numpad == 6:
+                self.dispatch(deviceAction('showsource', None))
+            return
         if numpad < 6:
             if stateTrack is None:
                 return
@@ -1346,8 +1368,7 @@ class LooperHandler(
                 -3, self.loopcount, oldvalue
             )  # Assuming cycle is defined elsewhere
             self.just_send("/set", setting, value)
-            self.dispatch(globAction(setting, value))
-
+            self.dispatch(batchAction([globAction(setting, value), deviceAction('showsource', True)]))
         return
 
     def activateSubmode(self, modenum):
@@ -1948,7 +1969,7 @@ class SubModeSync(ModeHandlerBase):
 
     def set_active(self, active):
         super().set_active(active)
-
+        self.parent.dispatch(deviceAction("showsource", None))
 
 class SubModeSessionsSave(ModeHandlerBase):
     """Submode for saving sessions"""
