@@ -1488,7 +1488,7 @@ class LooperHandler(
             return
         sessions = getDeviceSetting("sessions", self.state) or []
         for session in sessions:
-            if session[:-7] == str(pad):
+            if session[:-7] == "{:02}".format(pad):
                 # print(f"Need to confirm {pad}")
                 self.dispatch(deviceAction("confirm-save", pad))
                 return
