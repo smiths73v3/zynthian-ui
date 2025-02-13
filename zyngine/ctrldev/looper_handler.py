@@ -1880,6 +1880,7 @@ class SubModeDefault(ModeHandlerBase):
         self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
+        self.parent = parent
 
     def set_active(self, active):
         super().set_active(active)
@@ -1894,6 +1895,7 @@ class SubModeLevels1(ModeHandlerBase):
         self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
+        self.parent = parent
 
     def set_active(self, active):
         super().set_active(active)
@@ -1927,6 +1929,7 @@ class SubModePan(ModeHandlerBase):
         self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
+        self.parent = parent
 
     def set_active(self, active):
         super().set_active(active)
@@ -1941,6 +1944,7 @@ class SubModeSync(ModeHandlerBase):
         self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
+        self.parent = parent
 
     def set_active(self, active):
         super().set_active(active)
@@ -1974,6 +1978,7 @@ class SubModeSessionsLoad(ModeHandlerBase):
         self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
+        self.parent = parent
 
     def set_active(self, active):
         super().set_active(active)
