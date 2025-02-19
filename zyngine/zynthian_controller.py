@@ -85,7 +85,7 @@ class zynthian_controller:
         self.path_file_types = None  # List of supported file types
         self.path_dir_names = None  # List of directory names to look for files
         self.not_on_gui = False  # True to hint to GUI to show control
-        self.display_priority = float("inf")  # Hint of order in which to display control (higher comes first)
+        self.display_priority = 0  # Hint of order in which to display control (higher comes first)
 
         self.is_dirty = True  # True if control value changed since last UI update
 
