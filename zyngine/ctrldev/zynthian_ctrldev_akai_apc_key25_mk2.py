@@ -2121,10 +2121,9 @@ class StepSeqHandler(ModeHandlerBase):
         if izmip == self._own_device_id or len(self._pressed_pads) == 0:
             return
 
-        # FIXME: if MIDI is playing, we need to ensure this note_on does come
-        # from a device (i.e the user pressed it!). Current FIX allows using only
-        # the APC itself
-        if izmip > 2:
+        # If MIDI is playing, we need to ensure this note_on does come
+        # from a device (i.e the user pressed it!).
+        if izmip >= self._state_manager.get_zmip_seq_index():
             return
 
         for pad in self._pressed_pads:
