@@ -1297,6 +1297,14 @@ class zynthian_gui:
         except Exception as e:
             logging.error(e)
 
+    def cuia_zynpot_abs(self, params=None):
+        try:
+            self.get_current_screen_obj().zynpot_abs(*params)
+        except AttributeError:
+            pass
+        except Exception as e:
+            logging.error(e)
+
     def cuia_zynswitch(self, params=None):
         try:
             i = params[0]
