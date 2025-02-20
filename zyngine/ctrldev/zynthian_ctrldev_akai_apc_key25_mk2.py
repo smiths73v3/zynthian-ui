@@ -23,14 +23,14 @@
 #
 # ******************************************************************************
 
+import jack
 import time
 import signal
-import jack
 import logging
 from bisect import bisect
 from copy import deepcopy
-from functools import partial
 import multiprocessing as mp
+from functools import partial
 from threading import Thread, RLock, Event
 
 from zynlibs.zynseq import zynseq
@@ -38,13 +38,9 @@ from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_engine_audioplayer import zynthian_engine_audioplayer
 
-from .zynthian_ctrldev_base import (
-    zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
-)
-from .zynthian_ctrldev_base_extended import (
-    RunTimer, KnobSpeedControl, ButtonTimer, CONST
-)
-from .zynthian_ctrldev_base_ui import ModeHandlerBase
+from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
+from zyngine.ctrldev.zynthian_ctrldev_base_extended import RunTimer, KnobSpeedControl, ButtonTimer, CONST
+from zyngine.ctrldev.zynthian_ctrldev_base_ui import ModeHandlerBase
 
 
 # FIXME: these defines should be taken from where they are defined (zynseq.h)
