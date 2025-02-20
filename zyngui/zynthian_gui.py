@@ -2199,6 +2199,9 @@ class zynthian_gui:
             self.ignore_next_touch_release = True
             return "break"
         self.state_manager.set_event_flag()
+        if self.multitouch.detect:
+            self.multitouch.open_device()
+            return "break"
 
     def cb_touch_release(self, event):
         # logging.debug("CB EVENT TOUCH RELEASE!!!")
