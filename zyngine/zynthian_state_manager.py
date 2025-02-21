@@ -1913,7 +1913,7 @@ class zynthian_state_manager:
                     driver_i = 0
                 try:
                     self.ctrldev_manager.set_disabled_driver(uid, state["disable_ctrldev"])
-                    self.ctrldev_manager.load_driver(izmip, driver_i=driver_i)
+                    self.ctrldev_manager.load_driver(izmip, driver_i)
                 except:
                     pass
                 try:
@@ -1924,7 +1924,7 @@ class zynthian_state_manager:
                 try:
                     routed_chains = state["routed_chains"]
                     for ch in range(0, 16):
-                        lib_zyncore.zmop_set_route_from(ch, zmip, ch in routed_chains)
+                        lib_zyncore.zmop_set_route_from(ch, izmip, ch in routed_chains)
                 except:
                     pass
 

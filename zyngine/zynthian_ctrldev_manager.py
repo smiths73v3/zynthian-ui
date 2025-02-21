@@ -105,7 +105,7 @@ class zynthian_ctrldev_manager():
         dev_id = zynautoconnect.get_midi_in_devid(izmip)
         # Check if some driver is available for this device ID
         if dev_id not in self.available_drivers:
-            return False
+            dev_id = "*"
         # Get driver class
         driver_class = self.available_drivers[dev_id][driver_i]
         driver_name = driver_class.get_driver_name()
@@ -116,7 +116,7 @@ class zynthian_ctrldev_manager():
                 self.disabled_devices.remove(uid)
         # if not force nor autoload flag, add driver to disabled list
         else:
-            if not (force or driver_class.get_autoload_flag()):
+            if not (force or driver_class.get_autoload_flag()) and izmip not in self.drivers:
                 self.disabled_devices.append(uid)
 
         # If a driver is already loaded for this device ...
@@ -209,6 +209,8 @@ class zynthian_ctrldev_manager():
 
     def get_driver_index_from_class_name(self, dev_id, class_name):
         if class_name:
+            if dev_id not in self.available_drivers:
+                dev_id = "*"
             try:
                 #logging.debug(f"Looking for driver '{class_name}' for '{dev_id}' ...")
                 return self.available_drivers[dev_id].index(self.driver_classes[class_name])

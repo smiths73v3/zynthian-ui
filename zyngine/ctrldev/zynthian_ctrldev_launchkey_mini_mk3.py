@@ -5,7 +5,7 @@
 #
 # Zynthian Control Device Driver for "Novation Launchkey Mini MK3"
 #
-# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2025 Fernando Moyano <jofemodo@zynthian.org>
 #                         Brian Walton <brian@riban.co.uk>
 #
 # ******************************************************************************
@@ -120,15 +120,16 @@ class zynthian_ctrldev_launchkey_mini_mk3(zynthian_ctrldev_zynpad, zynthian_ctrl
         elif evtype == 0xB:
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
-            if ccnum == 0 or ccval == 0:
+            if ccnum == 0x6C:
+                # SHIFT
+                self.shift = ccval != 0
+            elif ccnum == 0 or ccval == 0:
                 return True
-            elif 20 < ccnum < 24:
+            elif (self.shift and 20 < ccnum < 29) or (20 < ccnum < 25):
                 chain = self.chain_manager.get_chain_by_position(
                     ccnum - 21, midi=False)
                 if chain and chain.mixer_chan is not None and chain.mixer_chan < 17:
                     self.zynmixer.set_level(chain.mixer_chan, ccval / 127.0)
-            elif ccnum == 24:
-                self.zynmixer.set_level(255, ccval / 127.0)
             elif 24 < ccnum < 29:
                 self.state_manager.send_cuia("ZYNPOT_ABS", [ccnum - 25, ccval/127])
             elif ccnum == 0x66:
@@ -143,9 +144,6 @@ class zynthian_ctrldev_launchkey_mini_mk3(zynthian_ctrldev_zynpad, zynthian_ctrl
             elif ccnum == 0x69:
                 # DOWN
                 self.state_manager.send_cuia("ARROW_DOWN")
-            elif ccnum == 0x6C:
-                # SHIFT
-                self.shift = ccval != 0
             elif ccnum == 0x73:
                 # PLAY
                 if self.shift:
