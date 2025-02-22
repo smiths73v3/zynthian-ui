@@ -25,6 +25,7 @@
 # ******************************************************************************
 
 import logging
+from time import monotonic
 
 # Zynthian specific modules
 from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer
@@ -72,6 +73,7 @@ class zynthian_ctrldev_fostex_mixtab(zynthian_ctrldev_zynmixer):
         super().__init__(state_manager, idev_in, idev_out)
         self.midi_chan = 0 # Base channel for MIDI messages. +1 for +8 offset, +2 for +16 offset.
         self.chan2chain = {}
+        self.last_store = monotonic()
 
     def set_param(self, cc, val, midi_chan):
         if cc == 7:
@@ -121,6 +123,10 @@ class zynthian_ctrldev_fostex_mixtab(zynthian_ctrldev_zynmixer):
             val = ev[2] & 0x7F
 
             match cc:
+                case 48:
+                    # Smooth
+                    self.state_manager.send_cuia("set_tempo", [40 + val * 2])
+                    return True
                 case 49:
                     # Dump Request parameter 0..126 or 127 for all parameters
                     if val == 127:
@@ -133,12 +139,31 @@ class zynthian_ctrldev_fostex_mixtab(zynthian_ctrldev_zynmixer):
                     return True
                 case 50:
                     # Scene store 0..99
-                    self.state_manager.save_zs3(f"{self.midi_chan}/{val}", "Saved by MIXTAB")
-                    #TODO: Store ZS3?
+                    now = monotonic()
+                    if now < self.last_store + 1.5:
+                        # Double press STORE but second press has to be after display stops flashing
+                        self.state_manager.save_zs3(f"{self.midi_chan}/{val}", "Saved by MIXTAB")
+                    self.last_store = now
                     return True
                 case 51:
                     # Scene clear 0..99 or 127 for all scenes
                     #TODO: Clean all?
+                    return True
+                case 78:
+                    # Send 1 EQ LO
+                    self.state_manager.send_cuia("ZYNPOT_ABS", [1, val/127])
+                    return True
+                case 79:
+                    # Send 2 EQ LO
+                    self.state_manager.send_cuia("ZYNPOT_ABS", [3, val/127])
+                    return True
+                case 80:
+                    # Send 1 EQ HIGH
+                    self.state_manager.send_cuia("ZYNPOT_ABS", [0, val/127])
+                    return True
+                case 81:
+                    # Send 2 EQ HIGH
+                    self.state_manager.send_cuia("ZYNPOT_ABS", [2, val/127])
                     return True
             return self.set_param(cc, val, midi_chan)
         return False
