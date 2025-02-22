@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 import logging
-from .zynthian_ctrldev_base_ui import ModeHandlerBase
+from zyngine.ctrldev.zynthian_ctrldev_base_ui import ModeHandlerBase
 from os import listdir
 from os.path import isfile, join
 import time
@@ -36,13 +36,13 @@ from zyngine.zynthian_engine_sooperlooper import (
     SL_STATE_OFF_MUTED,
 )
 
-from .zynthian_ctrldev_base_extended import (
+from zyngine.ctrldev.zynthian_ctrldev_base_extended import (
     KnobSpeedControl,
 )
-from .zynthian_ctrldev_akai_apc_key25_mk2_feedback_leds import FeedbackLEDs
-from .zynthian_ctrldev_akai_apc_key25_mk2_colors import COLORS
-from .zynthian_ctrldev_akai_apc_key25_mk2_brights import BRIGHTS, LED_BRIGHTS
-from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import BUTTONS
+from zyngine.ctrldev.akai_apc_key25.feedback_leds import FeedbackLEDs
+from zyngine.ctrldev.akai_apc_key25.colors import COLORS
+from zyngine.ctrldev.akai_apc_key25.brights import BRIGHTS, LED_BRIGHTS
+from zyngine.ctrldev.akai_apc_key25.buttons import BUTTONS
 
 from typing import Dict, Any, Callable
 from itertools import chain, islice

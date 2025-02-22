@@ -1,6 +1,6 @@
 from zyncoder.zyncore import lib_zyncore
-from .zynthian_ctrldev_base_extended import RunTimer
-from .zynthian_ctrldev_akai_apc_key25_mk2_buttons import BUTTONS
+from zyngine.ctrldev.zynthian_ctrldev_base_extended import RunTimer
+from zyngine.ctrldev.akai_apc_key25.buttons import BUTTONS
 
 # --------------------------------------------------------------------------
 # Feedback LEDs controller

@@ -42,7 +42,7 @@ from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer, zyn
 from zyngine.ctrldev.zynthian_ctrldev_base_extended import RunTimer, KnobSpeedControl, ButtonTimer, CONST
 from zyngine.ctrldev.zynthian_ctrldev_base_ui import ModeHandlerBase
 
-from .looper_handler import LooperHandler
+from zyngine.ctrldev.akai_apc_key25.looper_handler import LooperHandler
 
 # FIXME: these defines should be taken from where they are defined (zynseq.h)
 MAX_STUTTER_COUNT = 32
