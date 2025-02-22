@@ -30,13 +30,13 @@
 from threading import Thread
 
 from zyngui import zynthian_gui_config
-from . import zynthian_ctrldev_base_extended
+from zyngine.ctrldev.zynthian_ctrldev_base_extended import *
 
 
 # --------------------------------------------------------------------------
 # Extended Base class for mode handlers, with UI related methods
 # --------------------------------------------------------------------------
-class ModeHandlerBase(zynthian_ctrldev_base_extended.ModeHandlerBase):
+class ModeHandlerBase(ModeHandlerBase):
 
     # FIXME: This way avoids to show Zynpad every time, BUT is coupled to UI!
     def _show_pattern_editor(self, seq=None, skip_arranger=False):

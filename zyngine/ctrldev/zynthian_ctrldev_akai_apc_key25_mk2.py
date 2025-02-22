@@ -23,14 +23,14 @@
 #
 # ******************************************************************************
 
+import jack
 import time
 import signal
-import jack
 import logging
 from bisect import bisect
 from copy import deepcopy
-from functools import partial
 import multiprocessing as mp
+from functools import partial
 from threading import Thread, RLock, Event
 
 from zynlibs.zynseq import zynseq
@@ -38,13 +38,9 @@ from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_signal_manager import zynsigman
 from zyngine.zynthian_engine_audioplayer import zynthian_engine_audioplayer
 
-from .zynthian_ctrldev_base import (
-    zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
-)
-from .zynthian_ctrldev_base_extended import (
-    RunTimer, KnobSpeedControl, ButtonTimer, CONST
-)
-from .zynthian_ctrldev_base_ui import ModeHandlerBase
+from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
+from zyngine.ctrldev.zynthian_ctrldev_base_extended import RunTimer, KnobSpeedControl, ButtonTimer, CONST
+from zyngine.ctrldev.zynthian_ctrldev_base_ui import ModeHandlerBase
 
 from .looper_handler import LooperHandler
 
@@ -2139,10 +2135,9 @@ class StepSeqHandler(ModeHandlerBase):
         if izmip == self._own_device_id or len(self._pressed_pads) == 0:
             return
 
-        # FIXME: if MIDI is playing, we need to ensure this note_on does come
-        # from a device (i.e the user pressed it!). Current FIX allows using only
-        # the APC itself
-        if izmip > 2:
+        # If MIDI is playing, we need to ensure this note_on does come
+        # from a device (i.e the user pressed it!).
+        if izmip >= self._state_manager.get_zmip_seq_index():
             return
 
         for pad in self._pressed_pads:
