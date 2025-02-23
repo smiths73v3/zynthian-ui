@@ -255,10 +255,7 @@ class zynthian_controller:
         self.value_range = self.value_max - self.value_min
 
         if self.value_mid is None:
-            if self.is_integer:
-                self.value_mid = self.value_min + int(self.value_range / 2)
-            else:
-                self.value_mid = self.value_min + self.value_range / 2
+            self.value_mid = self.value_min + self.value_range / 2
 
         self._set_value(self.value)
         if self.value_default is None:

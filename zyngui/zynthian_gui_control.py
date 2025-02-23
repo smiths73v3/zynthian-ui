@@ -485,6 +485,10 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.set_controller_screen()
         #self.set_selector_screen()
 
+    def zynpot_abs(self, i, val):
+        if self.mode == 'control':
+            self.zgui_controllers[i].zynpot_abs(val)
+
     def zynpot_cb(self, i, dval):
         if self.mode == 'control' and self.zcontrollers:
             if self.zgui_controllers[i].zynpot_cb(dval):

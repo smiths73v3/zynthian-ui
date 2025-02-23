@@ -226,10 +226,10 @@ class zynthian_state_manager:
         # Start VNC as configured
         self.default_vncserver()
 
+        self.ctrldev_manager = zynthian_ctrldev_manager(self)
         zynautoconnect.start(self)
         self.jack_period = self.get_jackd_blocksize() / self.get_jackd_samplerate()
         self.zynmixer.reset_state()
-        self.ctrldev_manager = zynthian_ctrldev_manager(self)
         self.reload_midi_config()
         self.create_audio_player()
         self.chain_manager.add_chain(0)
@@ -1895,7 +1895,6 @@ class zynthian_state_manager:
             for uid, state in mcstate.items():
                 #logging.debug(f"MCSTATE {uid} => {state}")
                 izmip = zynautoconnect.get_midi_in_devid_by_uid(uid, zynthian_gui_config.midi_usb_by_port)
-                dev_id = zynautoconnect.get_midi_in_devid(izmip)
                 if izmip is None:
                     continue
                 try:
@@ -1908,12 +1907,11 @@ class zynthian_state_manager:
                     pass
                 zynautoconnect.update_midi_in_dev_mode(izmip)
                 try:
-                    driver_i = self.ctrldev_manager.get_driver_index_from_class_name(dev_id, state["ctrldev_driver"])
-                except:
-                    driver_i = 0
-                try:
-                    self.ctrldev_manager.set_disabled_driver(uid, state["disable_ctrldev"])
-                    self.ctrldev_manager.load_driver(izmip, driver_i=driver_i)
+                    #TODO: Use ctrldev_driver=None to disable driver
+                    if state["disable_ctrldev"]:
+                        self.ctrldev_manager.unload_driver(izmip, True)
+                    else:
+                        self.ctrldev_manager.load_driver(izmip, state["ctrldev_driver"])
                 except:
                     pass
                 try:
@@ -1924,7 +1922,7 @@ class zynthian_state_manager:
                 try:
                     routed_chains = state["routed_chains"]
                     for ch in range(0, 16):
-                        lib_zyncore.zmop_set_route_from(ch, zmip, ch in routed_chains)
+                        lib_zyncore.zmop_set_route_from(ch, izmip, ch in routed_chains)
                 except:
                     pass
 
