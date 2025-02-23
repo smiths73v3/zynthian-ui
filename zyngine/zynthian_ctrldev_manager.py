@@ -108,9 +108,9 @@ class zynthian_ctrldev_manager():
         uid = zynautoconnect.get_midi_in_uid(izmip)
 
         driver_class = None
-        if driver_name is None: # Autoload
+        if driver_name is None:  # Autoload
             if izmip in self.drivers or dev_id not in self.available_drivers:
-                return False # Don't autoload already loaded or generic driver
+                return False  # Don't autoload already loaded or generic driver
             for cls in self.available_drivers[dev_id]:
                 if cls.get_autoload_flag():
                     driver_class = cls

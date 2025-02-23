@@ -1000,14 +1000,11 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
             value = strip.zctrls["level"].value
             if value > 0:
                 level_db = 20 * log10(value)
-                self.set_title(
-                    f"Volume: {level_db:.2f}dB ({strip.chain.get_description(1)})", None, None, 1)
+                self.set_title(f"Volume: {level_db:.2f}dB ({strip.chain.get_description(1)})", None, None, 1)
             else:
-                self.set_title(
-                    f"Volume: -∞dB ({strip.chain.get_description(1)})", None, None, 1)
+                self.set_title(f"Volume: -∞dB ({strip.chain.get_description(1)})", None, None, 1)
         elif symbol == "balance":
-            strip.parent.set_title(
-                f"Balance: {int(value * 100)}% ({strip.chain.get_description(1)})", None, None, 1)
+            strip.parent.set_title(f"Balance: {int(value * 100)}% ({strip.chain.get_description(1)})", None, None, 1)
 
     def update_control_arm(self, chan, value):
         """Function to handle audio recorder arm
