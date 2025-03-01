@@ -59,6 +59,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
         self.preset = None
 
         self.monitors_dict = OrderedDict()
+        self.monitors_dict['reset'] = True
         self.monitors_dict['info'] = ""
         self.monitors_dict['audio'] = ""
         self.monitors_dict['codec'] = ""
@@ -146,6 +147,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
         #logging.debug(f"{self.jackname} PARSE => " + line)
         if line.startswith("Starting playback..."):
             zynautoconnect.request_audio_connect(True)
+            self.monitors_dict['reset'] = True
         elif line.startswith("SteamTitle="):
             self.monitors_dict['info'] = line[11:].strip()
         elif line.startswith("Selected audio codec: "):
@@ -323,7 +325,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
             playlists = []
             for file in listdir(f"{self.my_data_dir}/capture"):
                 if file[-4:].lower() in (".m3u", ".pls"):
-                    playlists.append([f"{self.my_data_dir}/capture/{file}", 0, file[:-4], "auto", ""])
+                    playlists.append([f"{self.my_data_dir}/capture/{file}", 1, file[:-4], "auto", ""])
             if playlists:
                 self.presets["Playlists"] = playlists
 
@@ -353,6 +355,11 @@ class zynthian_engine_inet_radio(zynthian_engine):
         else:
             self.proc_cmd(f"{prefix}loadfile {preset[0]}")
         self.monitors_dict['title'] = preset[2]
+        self.monitors_dict['reset'] = True
+        self.monitors_dict['info'] = ""
+        self.monitors_dict['audio'] = ""
+        self.monitors_dict['codec'] = ""
+        self.monitors_dict['bitrate'] = ""
         processor.controllers_dict["stream"].set_value('streaming', False)
 
     # ----------------------------------------------------------------------------
@@ -365,8 +372,38 @@ class zynthian_engine_inet_radio(zynthian_engine):
         if zctrl.symbol == "volume":
                 self.proc_cmd(f"volume {zctrl.value} 1")
         elif zctrl.symbol == "prev/next":
-            self.proc_cmd(f"pt_step {zctrl.value - 1}")
+            value = zctrl.value - 1
             zctrl.set_value(1, False)
+            if self.preset:
+                if self.preset[1]:
+                    self.proc_cmd(f"pt_step {value}")
+                else:
+                    bank_i = 0
+                    for bank, presets in self.presets.items():
+                        for i, preset in enumerate(presets):
+                            if self.preset == preset:
+                                i += value
+                                if i >= len(presets):
+                                    try:
+                                        bank_name = list(self.presets)[bank_i + 1]
+                                        if bank_name == "Playlists":
+                                            return
+                                        self.set_preset(self.processors[0], self.presets[bank_name][0])
+                                    except:
+                                        pass
+                                    return
+                                if i < 0:
+                                    if bank_i == 0:
+                                        return
+                                    try:
+                                        bank_name = list(self.presets)[bank_i - 1]
+                                        self.set_preset(self.processors[0], self.presets[bank_name][-1])
+                                    except:
+                                        pass
+                                    return
+                                self.set_preset(self.processors[0], presets[i])
+                                return
+                        bank_i += 1
         elif zctrl.symbol == "stream":
             if zctrl.value:
                 self.set_preset(self.processors[0], self.preset)

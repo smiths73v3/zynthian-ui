@@ -5,7 +5,7 @@
 #
 # Zynthian Widget Class for "Zynthian Internet Radio"
 #
-# Copyright (C) 2024 Brian Walton <riban@zynthian.org>
+# Copyright (C) 2024-2025 Brian Walton <riban@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -111,11 +111,15 @@ class zynthian_widget_inet_radio(zynthian_widget_base.zynthian_widget_base):
 
     def refresh_gui(self):
         self.refresh_count += 1
-        if self.refresh_count > 50:
+        if self.monitors["reset"]:
+            self.info_page = 1
+            self.monitors["reset"] = False
+        elif self.refresh_count < 50:
             # Update every 2s
-            self.refresh_count = 0
-            self.info_page += 1
-        if self.height < 400:
+            return
+        self.info_page += 1
+        self.refresh_count = 0
+        if self.height < 300:
             # Use one field for smaller displays
             if self.monitors["info"] in ["stream unavailable", "waiting for stream..."]:
                 self.info_page = 1
