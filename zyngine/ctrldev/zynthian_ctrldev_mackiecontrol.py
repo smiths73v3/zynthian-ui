@@ -41,7 +41,6 @@ from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer
 # TODO list below
 """
 Get dev_id and try and get a list of features
-Add transport controls
 """
 
 default_mackie_myconfig = {
@@ -191,6 +190,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 	channel_left_ccnum = 48
 	channel_right_ccnum = 49
 	select_ccnum = 100
+	shift_ccnum = 70
 
 	# TODO transport not enabled
 	transport_frwd_ccnum = 91
@@ -204,6 +204,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 	solo_ccnums = [8, 9, 10, 11, 12, 13, 14, 15]  # SOLO buttons
 	mute_ccnums = [16, 17, 18, 19, 20, 21, 22, 23]  # Mute buttons
 	encoders_ccnum = [16, 17, 18, 19, 20, 21, 22, 23]
+	encoders_press_ccnum = [32, 33, 34, 35, 36, 37, 38, 39]
 	select_ccnums = [24, 25, 26, 27, 28, 29, 30, 31]  # select buttons
 	faders_ccnum = [104, 105, 106, 107, 108, 109, 110, 111, 112]  # faders use pitchbend on different midi channels
 
@@ -321,19 +322,93 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		self.sleep_off()  # Added this to perhaps stop losing the other registered signals
 		# Register signals
 		zynsigman.register_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, self._on_gui_show_screen)
-		# zynsigman.register_queued(zynsigman.S_AUDIO_PLAYER, self.state_manager.SS_AUDIO_PLAYER_STATE, self.refresh_audio_transport)
-		# zynsigman.register_queued(zynsigman.S_AUDIO_RECORDER, self.state_manager.SS_AUDIO_RECORDER_STATE, self.refresh_audio_transport)
-		# zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_PLAYER_STATE, self.refresh_midi_transport)
-		# zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_RECORDER_STATE, self.refresh_midi_transport)
+		zynsigman.register_queued(zynsigman.S_AUDIO_PLAYER, self.state_manager.SS_AUDIO_PLAYER_STATE, self.refresh_audio_transport)
+		zynsigman.register_queued(zynsigman.S_AUDIO_RECORDER, self.state_manager.SS_AUDIO_RECORDER_STATE, self.refresh_audio_transport)
+		zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_PLAYER_STATE, self.refresh_midi_transport)
+		zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_RECORDER_STATE, self.refresh_midi_transport)
 		super().init()
 
 	def end(self):
 		super().end()
 		zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_SCREEN, self._on_gui_show_screen)
+		zynsigman.unregister(zynsigman.S_AUDIO_PLAYER, self.state_manager.SS_AUDIO_PLAYER_STATE, self.refresh_audio_transport)
+		zynsigman.unregister(zynsigman.S_AUDIO_RECORDER, self.state_manager.SS_AUDIO_RECORDER_STATE, self.refresh_audio_transport)
+		zynsigman.unregister(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_PLAYER_STATE, self.refresh_midi_transport)
+		zynsigman.unregister(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_RECORDER_STATE, self.refresh_midi_transport)
 
+	def refresh_audio_transport(self, **kwargs):
+		logging.debug(f'refresh_audio_transport: Play {self.state_manager.status_audio_player}')
+		logging.debug(f'refresh_audio_transport: Rec {self.state_manager.audio_recorder.rec_proc}')
+		logging.debug(f'refresh_audio_transport: {kwargs}')
+		if self.shift:
+			return
+		# REC Button
+		if self.state_manager.audio_recorder.rec_proc:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_rec_ccnum, 127)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_play_ccnum, 127)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 0)
+			return
+		else:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_rec_ccnum, 0)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 127)
+		# PLAY button:
+		if self.state_manager.status_audio_player:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_play_ccnum, 127)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 0)
+			return
+		else:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_play_ccnum, 0)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 127)
+		# STOP button
+		lib_zyncore.dev_send_note_on(
+			self.idev_out, self.midi_chan, self.transport_stop_ccnum, 127)
+
+
+	def refresh_midi_transport(self, **kwargs):
+		if not self.shift:
+			return
+		# REC Button
+		if self.state_manager.status_midi_recorder:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_rec_ccnum, 127)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_play_ccnum, 127)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 0)
+			return
+		else:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_rec_ccnum, 0)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 127)
+
+		# PLAY button:
+		if self.state_manager.status_midi_player:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_play_ccnum, 127)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 0)
+			return
+		else:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_play_ccnum, 0)
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.transport_stop_ccnum, 127)
+		# STOP button
+		lib_zyncore.dev_send_note_on(
+			self.idev_out, self.midi_chan, self.transport_stop_ccnum, 127)
 
 	def get_lcd_bottom_text(self, channel, chain):
-		logging.debug(f'get_lcd_bottom_text: channel:{channel}')
+		# logging.debug(f'get_lcd_bottom_text: channel:{channel}')
 		bottom_text = ''
 		if self.encoder_assign == 'global_view':
 			# global_view - Get channel Name
@@ -341,7 +416,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 				bottom_text = chain.get_title()
 			except:
 				bottom_text = ''
-			logging.debug(f'Get Title:   {bottom_text}')
+			# logging.debug(f'Get Title:   {bottom_text}')
 		elif self.encoder_assign == 'assign_pan':  # Get Balance Value
 			balance_value = self.zynmixer.get_balance(channel + self.first_zyn_channel_fader)
 			bottom_text = f'{round(balance_value * 100, 0)}%'
@@ -349,12 +424,12 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 	# Update LED and Fader status for a single strip
 	def update_mixer_strip(self, chan, symbol, value):
-		logging.debug(f"update_mixer_strip made chan: {chan} symbol: {symbol} value: {value} ")
+		# logging.debug(f"update_mixer_strip made chan: {chan} symbol: {symbol} value: {value} ")
 		if self.idev_out is None:
 			return
 
 		chain_id = self.chain_manager.get_chain_id_by_mixer_chan(chan)
-		logging.debug(f'chain_id: {chain_id}')
+		# logging.debug(f'chain_id: {chain_id}')
 		if chain_id is not None:
 			# Master Strip Level
 			if chain_id == 0 and symbol == "level" and self.device_settings['masterfader']:
@@ -368,7 +443,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 					col = self.chain_manager.get_chain_index(chain_id)
 					col -= self.first_zyn_channel_fader
 					if 0 <= col < self.device_settings['number_of_strips']:
-						logging.debug(f'update_mixer_strip chain_id: {chain_id}')
+						# logging.debug(f'update_mixer_strip chain_id: {chain_id}')
 						if symbol == "mute":
 							lib_zyncore.dev_send_note_on(self.idev_out, self.midi_chan, self.mute_ccnums[col],
 														 value * 0x7F)
@@ -388,7 +463,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 	# Update LED status for active chain
 	def update_mixer_active_chain(self, active_chain):
-		logging.debug(f"update_mixer_active_chain active_chain: {active_chain} ")
+		# logging.debug(f"update_mixer_active_chain active_chain: {active_chain} ")
 		# Set "assign 7-Seg LED Number"
 		if active_chain == 0:
 			left_led, right_led = [77 - 48, 77 - 48]
@@ -401,9 +476,9 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		for i in range(0, self.device_settings['number_of_strips']):
 			sel = 0
 			try:
-				logging.debug(f'strip_view: {self.strip_view}')
+				# logging.debug(f'strip_view: {self.strip_view}')
 				ordered_chain_ids_filtered = self.get_ordered_chain_ids_filtered()
-				logging.debug(f'ordered_chain_ids_filtered: {ordered_chain_ids_filtered}')
+				# logging.debug(f'ordered_chain_ids_filtered: {ordered_chain_ids_filtered}')
 				chain_id = ordered_chain_ids_filtered[i + self.first_zyn_channel_fader]
 				if chain_id == active_chain:
 					sel = 0x7F
@@ -438,16 +513,27 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 			master_chain = self.chain_manager.get_chain(0)
 			if master_chain is not None:
 				zyn_volume_main = self.zynmixer.get_level(master_chain.mixer_chan)  # The Master Chain doesn't have a mixer_chan defined
-				logging.debug(f'Master Channel Volume Level: {zyn_volume_main}')
-				lib_zyncore.zmop_send_pitchbend_change(self.ZMOP_DEV0 + self.idev_out,
-													   self.device_settings['masterfader_strip_num'],
-													   int(zyn_volume_main * self.max_fader_value))
+				# logging.debug(f'Master Channel Volume Level: {zyn_volume_main}')
+				lib_zyncore.zmop_send_pitchbend_change(
+					self.ZMOP_DEV0 + self.idev_out,
+					self.device_settings['masterfader_strip_num'],
+					int(zyn_volume_main * self.max_fader_value)
+				)
 
 		# Strips Leds, Faders and Displays
 		col0 = self.first_zyn_channel_fader
 		self.gernerate_top_lcd_text()
+		if self.shift:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.shift_ccnum, 127)
+			self.refresh_midi_transport()
+		else:
+			lib_zyncore.dev_send_note_on(
+				self.idev_out, self.midi_chan, self.shift_ccnum, 0)
+			self.refresh_audio_transport()
+
 		for i in range(0, self.device_settings['number_of_strips']):
-			logging.debug(f'refresh:  strip= {i}')
+			# logging.debug(f'refresh:  strip= {i}')
 			rec = 0
 			mute = 0
 			solo = 0
@@ -488,7 +574,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 					if zyn_volume == None:
 						zyn_volume = 0
 
-				logging.debug(f'i: {i}, sel:{sel}, rec:{rec}, solo:{solo}, mute:{mute}, vol:{zyn_volume}')
+				# logging.debug(f'i: {i}, sel:{sel}, rec:{rec}, solo:{solo}, mute:{mute}, vol:{zyn_volume}')
 
 			lib_zyncore.dev_send_note_on(self.idev_out, self.midi_chan, self.mute_ccnums[i], mute)
 			lib_zyncore.dev_send_note_on(self.idev_out, self.midi_chan, self.solo_ccnums[i], solo)
@@ -528,7 +614,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 			# Encoders
 			if evtype == 11:
 				if ccnum in self.encoders_ccnum:
-					# Encoders Zynthian 5 to 8
+					# Encoders Zynthian 1 to 8
 					if self.encoder_assign == 'global_view':
 						if ccnum in self.encoders_ccnum[-4:]:  # last 4 encoders
 							encoder_num = self.encoders_ccnum.index(ccnum)
@@ -540,6 +626,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 								for interation in range(ccval):
 									self.state_manager.send_cuia("ZYNPOT", params=[encoder_num-4, 1])
 						return True
+
 
 					# Encoder PAN
 					if self.encoder_assign == 'assign_pan':
@@ -583,6 +670,30 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 					self.refresh()
 				return True
 
+			# Encoder Buttons
+			elif ccnum in self.encoders_press_ccnum:
+				# Encoder Buttons Zynthian 1 to 8
+				logging.debug(f'midi_event DEBUG: ccnum:{ccnum}, ccval:{ccval}')
+				if self.encoder_assign == 'global_view':
+					logging.debug(f'midi_event DEBUG global_view ccnum:{ccnum}, ccval:{ccval}')
+					if ccnum in self.encoders_press_ccnum[-4:]:  # last 4 encoders
+						encoder_num = self.encoders_press_ccnum.index(ccnum)
+						if ccval == 127:
+							logging.debug(f'mdid_event DEBUG: ccnum:{ccnum}, ccval:{ccval}, encoder_num:{encoder_num}')
+							self.state_manager.send_cuia("ZYNSWITCH", params=[encoder_num - 4, 'P'])
+						else:
+							self.state_manager.send_cuia("ZYNSWITCH", params=[encoder_num - 4, 'R'])
+
+
+			# Shift Key
+			elif ccnum == self.shift_ccnum:
+				if ccval == 127:
+					self.shift = not self.shift
+					logging.debug(f"midid_event SHIFT: {self.shift}")
+					self.rec_mode = self.shift
+					self.refresh()
+				return True
+
 			# Encoders Assign
 			elif ccnum in self.encoder_assign_dict.keys():
 				if ccval == 127:
@@ -612,7 +723,6 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 				else:
 					self.state_manager.send_cuia("ZYNSWITCH", params=["3", "R"])
 
-
 			# Move Fader positions
 			elif ccnum == self.bank_left_ccnum:
 				if ccval == 127:
@@ -624,6 +734,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 				return True
 			elif ccnum == self.bank_right_ccnum:
 				if ccval == 127:
+					# TODO: The calculation seems not to correctly work, rework!
 					for n in range(1, int(len(self.get_ordered_chain_ids_filtered()) / self.device_settings[
 						'number_of_strips'] + 1)):
 						if self.first_zyn_channel_fader < self.device_settings['number_of_strips'] * n:
@@ -647,25 +758,27 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 			# Transport Keys
 			elif ccnum == self.transport_play_ccnum:
-				if ccval > 0:
+				if ccval == 127:
 					if self.shift:
 						self.state_manager.send_cuia("TOGGLE_MIDI_PLAY")
 					else:
 						self.state_manager.send_cuia("TOGGLE_AUDIO_PLAY")
 				return True
 			elif ccnum == self.transport_rec_ccnum:
-				if ccval > 0:
+				if ccval == 127:
 					if self.shift:
 						self.state_manager.send_cuia("TOGGLE_MIDI_RECORD")
 					else:
 						self.state_manager.send_cuia("TOGGLE_AUDIO_RECORD")
 				return True
 			elif ccnum == self.transport_stop_ccnum:
-				if ccval > 0:
+				if ccval == 127:
 					if self.shift:
 						self.state_manager.send_cuia("STOP_MIDI_PLAY")
+						self.state_manager.send_cuia("STOP_MIDI_RECORD")
 					else:
 						self.state_manager.send_cuia("STOP_AUDIO_PLAY")
+						self.state_manager.send_cuia("STOP_AUDIO_RECORD")
 				return True
 
 			# Strip Buttons Mute
@@ -685,6 +798,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 					elif self.idev_out is not None:
 						lib_zyncore.dev_send_note_on(self.idev_out, self.midi_chan, ccnum, 0)
 				return True
+
 			# Strip Buttons Solo
 			elif ccnum in self.solo_ccnums:
 				if ccval == 127:
@@ -702,6 +816,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 					elif self.idev_out is not None:
 						lib_zyncore.dev_send_note_on(self.idev_out, self.midi_chan, ccnum, 0)
 				return True
+
 			# Strip Buttons Select
 			elif ccnum in self.select_ccnums:
 				if ccval == 127:
@@ -756,7 +871,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 
 	# Light-Off all LEDs
 	def light_off(self):
-		logging.debug(f"~~~ light_off ~~~")
+		# logging.debug(f"~~~ light_off ~~~")
 		if self.idev_out is None:
 			return
 
