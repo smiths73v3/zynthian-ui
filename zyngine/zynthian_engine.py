@@ -32,7 +32,6 @@ import logging
 import pexpect
 import fnmatch
 from time import sleep
-from os.path import isfile, isdir, join
 
 import zynautoconnect
 from . import zynthian_controller
@@ -51,8 +50,7 @@ class zynthian_basic_engine:
 
     config_dir = os.environ.get('ZYNTHIAN_CONFIG_DIR', "/zynthian/config")
     data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
-    my_data_dir = os.environ.get(
-        'ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
+    my_data_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
     ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
 
     # ---------------------------------------------------------------------------
@@ -276,10 +274,10 @@ class zynthian_engine(zynthian_basic_engine):
     # Auxiliary functions for bank & preset management
     # ---------------------------------------------------------------------------
 
-    @classmethod
-    def find_some_preset_file(cls, path, recursion=1):
+    @staticmethod
+    def find_some_preset_file(path, fexts, recursion=1):
         rules = []
-        for ext in cls.preset_fexts:
+        for ext in fexts:
             rules.append(fnmatch.translate("*." + ext))
         rerule = re.compile("(" + "|".join(rules) + ")", re.IGNORECASE)
         for item in glob.iglob(os.path.join(path, "**"), recursive=True):
@@ -287,10 +285,10 @@ class zynthian_engine(zynthian_basic_engine):
                 return True
         return False
 
-    @classmethod
-    def find_all_preset_files(cls, path, recursion=1):
+    @staticmethod
+    def find_all_preset_files(path, fexts, recursion=1):
         rules = []
-        for ext in cls.preset_fexts:
+        for ext in fexts:
             rules.append(fnmatch.translate("*." + ext))
         rerule = re.compile("(" + "|".join(rules) + ")", re.IGNORECASE)
         res = []
@@ -299,31 +297,41 @@ class zynthian_engine(zynthian_basic_engine):
                 res.append(item)
         return sorted(res, key=str.casefold)
 
-    @staticmethod
-    def get_filelist(dpath, fext):
-        res = []
+    @classmethod
+    def get_filelist(cls, dpath, fext, include_dirs=False, exclude_empty_dirs=True):
+        files = []
+        dirs = []
         if isinstance(dpath, str):
             dpath = [('_', dpath)]
-        fext = '.' + fext
-        xlen = len(fext)
+        if isinstance(fext, str):
+            fext = [fext]
         i = 0
         for dpd in dpath:
             dp = dpd[1]
             dn = dpd[0]
             try:
                 for f in sorted(os.listdir(dp)):
-                    if not f.startswith('.') and isfile(join(dp, f)) and f[-xlen:].lower() == fext:
-                        title = str.replace(f[:-xlen], '_', ' ')
-                        if dn != '_':
-                            title = dn + '/' + title
-                        # print("filelist => " + title)
-                        res.append([join(dp, f), i, title, dn, f])
-                        i = i + 1
+                    if f.startswith('.'):
+                        continue
+                    path = os.path.join(dp, f)
+                    if os.path.isfile(path):
+                        parts = os.path.splitext(f)
+                        ext = parts[1][1:].lower()
+                        if ext in fext:
+                            title = str.replace(parts[0], '_', ' ')
+                            if dn != '_':
+                                title = dn + '/' + title
+                            # print("filelist => " + title)
+                            files.append([os.path.join(dp, f), i, title, dn, f, ext])
+                            i += 1
+                    elif include_dirs and os.path.isdir(path) and (not exclude_empty_dirs or cls.find_some_preset_file(path, fext)):
+                        dirs.append([path, i, "> " + f, dn, f])
+                        i += 1
             except Exception as e:
-                # logging.warning("Can't access directory '{}' => {}".format(dp,e))
+                #logging.warning(f"Can't access directory '{dp}' => {e}")
                 pass
 
-        return res
+        return dirs + files
 
     @staticmethod
     def get_dirlist(dpath, exclude_empty=True):
@@ -336,16 +344,16 @@ class zynthian_engine(zynthian_basic_engine):
             dn = dpd[0]
             try:
                 for f in sorted(os.listdir(dp)):
-                    dpath = join(dp, f)
+                    dpath = os.path.join(dp, f)
                     if not os.path.isdir(dpath) or (exclude_empty and next(os.scandir(dpath), None) is None):
                         continue
-                    if not f.startswith('.') and isdir(dpath):
+                    if not f.startswith('.') and os.path.isdir(dpath):
                         title, ext = os.path.splitext(f)
                         title = str.replace(title, '_', ' ')
                         if dn != '_':
                             title = dn + '/' + title
                         res.append([dpath, i, title, dn, f])
-                        i = i + 1
+                        i += 1
             except Exception as e:
                 # logging.warning("Can't access directory '{}' => {}".format(dp,e))
                 pass
@@ -354,56 +362,86 @@ class zynthian_engine(zynthian_basic_engine):
 
     # Get bank dir list
     @classmethod
-    def get_bank_dirlist(cls, recursion=1, exclude_empty=True, internal_include_empty=False):
-        banks = []
+    def get_bank_dirlist(cls, fexts=None, root_bank_dirs=None, recursion=1, exclude_empty=True, internal_include_empty=False):
+        if fexts is None:
+            fexts = cls.preset_fexts
+        if root_bank_dirs is None:
+            root_bank_dirs = cls.root_bank_dirs
+        return cls.get_dir_file_list(fexts=fexts, root_dirs=root_bank_dirs,
+                                     recursion=recursion,
+                                     exclude_empty=exclude_empty,
+                                     internal_include_empty=internal_include_empty,
+                                     dirs_only=True)
+
+    # Get dir & file list
+    @classmethod
+    def get_dir_file_list(cls, fexts, root_dirs, recursion=1, exclude_empty=True, internal_include_empty=False, dirs_only=False):
+        res = []
+
+        if not dirs_only:
+            dir_marker = "> "
+        else:
+            dir_marker = ""
 
         # External storage banks
         for exd in zynthian_gui_config.get_external_storage_dirs(cls.ex_data_dir):
-            sbanks = []
+            if not os.path.isdir(exd):
+                continue
+            sres = []
             # Add root directory in external storage
-            if not exclude_empty or cls.find_some_preset_file(exd, 0):
-                sbanks.append([exd, None, "/", None, "/"])
+            if not exclude_empty or cls.find_some_preset_file(exd, fexts, 0):
+                sres.append([exd, None, "/", None, "/"])
             # Walk directories inside root
             walk = next(os.walk(exd))
             walk[1].sort()
-            for root_bank_dir in walk[1]:
-                root_bank_path = walk[0] + "/" + root_bank_dir
-                if not exclude_empty or cls.find_some_preset_file(root_bank_path, recursion + 1):
-                    walk = next(os.walk(root_bank_path))
+            for root_dir in walk[1]:
+                root_path = walk[0] + "/" + root_dir
+                if not exclude_empty or cls.find_some_preset_file(root_path, fexts, recursion + 1):
+                    walk = next(os.walk(root_path))
                     walk[1].sort()
                     count = 0
-                    for bank_dir in walk[1]:
-                        bank_path = walk[0] + "/" + bank_dir
-                        if not exclude_empty or cls.find_some_preset_file(bank_path, recursion):
-                            sbanks.append(
-                                [bank_path, None, root_bank_dir + "/" + bank_dir, None, bank_dir])
+                    for dir in walk[1]:
+                        dpath = walk[0] + "/" + dir
+                        if not exclude_empty or cls.find_some_preset_file(dpath, fexts, recursion):
+                            title = dir_marker + root_dir + "/" + dir
+                            sres.append([dpath, None, title, None, dir])
                             count += 1
                     # If there is no banks inside, the root is the bank
                     if count == 0:
-                        sbanks.append(
-                            [root_bank_path, None, root_bank_dir, None, root_bank_dir])
+                        title = dir_marker + root_dir
+                        sres.append([root_path, None, title, None, root_dir])
 
-            # Add root's header and banks
-            if len(sbanks):
-                banks.append(
-                    [None, None, f"USB> {os.path.basename(exd)}", None, None])
-                banks += sbanks
+            # Add files in root dir
+            if not dirs_only:
+                sres += cls.get_filelist(exd, fexts)
 
-        # Internal storage banks
-        for root_bank_dir in cls.root_bank_dirs:
-            sbanks = []
-            walk = next(os.walk(root_bank_dir[1]))
+            # Add root's header and items
+            if len(sres):
+                res.append([None, None, f"USB> {os.path.basename(exd)}", None, None])
+                res += sres
+
+        # Internal storage
+        for root_dir in root_dirs:
+            if not os.path.isdir(root_dir[1]):
+                continue
+            sres = []
+            walk = next(os.walk(root_dir[1]))
             walk[1].sort()
-            for bank_dir in walk[1]:
-                bank_path = walk[0] + "/" + bank_dir
-                if (not exclude_empty or internal_include_empty) or cls.find_some_preset_file(bank_path, recursion):
-                    sbanks.append([bank_path, None, bank_dir, None, bank_dir])
-            if len(sbanks):
-                banks.append(
-                    [None, None, "SD> " + root_bank_dir[0], None, None])
-                banks += sbanks
+            for dir in walk[1]:
+                dpath = walk[0] + "/" + dir
+                if (not exclude_empty or internal_include_empty) or cls.find_some_preset_file(dpath, fexts, recursion):
+                    title = dir_marker + dir
+                    sres.append([dpath, None, title, None, dir])
 
-        return banks
+            # Add files in root dir
+            if not dirs_only:
+                sres += cls.get_filelist(root_dir[1], fexts)
+
+            if len(sres):
+                res.append([None, None, "SD> " + root_dir[0], None, None])
+                res += sres
+
+        return res
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -590,7 +628,8 @@ class zynthian_engine(zynthian_basic_engine):
             return options
 
         # Add extra options depending on array length ...
-        if len(ctrl) > 4 and ctrl[0] in processor.controllers_dict:
+        #if len(ctrl) > 4 and ctrl[0] no in processor.controllers_dict:
+        if len(ctrl) > 4:
             # optional param 4 is graph path
             options['graph_path'] = ctrl[4]
         if len(ctrl) > 3:
@@ -643,7 +682,7 @@ class zynthian_engine(zynthian_basic_engine):
             self._ctrl_screens = []
 
         # Sort by display_priority if exists
-        zctrl_dict = dict(sorted(zctrl_dict.items(), key=lambda item: item[1].display_priority))
+        zctrl_dict = dict(sorted(zctrl_dict.items(), key=lambda item: item[1].display_priority, reverse=True))
 
         # Get zctrls by group
         zctrl_group = {}
@@ -673,18 +712,15 @@ class zynthian_engine(zynthian_basic_engine):
                     ctrl_set.append(symbol)
                     if len(ctrl_set) >= 4:
                         # logging.debug("ADDING CONTROLLER SCREEN {}".format(self.get_ctrl_screen_name(gname,c)))
-                        self._ctrl_screens.append(
-                            [self.get_ctrl_screen_name(gname, c), ctrl_set])
+                        self._ctrl_screens.append([self.get_ctrl_screen_name(gname, c), ctrl_set])
                         ctrl_set = []
                         c = c + 1
                 except Exception as err:
-                    logging.error(
-                        "Generating Controller Screens => {}".format(err))
+                    logging.error("Generating Controller Screens => {}".format(err))
 
             if len(ctrl_set) >= 1:
                 # logging.debug("ADDING CONTROLLER SCREEN {}",format(self.get_ctrl_screen_name(gname,c)))
-                self._ctrl_screens.append(
-                    [self.get_ctrl_screen_name(gname, c), ctrl_set])
+                self._ctrl_screens.append([self.get_ctrl_screen_name(gname, c), ctrl_set])
 
     def send_controller_value(self, zctrl):
         raise Exception("NOT IMPLEMENTED!")
