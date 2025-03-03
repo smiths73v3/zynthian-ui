@@ -28,6 +28,7 @@ import logging
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
 
+mon_list = ["title", "info", "bitrate", "audio", "codec","title", "info", "bitrate", "audio", "codec"]
 
 class zynthian_widget_inet_radio(zynthian_widget_base.zynthian_widget_base):
 
@@ -112,33 +113,21 @@ class zynthian_widget_inet_radio(zynthian_widget_base.zynthian_widget_base):
     def refresh_gui(self):
         self.refresh_count += 1
         if self.monitors["reset"]:
-            self.info_page = 1
+            self.info_page = 0
             self.monitors["reset"] = False
         elif self.refresh_count < 50:
             # Update every 2s
             return
-        self.info_page += 1
         self.refresh_count = 0
         if self.height < 300:
             # Use one field for smaller displays
             if self.monitors["info"] in ["stream unavailable", "waiting for stream..."]:
-                self.info_page = 1
-            if self.info_page == 1:
-                self.widget_canvas.itemconfigure(
-                    self.lbl_title, text=self.monitors["title"])
-            elif self.info_page == 2:
-                self.widget_canvas.itemconfigure(
-                    self.lbl_title, text=self.monitors["info"])
-            elif self.info_page == 3:
-                self.widget_canvas.itemconfigure(
-                    self.lbl_title, text=self.monitors["bitrate"])
-            elif self.info_page == 4:
-                self.widget_canvas.itemconfigure(
-                    self.lbl_title, text=self.monitors["audio"])
-            else:
-                self.widget_canvas.itemconfigure(
-                    self.lbl_title, text=self.monitors["codec"])
-                self.info_page = 0
+                self.info_page = 2
+            for i in range(self.info_page, 10):
+                if self.monitors[mon_list[i]]:
+                    self.widget_canvas.itemconfigure(self.lbl_title, text=self.monitors[mon_list[i]])
+                    self.info_page = (i + 1) % 5
+                    break
         else:
             self.widget_canvas.itemconfigure(
                 self.lbl_title, text=self.monitors["title"])
