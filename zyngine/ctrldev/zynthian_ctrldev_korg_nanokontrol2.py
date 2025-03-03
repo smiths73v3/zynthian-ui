@@ -160,6 +160,7 @@ class zynthian_ctrldev_korg_nanokontrol2(zynthian_ctrldev_zynmixer):
             zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_RECORDER_STATE, self.refresh_midi_transport)
 
     def refresh_audio_transport(self, **kwargs):
+        logging.debug(f'refresh_audio_transport: {kwargs}')
         if self.shift:
             return
         # REC Button
