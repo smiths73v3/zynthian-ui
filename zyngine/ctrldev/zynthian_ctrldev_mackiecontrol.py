@@ -337,9 +337,6 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 		zynsigman.unregister(zynsigman.S_STATE_MAN, self.state_manager.SS_MIDI_RECORDER_STATE, self.refresh_midi_transport)
 
 	def refresh_audio_transport(self, **kwargs):
-		logging.debug(f'refresh_audio_transport: Play {self.state_manager.status_audio_player}')
-		logging.debug(f'refresh_audio_transport: Rec {self.state_manager.audio_recorder.rec_proc}')
-		logging.debug(f'refresh_audio_transport: {kwargs}')
 		if self.shift:
 			return
 		# REC Button
