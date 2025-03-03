@@ -181,6 +181,11 @@ class zynthian_engine_inet_radio(zynthian_engine):
             self.monitors_dict['codec'] = line[22:].strip()
         elif self.preset and self.preset[1] and line.startswith("Playing "):
             self.monitors_dict["info"] = basename(line[8:].strip())
+        elif line == "Audio device got stuck!":
+            logging.warning("Audio device got stuck! Restarting...")
+            self.stop()
+            self.start()
+            self.set_preset(self.processors[0], self.preset)
         else:
             for key in ("Name", "Genre", "Website", "Bitrate"):
                 if line.startswith(key):
@@ -378,21 +383,22 @@ class zynthian_engine_inet_radio(zynthian_engine):
     def set_preset(self, processor, preset, preload=False):
         self.pending_preset = None
         self.preset = preset
-        if processor.controllers_dict["pause"].value:
-            prefix = ""
-        else:
-            prefix = "pausing "
         self.proc_cmd("stop")
         if preset[0].endswith("m3u") or preset[0].endswith("pls"):
-            self.proc_cmd(f"{prefix}loadlist {preset[0]}")
+            self.proc_cmd(f"loadlist {preset[0]}")
         else:
-            self.proc_cmd(f"{prefix}loadfile {preset[0]}")
+            self.proc_cmd(f"loadfile {preset[0]}")
         self.monitors_dict['title'] = preset[2]
         self.monitors_dict['reset'] = True
         self.monitors_dict['info'] = ""
         self.monitors_dict['audio'] = ""
         self.monitors_dict['codec'] = ""
         self.monitors_dict['bitrate'] = ""
+        if preset[1]:
+            self._ctrl_screens = [['main', ['volume', 'stream', 'prev/next', 'pause']]]
+        else:
+            self._ctrl_screens = [['main', ['volume', 'stream', 'prev/next']]]
+        processor.refresh_controllers()
         processor.controllers_dict["stream"].set_value('streaming', False)
 
     # ----------------------------------------------------------------------------
