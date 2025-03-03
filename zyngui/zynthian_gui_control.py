@@ -26,7 +26,6 @@
 import logging
 import importlib
 from pathlib import Path
-from time import monotonic
 
 # Zynthian specific modules
 import zynautoconnect
@@ -165,11 +164,15 @@ class zynthian_gui_control(zynthian_gui_selector):
             for processor in self.processors:
                 j = 0
                 screen_list = processor.get_ctrl_screens()
-                self.list_data.append((None, None, f"> {processor.engine.name.split('/')[-1]}"))
+                procname = processor.engine.name.split('/')[-1]
+                self.list_data.append((None, None, f"> {procname}"))
                 for cscr in screen_list:
-                    self.list_data.append((screen_list[cscr][0].group_symbol, i, cscr, processor, j))
-                    i += 1
-                    j += 1
+                    try:
+                        self.list_data.append((screen_list[cscr][0].group_symbol, i, cscr, processor, j))
+                        i += 1
+                        j += 1
+                    except Exception as e:
+                        logging.error(f"Can't add control page '{cscr}' for processor '{procname}' => {e}")
                 self.index = curproc.get_current_screen_index()
                 self.get_screen_info()
         super().fill_list()
@@ -238,15 +241,13 @@ class zynthian_gui_control(zynthian_gui_selector):
                 widget_name = module_name[len("zynthian_widget_"):]
                 if widget_name not in self.widgets:
                     try:
-                        spec = importlib.util.spec_from_file_location(
-                            module_name, module_path)
+                        spec = importlib.util.spec_from_file_location(module_name, module_path)
                         module = importlib.util.module_from_spec(spec)
                         spec.loader.exec_module(module)
                         class_ = getattr(module, module_name)
                         self.widgets[widget_name] = class_(self.main_frame)
                     except Exception as e:
-                        logging.error(
-                            f"Can't load custom widget {widget_name} => {e}")
+                        logging.error(f"Can't load custom widget {widget_name} => {e}")
 
                 if widget_name in self.widgets:
                     self.widgets[widget_name].set_processor(processor)
@@ -487,6 +488,10 @@ class zynthian_gui_control(zynthian_gui_selector):
         #if self.mode == 'select':
         self.set_controller_screen()
         #self.set_selector_screen()
+
+    def zynpot_abs(self, i, val):
+        if self.mode == 'control':
+            self.zgui_controllers[i].zynpot_abs(val)
 
     def zynpot_cb(self, i, dval):
         if self.mode == 'control' and self.zcontrollers:

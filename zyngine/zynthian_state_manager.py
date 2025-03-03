@@ -226,10 +226,10 @@ class zynthian_state_manager:
         # Start VNC as configured
         self.default_vncserver()
 
+        self.ctrldev_manager = zynthian_ctrldev_manager(self)
         zynautoconnect.start(self)
         self.jack_period = self.get_jackd_blocksize() / self.get_jackd_samplerate()
         self.zynmixer.reset_state()
-        self.ctrldev_manager = zynthian_ctrldev_manager(self)
         self.reload_midi_config()
         self.create_audio_player()
         self.chain_manager.add_chain(0)
@@ -1849,21 +1849,22 @@ class zynthian_state_manager:
         """
         mcstate = {}
         ctrldev_state_drivers = self.ctrldev_manager.get_state_drivers()
-        for idev in range(NUM_MIDI_DEVS_IN):
-            if zynautoconnect.devices_in[idev] is None:
+        for izmip in range(NUM_MIDI_DEVS_IN):
+            if zynautoconnect.devices_in[izmip] is None:
                 continue
             try:
-                uid = zynautoconnect.devices_in[idev].aliases[0]
+                uid = zynautoconnect.devices_in[izmip].aliases[0]
             except:
-                logging.error(f"No aliases for idev {idev} => Skipping!")
+                logging.error(f"No aliases for device connected to {izmip} => Skipping!")
                 continue
             routed_chains = []
             for ch in range(MAX_NUM_ZMOPS):
-                if lib_zyncore.zmop_get_route_from(ch, idev):
+                if lib_zyncore.zmop_get_route_from(ch, izmip):
                     routed_chains.append(ch)
             mcstate[uid] = {
-                "zmip_input_mode": bool(lib_zyncore.zmip_get_flag_active_chain(idev)),
+                "zmip_input_mode": bool(lib_zyncore.zmip_get_flag_active_chain(izmip)),
                 "disable_ctrldev": self.ctrldev_manager.get_disabled_driver(uid),
+                "ctrldev_driver": self.ctrldev_manager.get_driver_class_name(izmip),
                 "routed_chains": routed_chains
             }
             # Ctrldev driver state
@@ -1874,7 +1875,7 @@ class zynthian_state_manager:
                 mcstate[uid]["audio_in"] = self.aubio_in
             # Add global / absolute MIDI mapping
             for key, zctrls in self.chain_manager.absolute_midi_cc_binding.items():
-                if idev == (key >> 24) & 0xff:
+                if izmip == (key >> 24) & 0xff:
                     chan_cc = (key >> 8) & 0x7f7f
                     if "midi_cc" not in mcstate[uid]:
                         mcstate[uid]["midi_cc"] = {}
@@ -1893,21 +1894,24 @@ class zynthian_state_manager:
             ctrldev_state_drivers = {}
             for uid, state in mcstate.items():
                 #logging.debug(f"MCSTATE {uid} => {state}")
-                zmip = zynautoconnect.get_midi_in_devid_by_uid(uid, zynthian_gui_config.midi_usb_by_port)
-                if zmip is None:
+                izmip = zynautoconnect.get_midi_in_devid_by_uid(uid, zynthian_gui_config.midi_usb_by_port)
+                if izmip is None:
                     continue
                 try:
-                    lib_zyncore.zmip_set_flag_active_chain(zmip, bool(state["zmip_input_mode"]))
+                    lib_zyncore.zmip_set_flag_active_chain(izmip, bool(state["zmip_input_mode"]))
                 except:
                     pass
                 try:
                     self.aubio_in = state["audio_in"]
                 except:
                     pass
-                zynautoconnect.update_midi_in_dev_mode(zmip)
+                zynautoconnect.update_midi_in_dev_mode(izmip)
                 try:
-                    self.ctrldev_manager.set_disabled_driver(uid, state["disable_ctrldev"])
-                    self.ctrldev_manager.load_driver(zmip)
+                    #TODO: Use ctrldev_driver=None to disable driver
+                    if state["disable_ctrldev"]:
+                        self.ctrldev_manager.unload_driver(izmip, True)
+                    else:
+                        self.ctrldev_manager.load_driver(izmip, state["ctrldev_driver"])
                 except:
                     pass
                 try:
@@ -1918,7 +1922,7 @@ class zynthian_state_manager:
                 try:
                     routed_chains = state["routed_chains"]
                     for ch in range(0, 16):
-                        lib_zyncore.zmop_set_route_from(ch, zmip, ch in routed_chains)
+                        lib_zyncore.zmop_set_route_from(ch, izmip, ch in routed_chains)
                 except:
                     pass
 

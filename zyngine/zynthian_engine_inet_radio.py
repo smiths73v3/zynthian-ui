@@ -4,7 +4,7 @@
 #
 # zynthian_engine implementation for internet radio streamer
 #
-# Copyright (C) 2022-2024 Brian Walton <riban@zynthian.org>
+# Copyright (C) 2022-2025 Brian Walton <riban@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -25,10 +25,12 @@
 from collections import OrderedDict
 import logging
 import json
-import re
-import pexpect
+from subprocess import Popen, STDOUT, PIPE
+import select
 from threading import Thread
-from time import sleep
+from os.path import basename
+from os import listdir
+from time import sleep, monotonic
 
 from . import zynthian_engine
 import zynautoconnect
@@ -55,130 +57,144 @@ class zynthian_engine_inet_radio(zynthian_engine):
         self.nickname = "IR"
         self.jackname = "inetradio"
         self.type = "Audio Generator"
-        self.uri = None
+        self.preset = None
+        self.pending_preset = None
+        self.pending_preset_ts = 0
 
         self.monitors_dict = OrderedDict()
+        self.monitors_dict['reset'] = True
+        self.monitors_dict['title'] = ""
         self.monitors_dict['info'] = ""
         self.monitors_dict['audio'] = ""
         self.monitors_dict['codec'] = ""
         self.monitors_dict['bitrate'] = ""
+        self.monitors_dict['reset'] = False
         self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_inet_radio.py"
 
-        self.cmd = "mplayer -nogui -nolirc -nojoystick -quiet -slave"
-        self.command_prompt = "Starting playback..."
-        self.proc_timeout = 5
+        self.command = ["mplayer", "-nogui", "-nolirc", "-nojoystick", "-quiet", "-slave", "-idle", "-ao"]
+        self.command.append(f"jack:noconnect:noestimate:noautostart:name={self.jackname}")
         self.mon_thread = None
-        self.handle = 0
 
         # MIDI Controllers
         self._ctrls = [
             ['volume', None, 50, 100],
             ['stream', None, 'streaming', ['stopped', 'streaming']],
-            ['wait for stream', None, 5, 15]
+            ['prev/next', None, '<>', ['<', '<>', '>']],
+            ['pause', None, 'playing', ['paused', 'playing']]
         ]
 
         # Controller Screens
         self._ctrl_screens = [
-            ['main', ['volume', 'stream', 'wait for stream']]
+            ['main', ['volume', 'stream', 'prev/next', 'pause']]
         ]
 
-        self.reset()
+        self.start()
 
     # ---------------------------------------------------------------------------
     # Subproccess Management & IPC
     # ---------------------------------------------------------------------------
 
-    def mon_thread_task(self, handle):
-        if self.proc and self.proc.isalive():
-            self.proc.sendline('q')
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate()
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate(True)
-            sleep(0.2)
-        self.proc = None
-
-        self.jackname = "inetradio_{}".format(handle)
-        self.command = "{} -ao jack:noconnect:name={}".format(
-            self.command, self.jackname)
-        output = super().start()
-        if output:
-            self.monitors_dict['info'] = "no info"
-            self.update_info(output)
-            # Set streaming contoller value
-            for processor in self.processors:
-                ctrl_dict = processor.controllers_dict
-                ctrl_dict['stream'].set_value('streaming', False)
-            zynautoconnect.request_audio_connect(True)
-
-            while self.handle == handle:
-                sleep(1)
-                try:
-                    self.proc.expect("\n", timeout=1)
-                    res = self.proc.before.decode()
-                    self.update_info(res)
-                except pexpect.EOF:
-                    handle = 0
-                except pexpect.TIMEOUT:
-                    pass
-                except Exception as e:
-                    pass
-        else:
-            self.monitors_dict['info'] = "stream unavailable"
-
-        if self.proc and self.proc.isalive():
-            self.proc.sendline('q')
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate()
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate(True)
-            sleep(0.2)
-        self.proc = None
-        # Set streaming contoller value
-        for processor in self.processors:
-            ctrl_dict = processor.controllers_dict
-            ctrl_dict['stream'].set_value('stopped', False)
-
-    def update_info(self, output):
-        info = re.search("StreamTitle='(.+?)';", output)
-        if info:
-            self.monitors_dict['info'] = info.group(1)
-        info = re.search("\nSelected audio codec: (.+?)\r", output)
-        if info:
-            self.monitors_dict['codec'] = info.group(1)
-        info = re.search("\nAUDIO: (.+?)\r", output)
-        if info:
-            self.monitors_dict['audio'] = info.group(1)
-        info = re.search("\nBitrate: (.+?)\r", output)
-        if info:
-            self.monitors_dict['bitrate'] = info.group(1)
-
     def start(self):
-        self.handle += 1
-        self.monitors_dict['title'] = self.processors[0].preset_name
-        self.monitors_dict['info'] = "waiting for stream..."
-        self.mon_thread = Thread(
-            target=self.mon_thread_task, args=[self.handle])
-        self.mon_thread.name = "internet radio {}".format(self.handle)
-        self.mon_thread.daemon = True  # thread dies with the program
-        self.monitors_dict['codec'] = ""
-        self.monitors_dict['audio'] = ""
-        self.monitors_dict['bitrate'] = ""
-        self.mon_thread.start()
+        if not self.proc:
+            logging.info("Starting Engine {}".format(self.name))
+            try:
+                logging.debug("Command: {}".format(self.command))
+                self.proc_exit = False
+                # Turns out that environment's PWD is not set automatically
+                # when cwd is specified for pexpect.spawn(), so do it here.
+                if self.command_cwd:
+                    self.command_env['PWD'] = self.command_cwd
+                # Setting cwd is because we've set PWD above. Some engines doesn't
+                # care about the process's cwd, but it is more consistent to set
+                # cwd when PWD has been set.
+                self.proc = Popen(self.command, env=self.command_env, cwd=self.command_cwd, shell=False,
+                                  text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
+                output = self.proc_get_output()
+                self.start_proc_poll_thread()
+                return output
+
+            except Exception as err:
+                logging.error(
+                    "Can't start engine {} => {}".format(self.name, err))
 
     def stop(self):
-        self.handle += 1
-        self.mon_thread.join()
+        if self.proc:
+            try:
+                logging.info("Stopping Engine " + self.name)
+                self.proc_cmd("")
+                self.proc_exit = True
+                self.proc.terminate()
+                try:
+                    self.proc.wait(timeout=5)
+                except:
+                    self.proc.kill()
+                self.proc = None
+            except Exception as err:
+                logging.error(f"Can't stop engine {self.name} => {err}")
 
-        self.monitors_dict['title'] = ""
-        self.monitors_dict['info'] = ""
-        self.monitors_dict['codec'] = ""
-        self.monitors_dict['audio'] = ""
-        self.monitors_dict['bitrate'] = ""
+    def start_proc_poll_thread(self):
+        self.proc_poll_thread = Thread(target=self.proc_poll_thread_task, args=())
+        self.proc_poll_thread.name = f"proc_poll_{self.jackname}"
+        self.proc_poll_thread.daemon = True  # thread dies with the program
+        self.proc_poll_thread.start()
+
+    def proc_cmd(self, cmd):
+        if self.proc:
+            self.proc.stdin.writelines([cmd + "\n"])
+
+    def proc_poll_thread_task(self):
+        while not self.proc_exit:
+            ready, _, _ = select.select([self.proc.stdout], [], [], 1)
+            if ready:
+                line = self.proc.stdout.readline().strip()
+                if line:
+                    self.proc_poll_parse_line(line)
+            else:
+                if self.pending_preset and monotonic() > self.pending_preset_ts:
+                    self.set_preset(self.processors[0], self.pending_preset)
+
+    def proc_poll_parse_line(self, line):
+        #logging.debug(f"{self.jackname} PARSE => " + line)
+        """
+        if line.startswith("Starting playback..."):
+            zynautoconnect.request_audio_connect(True)
+            self.monitors_dict['reset'] = True
+        """
+        if line.startswith("AO: [jack]"):
+            zynautoconnect.request_audio_connect(True)
+            self.monitors_dict['reset'] = True
+        elif line.startswith("ICY Info:"):
+            infos = line[9:].split(";")
+            for info in infos:
+                try:
+                    key, value = info.split("=", 1)
+                    if key.strip() == "StreamTitle":
+                        try:
+                            x = value.strip()[1:-1].split("~")
+                            self.monitors_dict['info'] = "\n".join(x[:4])
+                        except:
+                            self.monitors_dict['info'] = ""
+                        break
+                except:
+                    pass
+        elif line.startswith("Selected audio codec: "):
+            self.monitors_dict['codec'] = line[22:].strip()
+        elif self.preset and self.preset[1] and line.startswith("Playing "):
+            self.monitors_dict["info"] = basename(line[8:].strip())
+        elif line == "Audio device got stuck!":
+            logging.warning("Audio device got stuck! Restarting...")
+            self.stop()
+            self.start()
+            self.set_preset(self.processors[0], self.preset)
+        else:
+            for key in ("Name", "Genre", "Website", "Bitrate"):
+                if line.startswith(key):
+                    try:
+                        self.monitors_dict[key.lower()] = line.split(":")[1].strip()
+                    except:
+                        pass
+                    break
+
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -202,8 +218,8 @@ class zynthian_engine_inet_radio(zynthian_engine):
                 "Ambient": [
                     ["http://relax.stream.publicradio.org/relax.mp3",
                         0, "Relax", "auto", ""],
-                    ["https://peacefulpiano.stream.publicradio.org/peacefulpiano.aac",
-                     0, "Peaceful Piano", "aac", ""],
+                    #["https://peacefulpiano.stream.publicradio.org/peacefulpiano.aac",
+                    # 0, "Peaceful Piano", "aac", ""],
                     ["http://mp3stream4.abradio.cz/chillout128.mp3",
                      0, "Radio Chillout - ABradio", "auto", ""],
                     ["http://afera.com.pl/afera128.pls",
@@ -217,8 +233,8 @@ class zynthian_engine_inet_radio(zynthian_engine):
                 "Classical": [
                     ["http://66.42.114.24:8000/live", 0,
                         "Classical Oasis", "auto", ""],
-                    ["https://chambermusic.stream.publicradio.org/chambermusic.aac",
-                     0, "Chamber Music", "aac", ""],
+                    #["https://chambermusic.stream.publicradio.org/chambermusic.aac",
+                    # 0, "Chamber Music", "aac", ""],
                     # ["https://live.amperwave.net/playlist/mzmedia-cfmzfmmp3-ibc2.m3u", 0, "The New Classical FM", "auto", ""],
                     # ["https://audio-mp3.ibiblio.org/wdav-112k", 0, "WDAV Classical: Mozart Café", "auto", ""],
                     # ["https://cast1.torontocast.com:2085/stream", 0, "KISS Classical", "auto", ""]
@@ -253,8 +269,8 @@ class zynthian_engine_inet_radio(zynthian_engine):
                     # ["http://radio.pro-fhi.net:2199/rqwrejez.pls", 0, "Funk Power Radio", "auto", ""],
                     ["http://listento.thefunkstation.com:8000",
                      0, "The Funk Station", "auto", ""],
-                    ["https://scdn.nrjaudio.fm/adwz1/fr/30607/mp3_128.mp3",
-                     0, "Nostalgie Funk", "auto", ""],
+                    #["https://scdn.nrjaudio.fm/adwz1/fr/30607/mp3_128.mp3",
+                    # 0, "Nostalgie Funk", "auto", ""],
                     ["http://funkyradio.streamingmedia.it/play.mp3",
                      0, "Funky Radio", "auto", ""],
                     ["http://listen.shoutcast.com/a-afunk",
@@ -336,12 +352,19 @@ class zynthian_engine_inet_radio(zynthian_engine):
                 "Miscellaneous": [
                     ["http://stream.radiotime.com/listen.m3u?streamId=10555650",
                         0, "FIP", "auto", ""],
-                    ["http://icecast.radiofrance.fr/fipgroove-hifi.aac",
-                     0, "FIP Groove", "aac", ""],
+                    #["http://icecast.radiofrance.fr/fipgroove-hifi.aac",
+                    # 0, "FIP Groove", "aac", ""],
                     ["http://direct.fipradio.fr/live/fip-webradio4.mp3",
                      0, "FIP Radio 4", "auto", ""],
                 ]
             }
+            playlists = []
+            for file in listdir(f"{self.my_data_dir}/capture"):
+                if file[-4:].lower() in (".m3u", ".pls"):
+                    playlists.append([f"{self.my_data_dir}/capture/{file}", 1, file[:-4], "auto", ""])
+            if playlists:
+                self.presets["Playlists"] = playlists
+
         self.banks = []
         for bank in self.presets:
             self.banks.append([bank, None, bank, None])
@@ -358,47 +381,90 @@ class zynthian_engine_inet_radio(zynthian_engine):
         return presets
 
     def set_preset(self, processor, preset, preload=False):
-        if self.uri == preset[0]:
-            return
-        self.uri = preset[0]
-        demux = preset[3]
-        volume = None
-        for processor in self.processors:
-            try:
-                ctrl_dict = processor.controllers_dict
-                volume = ctrl_dict['volume'].value
-                break
-            except:
-                pass
-        if volume is None:
-            volume = 50
-        self.command = "{} -volume {}".format(self.cmd, volume)
-        if self.uri.endswith("m3u") or self.uri.endswith("pls"):
-            self.command += " -playlist"
-        if demux and demux != 'auto':
-            self.command += " -demuxer {}".format(demux)
-        self.command += " {}".format(self.uri)
-        self.start()
+        self.pending_preset = None
+        self.preset = preset
+        self.proc_cmd("stop")
+        if preset[0].endswith("m3u") or preset[0].endswith("pls"):
+            self.proc_cmd(f"loadlist {preset[0]}")
+        else:
+            self.proc_cmd(f"loadfile {preset[0]}")
+        self.monitors_dict['title'] = preset[2]
+        self.monitors_dict['reset'] = True
+        self.monitors_dict['info'] = ""
+        self.monitors_dict['audio'] = ""
+        self.monitors_dict['codec'] = ""
+        self.monitors_dict['bitrate'] = ""
+        if preset[1]:
+            self._ctrl_screens = [['main', ['volume', 'stream', 'prev/next', 'pause']]]
+        else:
+            self._ctrl_screens = [['main', ['volume', 'stream', 'prev/next']]]
+        processor.refresh_controllers()
+        processor.controllers_dict["stream"].set_value('streaming', False)
 
     # ----------------------------------------------------------------------------
     # Controllers Management
     # ----------------------------------------------------------------------------
 
-    def get_controllers_dict(self, processor):
-        dict = super().get_controllers_dict(processor)
-        return dict
-
     def send_controller_value(self, zctrl):
+        if self.proc is None:
+            return
         if zctrl.symbol == "volume":
-            if self.proc:
-                self.proc.sendline("volume {} 1".format(zctrl.value))
+                self.proc_cmd(f"volume {zctrl.value} 1")
+        elif zctrl.symbol == "prev/next":
+            value = zctrl.value - 1
+            zctrl.set_value(1, False)
+            if self.preset:
+                if self.preset[1]:
+                    self.proc_cmd(f"pt_step {value}")
+                else:
+                    if self.pending_preset:
+                        current_preset = self.pending_preset
+                    else:
+                        current_preset = self.preset
+                    for bank_i, presets in enumerate(self.presets.values()):
+                        for i, preset in enumerate(presets):
+                            if current_preset == preset:
+                                # Found current preset
+                                i += value
+                                if i >= len(presets):
+                                    try:
+                                        bank_name = list(self.presets)[bank_i + 1]
+                                        if bank_name == "Playlists":
+                                            return
+                                        self.pending_preset = self.presets[bank_name][0]
+                                    except:
+                                        return #TODO: Handle empty banks
+                                elif i < 0:
+                                    if bank_i == 0:
+                                        return
+                                    try:
+                                        bank_name = list(self.presets)[bank_i - 1]
+                                        self.pending_preset = self.presets[bank_name][-1]
+                                    except:
+                                        return #TODO: Handle empty banks
+                                else:
+                                    self.pending_preset = presets[i]
+                                if self.pending_preset:
+                                    self.pending_preset_ts = monotonic() + 1
+                                    self.monitors_dict['title'] = self.pending_preset[2]
+                                    self.monitors_dict['reset'] = True
+                                    self.monitors_dict['info'] = ""
+                                    self.monitors_dict['audio'] = ""
+                                    self.monitors_dict['codec'] = ""
+                                    self.monitors_dict['bitrate'] = ""
+                                return
         elif zctrl.symbol == "stream":
-            if zctrl.value == 0:
-                self.stop()
-            elif self.proc == None:
-                self.start()
-        elif zctrl.symbol == "wait for stream":
-            self.proc_timeout = zctrl.value
+            if zctrl.value:
+                self.set_preset(self.processors[0], self.preset)
+            else:
+                self.proc_cmd("stop")
+        elif zctrl.symbol == "pause":
+            # Cannot set absolute pause mode so force pause then toggle
+            self.proc_cmd(f"pausing volume 0") # setting volume to relative level 0 does nothing
+            if zctrl.value:
+                sleep(0.1) # Seem to need delay between commands
+                self.proc_cmd(f"pause")
+        return
 
     def get_monitors_dict(self):
         return self.monitors_dict
