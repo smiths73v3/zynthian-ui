@@ -683,15 +683,15 @@ class zynthian_chain_manager:
                 lib_zyncore.set_active_chain(chain.zmop_index)
                 # Re-assert pedals on new active chain
                 if isinstance(chain.midi_chan, int):
-                    if 0 <= chain.midi_chan < 16:
-                        chan = chain.midi_chan
-                    else:
-                        # If chain receives *ALL CHANNELS* use channel 0 to re-assert pedals
-                        chan = 0
                     for pedal_cc in self.held_zctrls:
                         if self.held_zctrls[pedal_cc][0]:
-                            lib_zyncore.write_zynmidi_ccontrol_change(chan, pedal_cc, 127)
-                            # TODO: Check if zctrl gets added to self.held_zctrls
+                            cc_val = 127 #TODO: Store current cc_val in held_zctrls
+                            for key in self.chain_midi_cc_binding:
+                                if key >> 8 & pedal_cc == pedal_cc:
+                                    zctrls = self.chain_midi_cc_binding[key]
+                                    for zctrl in zctrls:
+                                        self.handle_pedals(pedal_cc, cc_val, zctrl)
+                                        zctrl.midi_control_change(cc_val)
             except Exception as e:
                 logging.error(e)
 
