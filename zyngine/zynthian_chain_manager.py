@@ -4,7 +4,7 @@
 #
 # zynthian chain manager
 #
-# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2025 Fernando Moyano <jofemodo@zynthian.org>
 #                         Brian Walton <riban@zynthian.org>
 #
 # ****************************************************************************
@@ -683,15 +683,15 @@ class zynthian_chain_manager:
                 lib_zyncore.set_active_chain(chain.zmop_index)
                 # Re-assert pedals on new active chain
                 if isinstance(chain.midi_chan, int):
-                    if 0 <= chain.midi_chan < 16:
-                        chan = chain.midi_chan
-                    else:
-                        # If chain receives *ALL CHANNELS* use channel 0 to re-assert pedals
-                        chan = 0
                     for pedal_cc in self.held_zctrls:
                         if self.held_zctrls[pedal_cc][0]:
-                            lib_zyncore.write_zynmidi_ccontrol_change(chan, pedal_cc, 127)
-                            # TODO: Check if zctrl gets added to self.held_zctrls
+                            cc_val = 127 #TODO: Store current cc_val in held_zctrls
+                            for key in self.chain_midi_cc_binding:
+                                if key >> 8 & pedal_cc == pedal_cc:
+                                    zctrls = self.chain_midi_cc_binding[key]
+                                    for zctrl in zctrls:
+                                        self.handle_pedals(pedal_cc, cc_val, zctrl)
+                                        zctrl.midi_control_change(cc_val)
             except Exception as e:
                 logging.error(e)
 
@@ -1323,7 +1323,6 @@ class zynthian_chain_manager:
         cc_num : CC number
         cc_val : CC value
         """
-
         # Handle bank change (CC0/32)
         # TODO: Validate and optimise bank change code
         if zynthian_gui_config.midi_bank_change:
@@ -1357,6 +1356,12 @@ class zynthian_chain_manager:
                     f"Can't manage control feedback for CH{midi_chan}:CC{cc_num} => {e}")
             return
 
+        # Handle pedal off for chain-mode
+        if cc_num in self.held_zctrls and cc_val == 0:
+            self.held_zctrls[cc_num][0] = False
+            while len(self.held_zctrls[cc_num]) > 1:
+                self.held_zctrls[cc_num].pop().midi_control_change(0)
+
         # Handle absolute CC binding
         try:
             key = (zmip << 24) | (midi_chan << 16) | (cc_num << 8)
@@ -1372,8 +1377,8 @@ class zynthian_chain_manager:
                 key = (self.active_chain_id << 16) | (cc_num << 8)
                 zctrls = self.chain_midi_cc_binding[key]
                 for zctrl in zctrls:
-                    zctrl.midi_control_change(cc_val)
                     self.handle_pedals(cc_num, cc_val, zctrl)
+                    zctrl.midi_control_change(cc_val)
             except:
                 pass
         # Handle channel CC binding
@@ -1383,7 +1388,6 @@ class zynthian_chain_manager:
                 zctrls = self.chan_midi_cc_binding[key]
                 for zctrl in zctrls:
                     zctrl.midi_control_change(cc_val)
-                    self.handle_pedals(cc_num, cc_val, zctrl)
             except:
                 pass
 
@@ -1393,17 +1397,16 @@ class zynthian_chain_manager:
         cc_num : CC number
         cc_val : CC value
         zctrl : zctrl to process
+
+        return : True if pedal and CC messages sent
         """
 
         if cc_num in self.held_zctrls:
-            if cc_val >= 64:
+            if cc_val:
                 if zctrl not in self.held_zctrls[cc_num]:
                     self.held_zctrls[cc_num].append(zctrl)
                 self.held_zctrls[cc_num][0] = True
-            else:
-                self.held_zctrls[cc_num][0] = False
-                while len(self.held_zctrls[cc_num]) > 1:
-                    self.held_zctrls[cc_num].pop().midi_control_change(cc_val)
+                zctrl.midi_control_change(cc_val)
 
     def clean_midi_learn(self, obj):
         """Clean MIDI learn from controls
