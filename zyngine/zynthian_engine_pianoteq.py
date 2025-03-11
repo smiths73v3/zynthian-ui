@@ -57,11 +57,6 @@ pt_ctrl_map = {
     "Pedal Noise": ["PSnd", "Pedal Noise", "Action", 970],
     "Key Release Noise": ["KSnd", "Key Release Noise", "Action", 970],
 
-    "Sustain Pedal": ["SustP", "Sustain Pedal", "Pedals 1", 960, 'pedal'],
-    "Soft Pedal": ["SoftP", "Soft Pedal", "Pedals 1", 960, 'pedal'],
-    "Sostenuto Pedal": ["SostP", "Sostenuto Pedal", "Pedals 1", 960, 'pedal'],
-    "Harmonic Pedal": ["HarmP", "Harmonic Pedal", "Pedals 1", 960, 'pedal'],
-
     "Rattle Pedal": ["Rattle", "Rattle Pedal", "Pedals 2", 959, 'pedal'],
     "Lute Stop Pedal": ["LutStp", "Lute Stop Pedal", "Pedals 2", 959, 'pedal'],
     "Celeste Pedal": ["Celes", "Celeste Pedal", "Pedals 2", 959, 'pedal'],
@@ -120,11 +115,23 @@ pt_ctrl_map = {
     "Limiter Gain": ["LimGain", "Limiter Gain", "Limiter", 890],
 
     "Equalizer Switch": ["EquOn", "Equalizer Switch", "FX Switches", 880, "toggle"],
+
+
     "Effect[1].Switch": ["Eff[1].Switch", "FX1 Switch ", "FX Switches", 880, "toggle"],
+
+    "Sustain Pedal": ["SustP", "Sustain Pedal", "Pedals 1", 960, 'pedal'],
+
     "Effect[2].Switch": ["Eff[2].Switch", "FX2 Switch", "FX Switches", 880, "toggle"],
+
+    "Sostenuto Pedal": ["SostP", "Sostenuto Pedal", "Pedals 1", 960, 'pedal'],
+    "Soft Pedal": ["SoftP", "Soft Pedal", "Pedals 1", 960, 'pedal'],
+
     "Effect[3].Switch": ["Eff[3].Switch", "FX3 Switch", "FX Switches", 880, "toggle"],
 
+    "Harmonic Pedal": ["HarmP", "Harmonic Pedal", "Pedals 1", 960, 'pedal'],
+
     "Effect[1].Param[1]": ["Eff[1].Param[1]", "FX1 Param1", "FX1-1", 870],
+
     "Effect[1].Param[2]": ["Eff[1].Param[2]", "FX1 Param2", "FX1-1", 870],
     "Effect[1].Param[3]": ["Eff[1].Param[3]", "FX1 Param3", "FX1-1", 870],
     "Effect[1].Param[4]": ["Eff[1].Param[4]", "FX1 Param4", "FX1-1", 870],
@@ -839,7 +846,6 @@ class zynthian_engine_pianoteq(zynthian_engine):
             processor.controllers_dict = {}
 
         params = self.get_params()
-        default_cc = {'Sustain Pedal': 64, 'Sostenuto Pedal': 66, 'Soft Pedal': 67, 'Harmonic Pedal': 69}
         for param_id, param_options in params.items():
             options = {
                 'processor': processor,
@@ -875,9 +881,6 @@ class zynthian_engine_pianoteq(zynthian_engine):
             else:
                 zctrl = zynthian_controller(self, param_id, options)
                 processor.controllers_dict[param_id] = zctrl
-                # Default MIDI CC mapping
-                if param_id in default_cc:
-                    self.state_manager.chain_manager.add_midi_learn(processor.midi_chan, default_cc[param_id], zctrl)
 
         return processor.controllers_dict
 
