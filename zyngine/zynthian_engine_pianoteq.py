@@ -40,7 +40,7 @@ from . import zynthian_controller
 from zynconf import ServerPort
 
 pt_ctrl_map = {
-    "Volume": ["Volum", "Volume", "Main", 1000],
+    "Volume": ["Volum", "Volume", "Main", 1000, 7],
     "Condition": ["Cond", "Condition", "Main", 1000],
     "Dynamics": ["Dyn", "Dynamics", "Main", 1000],
     "Post Effect Gain": ["EffGain", "Post Effect Gain", "Main", 1000],
@@ -56,6 +56,11 @@ pt_ctrl_map = {
     "Damper Noise": ["DampNois", "Damper Noise", "Action", 970],
     "Pedal Noise": ["PSnd", "Pedal Noise", "Action", 970],
     "Key Release Noise": ["KSnd", "Key Release Noise", "Action", 970],
+
+    "Sustain Pedal": ["SustP", "Sustain Pedal", "Pedals 1", 960, 'pedal', 64],
+    "Sostenuto Pedal": ["SostP", "Sostenuto Pedal", "Pedals 1", 960, 'pedal', 66],
+    "Soft Pedal": ["SoftP", "Soft Pedal", "Pedals 1", 960, 'pedal', 67],
+    "Harmonic Pedal": ["HarmP", "Harmonic Pedal", "Pedals 1", 960, 'pedal', 69],
 
     "Rattle Pedal": ["Rattle", "Rattle Pedal", "Pedals 2", 959, 'pedal'],
     "Lute Stop Pedal": ["LutStp", "Lute Stop Pedal", "Pedals 2", 959, 'pedal'],
@@ -115,23 +120,11 @@ pt_ctrl_map = {
     "Limiter Gain": ["LimGain", "Limiter Gain", "Limiter", 890],
 
     "Equalizer Switch": ["EquOn", "Equalizer Switch", "FX Switches", 880, "toggle"],
-
-
     "Effect[1].Switch": ["Eff[1].Switch", "FX1 Switch ", "FX Switches", 880, "toggle"],
-
-    "Sustain Pedal": ["SustP", "Sustain Pedal", "Pedals 1", 960, 'pedal'],
-
     "Effect[2].Switch": ["Eff[2].Switch", "FX2 Switch", "FX Switches", 880, "toggle"],
-
-    "Sostenuto Pedal": ["SostP", "Sostenuto Pedal", "Pedals 1", 960, 'pedal'],
-    "Soft Pedal": ["SoftP", "Soft Pedal", "Pedals 1", 960, 'pedal'],
-
     "Effect[3].Switch": ["Eff[3].Switch", "FX3 Switch", "FX Switches", 880, "toggle"],
 
-    "Harmonic Pedal": ["HarmP", "Harmonic Pedal", "Pedals 1", 960, 'pedal'],
-
     "Effect[1].Param[1]": ["Eff[1].Param[1]", "FX1 Param1", "FX1-1", 870],
-
     "Effect[1].Param[2]": ["Eff[1].Param[2]", "FX1 Param2", "FX1-1", 870],
     "Effect[1].Param[3]": ["Eff[1].Param[3]", "FX1 Param3", "FX1-1", 870],
     "Effect[1].Param[4]": ["Eff[1].Param[4]", "FX1 Param4", "FX1-1", 870],
@@ -466,10 +459,32 @@ def write_pianoteq_midi_mapping(config, file):
 
 def save_midi_mapping(file):
     data = {"map": {}}
+    busy_cc = {}
+
+    def get_next_free_cc(cc):
+        cc += 1
+        while cc in busy_cc:
+            cc += 1
+        return cc
+
+    # First, map controllers with specific cc
     for i, parconf in enumerate(pt_ctrl_map.values()):
-        cc = i + 1
-        data["map"][f"Controller {cc}"] = [f"{{SetParameter|3|{parconf[0]}|0:1}}", 1]
+        try:
+            cc = parconf[4]
+            busy_cc[cc] = True
+            data["map"][f"Controller {cc}"] = [f"{{SetParameter|3|{parconf[0]}|0:1}}", 1]
+        except:
+            pass
+    # Next, rest of controllers
+    cc = 0
+    for i, parconf in enumerate(pt_ctrl_map.values()):
+        cc = get_next_free_cc(cc)
+        if cc < 128:
+            busy_cc[cc] = True
+            data["map"][f"Controller {cc}"] = [f"{{SetParameter|3|{parconf[0]}|0:1}}", 1]
+    # Pitch bending
     data["map"]["Pitch Bend"] = ["{SetParameter|3|PBend|0.458333:0.541667}", 1]
+    # Write MIDI map to file
     write_pianoteq_midi_mapping(data, file)
 
 
