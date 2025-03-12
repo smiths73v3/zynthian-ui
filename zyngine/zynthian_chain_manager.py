@@ -249,6 +249,11 @@ class zynthian_chain_manager:
             # Enable CV/Gate MIDI intput (fake port zmip)
             lib_zyncore.zmop_set_route_from(
                 chain.zmop_index, ZMIP_INT_INDEX, True)
+            # Enable default native CC handling of pedals
+            cc_route_ct = (ctypes.c_uint8 * 128)()
+            for ccnum in (64, 66, 67, 69):
+                cc_route_ct[ccnum] = 1
+            lib_zyncore.zmop_set_cc_route(zmop_index, cc_route_ct)
 
         # Set MIDI channel
         self.set_midi_chan(chain_id, midi_chan)
