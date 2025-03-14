@@ -1091,7 +1091,9 @@ class zynthian_state_manager:
         mute = self.zynmixer.get_mute(self.zynmixer.MAX_NUM_CHANNELS - 1)
         try:
             snapshot = JSONDecoder().decode(json)
-            state = self.fix_snapshot(snapshot)
+            self.set_busy_details("fixing legacy snapshot")
+            converter = zynthian_legacy_snapshot.zynthian_legacy_snapshot()
+            state = converter.convert_state(snapshot)
 
             if load_chains:
                 # Mute output to avoid unwanted noises
@@ -1273,28 +1275,6 @@ class zynthian_state_manager:
             self.load_snapshot(files[0])
             return True
         return False
-
-    def fix_snapshot(self, snapshot):
-        """Apply fixes to snapshot based on format version"""
-
-        if "schema_version" not in snapshot:
-            self.set_busy_details("fixing legacy snapshot")
-            converter = zynthian_legacy_snapshot.zynthian_legacy_snapshot()
-            state = converter.convert_state(snapshot)
-            # logging.debug(f"Fixed Snapshot: {state}")
-        else:
-            state = snapshot
-            if state["schema_version"] < SNAPSHOT_SCHEMA_VERSION:
-                if state["schema_version"] == 1:
-                    # Migrate stored Output Level values
-                    try:
-                        amixer_ctrls = snapshot["alsa_mixer"]["controllers"]
-                        for symbol in ["Digital_0", "Digital_1"]:
-                            v = amixer_ctrls[symbol]["value"]
-                            amixer_ctrls[symbol]["value"] = self.alsa_mixer_processor.controllers_dict[symbol].ticks[v]
-                    except:
-                        pass
-        return state
 
     def backup_snapshot(self, path):
         """Make a backup copy of a snapshot file"""

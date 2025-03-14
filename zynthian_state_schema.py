@@ -62,7 +62,9 @@ ZynthianState = {
                     "1": "PT",  # Processor type indexed by processor id
                 }, # ... more processors in this slot
             ], # ... More slots
-            "fader_pos": 1 # Index of slot where fader is (divides pre/post fader audio effects)
+            "fader_pos": 1, # Index of slot where fader is (divides pre/post fader audio effects)
+            #"cc_route": [] # List of 0/1 indicating if the indexed cc is routed directly to engine (optional)
+            "cc_route": [] # List of MIDI CC to be routed directly to engine (optional)
         }
     },
     "zs3": {  # Dictionary of ZS3's indexed by chan/prog or ZS3-x
