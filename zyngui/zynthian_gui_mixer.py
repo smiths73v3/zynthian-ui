@@ -936,6 +936,8 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
                     zynsigman.S_AUDIO_PLAYER, zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE, self.update_control_play)
                 zynsigman.unregister(
                     zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.midi_cc_cb)
+                zynsigman.unregister(
+                    zynsigman.S_STATE_MAN, self.zyngui.state_manager.SS_ALL_NOTES_OFF, self.cb_all_notes_off)
             super().hide()
 
     def build_view(self):
@@ -971,6 +973,8 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
                 zynsigman.S_AUDIO_PLAYER, zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE, self.update_control_play)
             zynsigman.register_queued(
                 zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.midi_cc_cb)
+            zynsigman.register_queued(
+                zynsigman.S_STATE_MAN, self.zyngui.state_manager.SS_ALL_NOTES_OFF, self.cb_all_notes_off)
         return True
 
     def update_layout(self):
@@ -1061,6 +1065,12 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
     def cb_load_zs3(self, zs3_id):
         self.refresh_visible_strips()
         self.set_title()
+
+    def cb_all_notes_off(self, chan=None):
+        for strip in self.visible_mixer_strips:
+            if strip.chain and strip.chain.is_midi() and (chan is None or chain.midi_chan == chan):
+                for i in range(0, 4):
+                    self.main_canvas.itemconfig(strip.pedals[i], state=tkinter.HIDDEN)
 
     # --------------------------------------------------------------------------
     # Mixer Functionality
