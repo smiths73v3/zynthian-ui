@@ -177,6 +177,17 @@ class zynthian_gui_mixer_strip():
             f"strip:{self.fader_bg}", f"legend_strip:{self.fader_bg}"), fill=self.legend_bg_color)
         self.legend_strip_txt = self.parent.main_canvas.create_text(self.fader_centre_x, self.height - self.legend_height / 2,
                                                                     fill=self.legend_txt_color, text="-", tags=(f"strip:{self.fader_bg}", f"legend_strip:{self.fader_bg}"), font=self.font)
+        self.pedals = []
+        for i in range(4):
+            self.pedals.append(self.parent.main_canvas.create_rectangle(
+                int(x + self.fader_width / 4 * i),
+                self.fader_bottom,
+                int(x + self.fader_width / 4 * (i + 1)),
+                self.fader_bottom - 4,
+                fill="yellow",
+                state="hidden",
+                tags=(f"strip:{self.fader_bg})"))
+            )
 
         # Balance indicator
         self.balance_left = self.parent.main_canvas.create_rectangle(x, self.balance_top, self.fader_centre_x, self.balance_top + self.balance_height,
@@ -923,6 +934,8 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
                     zynsigman.S_AUDIO_RECORDER, zynthian_audio_recorder.SS_AUDIO_RECORDER_STATE, self.update_control_rec)
                 zynsigman.unregister(
                     zynsigman.S_AUDIO_PLAYER, zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE, self.update_control_play)
+                zynsigman.unregister(
+                    zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.midi_cc_cb)
             super().hide()
 
     def build_view(self):
@@ -956,6 +969,8 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
                 zynsigman.S_AUDIO_RECORDER, zynthian_audio_recorder.SS_AUDIO_RECORDER_STATE, self.update_control_rec)
             zynsigman.register_queued(
                 zynsigman.S_AUDIO_PLAYER, zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE, self.update_control_play)
+            zynsigman.register_queued(
+                zynsigman.S_MIDI, zynsigman.SS_MIDI_CC, self.midi_cc_cb)
         return True
 
     def update_layout(self):
@@ -1027,6 +1042,21 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
         """ Funtion to handle active chain changes
         """
         self.highlight_active_chain()
+        for cc in (64, 66, 67, 69):
+            self.midi_cc_cb(0, 0, cc, 0)
+
+    def midi_cc_cb(self, izmip, chan, num, val):
+        try:
+            index = (64, 66, 67, 69).index(num)
+            flags = lib_zyncore.get_cc_pedal(index)
+            for strip in self.visible_mixer_strips:
+                if strip.chain and strip.chain.is_midi():
+                    if flags & (1 << (strip.chain.chain_id - 1)):
+                        self.main_canvas.itemconfig(strip.pedals[index], state=tkinter.NORMAL)
+                    else:
+                        self.main_canvas.itemconfig(strip.pedals[index], state=tkinter.HIDDEN)
+        except Exception as e:
+            logging.warning(e)
 
     def cb_load_zs3(self, zs3_id):
         self.refresh_visible_strips()

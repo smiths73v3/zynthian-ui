@@ -196,6 +196,8 @@ class zynthian_controller:
         """Reconfigure based on current parameters"""
 
         self.value_range = None
+        if self.symbol == "sustain pedal":
+            self.readonly = True
 
         if self.is_path:
             return
