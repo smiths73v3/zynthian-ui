@@ -309,8 +309,8 @@ class zynthian_chain_manager:
         zmop_index = self.chains[chain_id].zmop_index
         if 'cc_route' in chain_state and zmop_index is not None and zmop_index >= 0:
             cc_route_ct = (ctypes.c_uint8 * 128)()
-            for ccnum, ccr in enumerate(chain_state['cc_route']):
-                cc_route_ct[ccnum] = ccr
+            for ccnum in chain_state['cc_route']:
+                cc_route_ct[ccnum] = 1
             lib_zyncore.zmop_set_cc_route(zmop_index, cc_route_ct)
         return chain_id
 
