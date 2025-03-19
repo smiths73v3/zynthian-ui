@@ -273,7 +273,6 @@ class zynthian_engine_audioplayer(zynthian_engine):
             ]
             if processor.handle == self.state_manager.audio_player.handle:
                 self._ctrl_screens[3][1][2] = None
-                self._ctrl_screens[3][1][3] = None
             else:
                 self._ctrl_screens.insert(-2, ['envelope 1', ['attack', 'hold', 'decay', 'sustain']])
                 self._ctrl_screens.insert(-2, ['envelope 2', ['release']])
