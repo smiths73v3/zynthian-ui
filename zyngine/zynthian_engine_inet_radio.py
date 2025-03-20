@@ -84,7 +84,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
 
         # MIDI Controllers
         self._ctrls = [
-            ['volume', None, 200, 200],
+            ['volume', None, 80, 100],
             ['stream', None, 'streaming', ['stopped', 'streaming']],
             ['prev/next', None, '<>', ['<', '<>', '>']],
             ['pause', None, 'playing', ['paused', 'playing']],
@@ -442,7 +442,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
         if self.proc is None:
             return
         if zctrl.symbol == "volume":
-                self.proc_cmd(f"volume {zctrl.value}")
+                self.proc_cmd(f"volume {zctrl.value * 3}")
         elif zctrl.symbol == "prev/next":
             value = zctrl.value - 1
             zctrl.set_value(1, False)
