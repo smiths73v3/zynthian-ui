@@ -1055,7 +1055,7 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
             flags = lib_zyncore.get_cc_pedal(index)
             for strip in self.visible_mixer_strips:
                 if strip.chain and strip.chain.is_midi():
-                    if flags & (1 << (strip.chain.chain_id - 1)):
+                    if flags & (1 << strip.chain.zmop_index):
                         self.main_canvas.itemconfig(strip.pedals[index], state=tkinter.NORMAL)
                     else:
                         self.main_canvas.itemconfig(strip.pedals[index], state=tkinter.HIDDEN)
