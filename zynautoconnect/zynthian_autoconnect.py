@@ -570,6 +570,8 @@ def midi_autoconnect():
     # logger.info("ZynAutoConnect: MIDI ...")
     global zyn_routed_midi
 
+    new_idev = [] # List of newly detected input ports
+
     # Create graph of required chain routes as sets of sources indexed by destination
     required_routes = {}
     all_midi_dst = jclient.get_ports(is_input=True, is_midi=True)
@@ -590,6 +592,7 @@ def midi_autoconnect():
                 if devices_in[i] is None:
                     devnum = i
                     devices_in[devnum] = hwsp
+                    new_idev.append(i)
                     logger.debug(
                         f"Connected MIDI-in device {devnum}: {hwsp.name}")
                     break
@@ -805,10 +808,9 @@ def midi_autoconnect():
             except:
                 pass
 
-    # Load driver if driver has autoload flag set
-    for i in range(0, max_num_devs):
-        if i in busy_idevs and devices_in[i] is not None:
-            state_manager.ctrldev_manager.load_driver(i)
+    # Autoload new drivers
+    for i in new_idev:
+        state_manager.ctrldev_manager.load_driver(i)
 
     # Release Mutex Lock
     release_lock()

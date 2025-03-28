@@ -62,7 +62,9 @@ ZynthianState = {
                     "1": "PT",  # Processor type indexed by processor id
                 }, # ... more processors in this slot
             ], # ... More slots
-            "fader_pos": 1 # Index of slot where fader is (divides pre/post fader audio effects)
+            "fader_pos": 1, # Index of slot where fader is (divides pre/post fader audio effects)
+            #"cc_route": [] # List of 0/1 indicating if the indexed cc is routed directly to engine (optional)
+            "cc_route": [] # List of MIDI CC to be routed directly to engine (optional)
         }
     },
     "zs3": {  # Dictionary of ZS3's indexed by chan/prog or ZS3-x
@@ -76,6 +78,8 @@ ZynthianState = {
                     "controllers": {  # Dictionary of controllers (optional, overrides preset default value)
                         "volume": {  # Indexed by controller symbol
                             "value": 96,  # Controller value
+                            "midi_cc_momentary_switch": 1, # Optional momentary toggle
+                            "midi_cc_debounce": 1 # Optional toggle debounce
                         },
                     }, # ... Other parameters
                 } # ... Other controllers

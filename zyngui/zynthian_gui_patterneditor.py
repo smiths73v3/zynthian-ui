@@ -385,7 +385,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                                                                     "Z2", "V5"])
 
         # Global Options
-        if not zynthian_gui_config.check_wiring_layout(["V5"]):
+        if not self.zyngui.multitouch._f_device:
             options['Grid zoom'] = 'Grid zoom'
         if extra_options:
             options['Tempo'] = 'Tempo'
@@ -456,7 +456,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
 
     def menu_cb(self, option, params):
         if params == 'Grid zoom':
-            self.toggle_grid_zoom()
+            self.enable_param_editor(self, 'zoom', {'name': 'Zoom', 'value_min': 1,
+                                     'value_max': 64, 'value_default': 1, 'value': self.zoom})
         elif params == 'Tempo':
             self.zyngui.show_screen('tempo')
         elif params == 'Arranger':
@@ -626,6 +627,9 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
     def send_controller_value(self, zctrl):
         if zctrl.symbol == 'tempo':
             self.zynseq.libseq.setTempo(zctrl.value)
+        elif zctrl.symbol == 'zoom':
+            self.set_grid_zoom(zctrl.value)
+            self.param_editor_zctrl.value = self.zoom
         elif zctrl.symbol == 'bpb':
             self.zynseq.libseq.setBeatsPerBar(zctrl.value)
         elif zctrl.symbol == 'swing_amount':
@@ -765,8 +769,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
 
     # Search for a custom map
     def get_custom_keymap(self):
-        synth_proc = self.zyngui.chain_manager.get_synth_processor(
-            self.channel)
+        synth_proc = self.zyngui.chain_manager.get_synth_processor(self.channel)
         if synth_proc:
             map_name = None
             preset_path = synth_proc.get_presetpath()
@@ -782,13 +785,11 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     if os.path.isfile(keymap_fpath):
                         return map_name
                     else:
-                        logging.warning(
-                            f"Keymap file {keymap_fpath} doesn't exist.")
+                        logging.warning(f"Keymap file {keymap_fpath} doesn't exist.")
             except:
                 logging.warning("Unable to load keymaps.json")
         else:
-            logging.info(
-                f"MIDI channel {self.channel} has not synth processors.")
+            logging.info(f"MIDI channel {self.channel} has not synth processors.")
 
     # Function to populate keymap array
     # returns Name of scale / map
@@ -808,8 +809,13 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     xml = minidom.parse(keymap_fpath)
                     notes = xml.getElementsByTagName('Note')
                     for note in notes:
-                        self.keymap.append({'note': int(
-                            note.attributes['Number'].value), 'name': note.attributes['Name'].value})
+                        try:
+                            colour = note.attributes['Colour'].value
+                        except:
+                            colour = "white"
+                        self.keymap.append({'note': int(note.attributes['Number'].value),
+                                            'name': note.attributes['Name'].value,
+                                            'colour': colour})
                     return map_name
                 except Exception as e:
                     logging.error(f"Can't load '{keymap_fpath}' => {e}")
@@ -828,8 +834,7 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                             note = tonic + offset + octave * 12
                             if note > 127:
                                 break
-                            self.keymap.append({"note": note, "name": "{}{}".format(
-                                NOTE_NAMES[note % 12], note // 12 - 1)})
+                            self.keymap.append({"note": note, "name": "{}{}".format(NOTE_NAMES[note % 12], note // 12 - 1)})
                     return data[scale]['name']
             except Exception as e:
                 logging.error(f"Can't load 'scales.json' => {e}")
@@ -1383,9 +1388,11 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                     colour = self.keymap[row]["colour"]
                 elif name and "#" in name:
                     colour = "black"
-                    fill = "white"
                 else:
                     colour = "white"
+                if colour == "black":
+                    fill = "white"
+                else:
                     fill = CANVAS_BACKGROUND
                 self.piano_roll.itemconfig(id, fill=colour)
                 # name = str(row)
@@ -1863,20 +1870,6 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
 
         self.init_buttonbar([(f"ZYNPOT {zynpot},-1", f"-{delta}"), (f"ZYNPOT {zynpot},+1", f"+{delta}"),
                             ("ZYNPOT 3,-1", "PREV\nPARAM"), ("ZYNPOT 3,+1", "NEXT\nPARAM"), (3, "OK")])
-
-    # Toggle grid zoom mode
-    def toggle_grid_zoom(self):
-        if self.edit_mode == EDIT_MODE_NONE:
-            self.set_edit_mode(EDIT_MODE_ZOOM)
-        elif self.edit_mode == EDIT_MODE_ZOOM:
-            self.set_edit_mode(EDIT_MODE_NONE)
-
-    # Toggle history edit mode (undo/redo)
-    def toggle_edit_history(self):
-        if self.edit_mode == EDIT_MODE_NONE:
-            self.set_edit_mode(EDIT_MODE_HISTORY)
-        elif self.edit_mode == EDIT_MODE_HISTORY:
-            self.set_edit_mode(EDIT_MODE_NONE)
 
     # Function to handle zynpots value change
     #   i: Zynpot index [0..n]

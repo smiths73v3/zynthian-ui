@@ -4,7 +4,7 @@
 #
 # zynthian_engine implementation for internet radio streamer
 #
-# Copyright (C) 2022-2024 Brian Walton <riban@zynthian.org>
+# Copyright (C) 2022-2025 Brian Walton <riban@zynthian.org>
 #
 # ******************************************************************************
 #
@@ -25,10 +25,12 @@
 from collections import OrderedDict
 import logging
 import json
-import re
-import pexpect
-from threading import Thread
-from time import sleep
+from subprocess import Popen, STDOUT, PIPE
+import socket
+from threading import Thread, Timer
+from os.path import basename
+from os import listdir
+from time import sleep, monotonic
 
 from . import zynthian_engine
 import zynautoconnect
@@ -55,130 +57,186 @@ class zynthian_engine_inet_radio(zynthian_engine):
         self.nickname = "IR"
         self.jackname = "inetradio"
         self.type = "Audio Generator"
-        self.uri = None
+
+        self.preset = None # Currently selected preset
+        self.preset2bank = [] # List of (bank index, preset index, preset name) for prev/next optimisation
+        self.preset_i = 0 # Index of current preset in preset2bank list
+        self.pending_preset_i = 0 # Index of preselected pending preset
+        self.pending_preset_ts = 0 # Timeout to select pending preset
+        self.client = None # Telnet client to vlc
+        self.connect_timer = None # Timer to trigger autoconnect
 
         self.monitors_dict = OrderedDict()
+        self.monitors_dict['reset'] = True
+        self.monitors_dict['title'] = ""
         self.monitors_dict['info'] = ""
-        self.monitors_dict['audio'] = ""
+        self.monitors_dict['channels'] = ""
         self.monitors_dict['codec'] = ""
         self.monitors_dict['bitrate'] = ""
+        self.monitors_dict['url'] = ""
+        self.monitors_dict['reset'] = False
         self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_inet_radio.py"
 
-        self.cmd = "mplayer -nogui -nolirc -nojoystick -quiet -slave"
-        self.command_prompt = "Starting playback..."
-        self.proc_timeout = 5
-        self.mon_thread = None
-        self.handle = 0
+        self.command = ["vlc",
+                        "--intf", "telnet",
+                        "--telnet-password", "zynthian",
+                        "--aout", "jack",
+                        "--jack-connect-regex", ":::",
+                        "--jack-name", self.jackname,
+                        "--no-audio-time-stretch"
+                        ]
 
         # MIDI Controllers
         self._ctrls = [
-            ['volume', None, 50, 100],
+            ['volume', None, 80, 100],
             ['stream', None, 'streaming', ['stopped', 'streaming']],
-            ['wait for stream', None, 5, 15]
+            ['prev/next', None, '<>', ['<', '<>', '>']],
+            ['pause', None, 'playing', ['paused', 'playing']],
+            ['random', None, 'off', ['off', 'on']]
         ]
 
         # Controller Screens
         self._ctrl_screens = [
-            ['main', ['volume', 'stream', 'wait for stream']]
+            ['main', ['volume', 'stream', 'prev/next', 'pause']]
         ]
 
-        self.reset()
+        self.start()
 
     # ---------------------------------------------------------------------------
     # Subproccess Management & IPC
     # ---------------------------------------------------------------------------
 
-    def mon_thread_task(self, handle):
-        if self.proc and self.proc.isalive():
-            self.proc.sendline('q')
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate()
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate(True)
-            sleep(0.2)
-        self.proc = None
-
-        self.jackname = "inetradio_{}".format(handle)
-        self.command = "{} -ao jack:noconnect:name={}".format(
-            self.command, self.jackname)
-        output = super().start()
-        if output:
-            self.monitors_dict['info'] = "no info"
-            self.update_info(output)
-            # Set streaming contoller value
-            for processor in self.processors:
-                ctrl_dict = processor.controllers_dict
-                ctrl_dict['stream'].set_value('streaming', False)
-            zynautoconnect.request_audio_connect(True)
-
-            while self.handle == handle:
-                sleep(1)
-                try:
-                    self.proc.expect("\n", timeout=1)
-                    res = self.proc.before.decode()
-                    self.update_info(res)
-                except pexpect.EOF:
-                    handle = 0
-                except pexpect.TIMEOUT:
-                    pass
-                except Exception as e:
-                    pass
-        else:
-            self.monitors_dict['info'] = "stream unavailable"
-
-        if self.proc and self.proc.isalive():
-            self.proc.sendline('q')
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate()
-            sleep(0.2)
-        if self.proc and self.proc.isalive():
-            self.proc.terminate(True)
-            sleep(0.2)
-        self.proc = None
-        # Set streaming contoller value
-        for processor in self.processors:
-            ctrl_dict = processor.controllers_dict
-            ctrl_dict['stream'].set_value('stopped', False)
-
-    def update_info(self, output):
-        info = re.search("StreamTitle='(.+?)';", output)
-        if info:
-            self.monitors_dict['info'] = info.group(1)
-        info = re.search("\nSelected audio codec: (.+?)\r", output)
-        if info:
-            self.monitors_dict['codec'] = info.group(1)
-        info = re.search("\nAUDIO: (.+?)\r", output)
-        if info:
-            self.monitors_dict['audio'] = info.group(1)
-        info = re.search("\nBitrate: (.+?)\r", output)
-        if info:
-            self.monitors_dict['bitrate'] = info.group(1)
+    def add_processor(self, processor):
+        return super().add_processor(processor)
 
     def start(self):
-        self.handle += 1
-        self.monitors_dict['title'] = self.processors[0].preset_name
-        self.monitors_dict['info'] = "waiting for stream..."
-        self.mon_thread = Thread(
-            target=self.mon_thread_task, args=[self.handle])
-        self.mon_thread.name = "internet radio {}".format(self.handle)
-        self.mon_thread.daemon = True  # thread dies with the program
-        self.monitors_dict['codec'] = ""
-        self.monitors_dict['audio'] = ""
-        self.monitors_dict['bitrate'] = ""
-        self.mon_thread.start()
+        if not self.proc:
+            logging.info("Starting Engine {}".format(self.name))
+            try:
+                logging.debug("Command: {}".format(self.command))
+                # Turns out that environment's PWD is not set automatically
+                # when cwd is specified for pexpect.spawn(), so do it here.
+                if self.command_cwd:
+                    self.command_env['PWD'] = self.command_cwd
+                # Setting cwd is because we've set PWD above. Some engines doesn't
+                # care about the process's cwd, but it is more consistent to set
+                # cwd when PWD has been set.
+                self.command_env['DISPLAY'] = ":-1" # Disable display of GUI to enable CLI
+                self.proc = Popen(self.command, env=self.command_env, cwd=self.command_cwd, shell=False,
+                                  text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
+                sleep(1)
+                self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.client.setblocking(False)
+                self.client.settimeout(1)
+                self.client.connect(("localhost", 4212)) #TODO Assign port in config
+                self.client.recv(4096)
+                self.client.send("zynthian\n".encode())
+                self.start_proc_poll_thread()
+                
+            except Exception as err:
+                logging.error(
+                    "Can't start engine {} => {}".format(self.name, err))
 
     def stop(self):
-        self.handle += 1
-        self.mon_thread.join()
+        if self.proc:
+            try:
+                logging.info("Stopping Engine " + self.name)
+                self.proc_cmd("shutdown")
+                self.proc.terminate()
+                try:
+                    self.proc.wait(timeout=5)
+                except:
+                    self.proc.kill()
+                self.proc = None
+            except Exception as err:
+                logging.error(f"Can't stop engine {self.name} => {err}")
 
-        self.monitors_dict['title'] = ""
-        self.monitors_dict['info'] = ""
-        self.monitors_dict['codec'] = ""
-        self.monitors_dict['audio'] = ""
-        self.monitors_dict['bitrate'] = ""
+    def start_proc_poll_thread(self):
+        self.proc_poll_thread = Thread(target=self.proc_poll_thread_task, args=())
+        self.proc_poll_thread.name = f"proc_poll_{self.jackname}"
+        self.proc_poll_thread.daemon = True  # thread dies with the program
+        self.proc_poll_thread.start()
+
+    def proc_cmd(self, cmd):
+        if self.client:
+            self.client.send(f"{cmd}\n".encode())
+
+    def proc_poll_thread_task(self):
+        last_status = 0
+        last_info = 0
+        line = ""
+        while self.proc.poll() is None:
+            now = monotonic()
+            if self.preset_i == self.pending_preset_i:
+                if now > last_info + 5:
+                    self.proc_cmd("info")
+                    last_info = now
+                if now > last_status + 1:
+                    self.proc_cmd("status")
+                    last_status = now
+            buffer = bytes()
+            while True:
+                try:
+                    buffer += self.client.recv(1024)
+                except TimeoutError:
+                    break
+            if buffer:
+                for i, c in enumerate(buffer):
+                    if c == 13:
+                        # newline
+                        self.proc_poll_parse_line(line)
+                        line = ""
+                        buffer = buffer[i:]
+                    elif c < 32 or c > 126:
+                        continue
+                    else:
+                        line += chr(c)
+                if line:
+                    self.proc_poll_parse_line(line)
+            if self.pending_preset_i != self.preset_i and now > self.pending_preset_ts:
+                self.processors[0].set_bank(self.preset2bank[self.pending_preset_i][0])
+                self.processors[0].load_preset_list()
+                self.processors[0].set_preset(self.preset2bank[self.pending_preset_i][1])
+
+    def reset_monitors(self, reset_title=False):
+        for key in self.monitors_dict:
+            if reset_title or key != "title":
+                self.monitors_dict[key] = ""
+
+    def proc_poll_parse_line(self, line):
+        if line.startswith(">"):
+            line = line[1:]
+        line = line.strip()
+        if line.startswith("| now_playing:"):
+            value = line[14:]
+            try:
+                x = value.strip().split("~")
+                self.monitors_dict['info'] = "\n".join(x[:4])
+            except:
+                self.monitors_dict['info'] = ""
+        elif line.startswith("| filename:"):
+            if not self.preset[1] and not self.monitors_dict["info"]:
+                self.monitors_dict["info"] = basename(line[11:].strip())
+        elif line.startswith("( new input:"):
+            url = line[12:-1].strip()
+            if self.monitors_dict["url"] != url:
+                self.delayed_connect_outputs()
+                self.reset_monitors()
+            self.monitors_dict["url"] = url
+            self.monitors_dict["reset"] = True
+        elif line.startswith("| album:"):
+            self.monitors_dict["info"] = f"{line[8:].strip()}\n\n"
+        elif line.startswith("| artist:"):
+            self.monitors_dict["info"] += f"{line[9:].strip()}\n"
+        else:
+            for key in ("title", "Name", "Genre", "Website", "Bitrate", "Channels", "Sample rate", "Codec"):
+                if line.startswith(f"| {key}:"):
+                    try:
+                        self.monitors_dict[key.lower()] = line.split(":")[1].strip()
+                    except:
+                        pass
+                    break
+
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -212,31 +270,31 @@ class zynthian_engine_inet_radio(zynthian_engine):
                      0, "Childside Radio", "auto", ""],
                     ["http://usa14.fastcast4u.com/proxy/chillmode",
                      0, "Chillmode Radio", "auto", ""],
-                    # ["https://radio.streemlion.com:3590/stream", 0, "Nordic Lodge Copenhagen", "auto", ""]
+                    ["https://radio.streemlion.com:3590/stream", 0, "Nordic Lodge Copenhagen", "auto", ""]
                 ],
                 "Classical": [
                     ["http://66.42.114.24:8000/live", 0,
                         "Classical Oasis", "auto", ""],
                     ["https://chambermusic.stream.publicradio.org/chambermusic.aac",
                      0, "Chamber Music", "aac", ""],
-                    # ["https://live.amperwave.net/playlist/mzmedia-cfmzfmmp3-ibc2.m3u", 0, "The New Classical FM", "auto", ""],
-                    # ["https://audio-mp3.ibiblio.org/wdav-112k", 0, "WDAV Classical: Mozart Café", "auto", ""],
-                    # ["https://cast1.torontocast.com:2085/stream", 0, "KISS Classical", "auto", ""]
+                    ["https://live.amperwave.net/playlist/mzmedia-cfmzfmmp3-ibc2.m3u", 0, "The New Classical FM", "auto", ""],
+                    ["https://audio-mp3.ibiblio.org/wdav-112k", 0, "WDAV Classical: Mozart Café", "auto", ""],
+                    ["https://cast1.torontocast.com:2085/stream", 0, "KISS Classical", "auto", ""]
                 ],
                 "Techno, Trance, House, D&B": [
-                    # ["https://fr1-play.adtonos.com/8105/psystation-minimal", 0, "PsyStation - Minimal Techno", "auto", ""],
-                    # ["https://strw3.openstream.co/940", 0, "Minimal & Techno on MixLive.ie", "auto", ""],
+                    ["https://fr1-play.adtonos.com/8105/psystation-minimal", 0, "PsyStation - Minimal Techno", "auto", ""],
+                    ["https://strw3.openstream.co/940", 0, "Minimal & Techno on MixLive.ie", "auto", ""],
                     ["http://stream.radiosputnik.nl:8002/",
                      0, "Radio Sputnik", "auto", ""],
                     ["http://streaming05.liveboxstream.uk:8047/",
                      0, "Select Radio", "auto", ""],
                     ["http://listener3.mp3.tb-group.fm/clt.mp3",
                      0, "ClubTime.FM", "auto", ""],
-                    ["http://stream3.jungletrain.net:8000 /;", 0,
-                     "jungletrain.net - 24/7 D&B&J", "auto", ""]
+                    #["http://stream3.jungletrain.net:8000 /;", 0,
+                    # "jungletrain.net - 24/7 D&B&J", "auto", ""]
                 ],
                 "Hiphop, R&B, Trap": [
-                    # ["https://hiphop24.stream.laut.fm/hiphop24", 0, "HipHop24", "auto", ""],
+                    ["https://hiphop24.stream.laut.fm/hiphop24", 0, "HipHop24", "auto", ""],
                     ["http://streams.90s90s.de/hiphop/mp3-192/",
                      0, "90s90s HipHop", "auto", ""],
                     ["https://streams.80s80s.de/hiphop/mp3-192/",
@@ -245,16 +303,16 @@ class zynthian_engine_inet_radio(zynthian_engine):
                      0, "JAM FM Black Label", "auto", ""],
                     ["http://channels.fluxfm.de/boom-fm-classics/stream.mp3",
                      0, "HipHop Classics", "auto", ""],
-                    # ["https: // finesthiphopradio.stream.laut.fm / finesthiphopradio", 0, "Finest HipHop Radio", "auto", ""],
-                    # ["https://stream.bigfm.de/oldschoolrap/mp3-128/", 0, "bigFM OLDSCHOOL RAP & HIP-HOP", "auto", ""]
+                    ["https: // finesthiphopradio.stream.laut.fm / finesthiphopradio", 0, "Finest HipHop Radio", "auto", ""],
+                    ["https://stream.bigfm.de/oldschoolrap/mp3-128/", 0, "bigFM OLDSCHOOL RAP & HIP-HOP", "auto", ""]
                 ],
                 "Funk & Soul": [
-                    # ["https://funk.stream.laut.fm/funk", 0, "The roots of Funk", "auto", ""],
-                    # ["http://radio.pro-fhi.net:2199/rqwrejez.pls", 0, "Funk Power Radio", "auto", ""],
+                    ["https://funk.stream.laut.fm/funk", 0, "The roots of Funk", "auto", ""],
+                    ["http://radio.pro-fhi.net:2199/rqwrejez.pls", 0, "Funk Power Radio", "auto", ""],
                     ["http://listento.thefunkstation.com:8000",
                      0, "The Funk Station", "auto", ""],
-                    ["https://scdn.nrjaudio.fm/adwz1/fr/30607/mp3_128.mp3",
-                     0, "Nostalgie Funk", "auto", ""],
+                    #["https://scdn.nrjaudio.fm/adwz1/fr/30607/mp3_128.mp3",
+                    # 0, "Nostalgie Funk", "auto", ""],
                     ["http://funkyradio.streamingmedia.it/play.mp3",
                      0, "Funky Radio", "auto", ""],
                     ["http://listen.shoutcast.com/a-afunk",
@@ -289,8 +347,8 @@ class zynthian_engine_inet_radio(zynthian_engine):
                         0, "Jazz Blues", "auto", ""],
                     ["http://live.amperwave.net/direct/ppm-jazz24mp3-ibc1",
                      0, "Jazz24 - KNKX-HD2", "auto", ""],
-                    ["http://stream.sublime.nl/web24_mp3",
-                     0, "Sublime Classics", "auto", ""],
+                    # Silent stream ["http://stream.sublime.nl/web24_mp3",
+                    # 0, "Sublime Classics", "auto", ""],
                     ["http://jazz-wr01.ice.infomaniak.ch/jazz-wr01-128.mp3",
                      0, "JAZZ RADIO CLASSIC JAZZ", "auto", ""],
                     ["http://jzr-piano.ice.infomaniak.ch/jzr-piano.mp3",
@@ -319,13 +377,13 @@ class zynthian_engine_inet_radio(zynthian_engine):
                      0, "Salsa.fm", "auto", ""],
                     ["http://stream.zenolive.com/u27pdewuq74tv",
                      0, "Salsa Gorda Radio", "auto", ""],
-                    # ["https://salsa-high.rautemusik.fm/", 0, "RauteMusik SALSA", "auto", ""],
-                    # ["https://centova.streamingcastrd.net/proxy/bastosalsa/stream", 0, "Basto Salsa Radio", "auto", ""],
-                    # ["https://usa15.fastcast4u.com/proxy/erenteri", 0, "Radio Salsa Online", "auto", ""],
-                    # ["https://cloudstream2036.conectarhosting.com:8242", 0, "La Makina del Sabor", "auto", ""],
-                    # ["https://cloudstream2032.conectarhosting.com/8122/stream", 0, "Salsa Magistral", "auto", ""],
-                    # ["https://cloud8.vsgtech.co/8034/stream", 0, "Viva la salsa", "auto", ""],
-                    # ["https://cast1.my-control-panel.com/proxy/salsason/stream", 0, "Salsa con Timba", "auto", ""],
+                    #["https://salsa-high.rautemusik.fm/", 0, "RauteMusik SALSA", "auto", ""],
+                    ["https://centova.streamingcastrd.net/proxy/bastosalsa/stream", 0, "Basto Salsa Radio", "auto", ""],
+                    ["https://usa15.fastcast4u.com/proxy/erenteri", 0, "Radio Salsa Online", "auto", ""],
+                    #["https://cloudstream2036.conectarhosting.com:8242", 0, "La Makina del Sabor", "auto", ""],
+                    #["https://cloudstream2032.conectarhosting.com/8122/stream", 0, "Salsa Magistral", "auto", ""],
+                    ["https://cloud8.vsgtech.co/8034/stream", 0, "Viva la salsa", "auto", ""],
+                    ["https://cast1.my-control-panel.com/proxy/salsason/stream", 0, "Salsa con Timba", "auto", ""],
                 ],
                 "Pop & Rock": [
                     ["http://icy.unitedradio.it/VirginRock70.mp3",
@@ -342,9 +400,22 @@ class zynthian_engine_inet_radio(zynthian_engine):
                      0, "FIP Radio 4", "auto", ""],
                 ]
             }
+
         self.banks = []
-        for bank in self.presets:
+        self.preset2bank = []
+        for bank_i, bank in enumerate(self.presets):
             self.banks.append([bank, None, bank, None])
+            for preset_i, preset in enumerate(self.presets[bank]):
+                self.preset2bank.append((bank_i, preset_i, preset[2]))
+
+        playlists = []
+        for file in listdir(f"{self.my_data_dir}/capture"):
+            if file[-4:].lower() in (".m3u", ".pls"):
+                playlists.append([f"{self.my_data_dir}/capture/{file}", 1, file[:-4], "auto", ""])
+        if playlists:
+            self.presets["Playlists"] = playlists
+            self.banks.append(["Playlists", None, "Playlists", None])
+
         return self.banks
 
     # ---------------------------------------------------------------------------
@@ -358,47 +429,85 @@ class zynthian_engine_inet_radio(zynthian_engine):
         return presets
 
     def set_preset(self, processor, preset, preload=False):
-        if self.uri == preset[0]:
-            return
-        self.uri = preset[0]
-        demux = preset[3]
-        volume = None
-        for processor in self.processors:
-            try:
-                ctrl_dict = processor.controllers_dict
-                volume = ctrl_dict['volume'].value
+        self.preset = preset
+        for self.preset_i, config in enumerate(self.preset2bank):
+            if config[0] == processor.bank_index and config[1] == processor.preset_index:
                 break
-            except:
-                pass
-        if volume is None:
-            volume = 50
-        self.command = "{} -volume {}".format(self.cmd, volume)
-        if self.uri.endswith("m3u") or self.uri.endswith("pls"):
-            self.command += " -playlist"
-        if demux and demux != 'auto':
-            self.command += " -demuxer {}".format(demux)
-        self.command += " {}".format(self.uri)
-        self.start()
+        self.pending_preset_i = self.preset_i
+        self.proc_cmd("clear")
+        self.proc_cmd(f"add {preset[0]}")
+        self.monitors_dict['title'] = preset[2]
+        if preset[1]:
+            self._ctrl_screens = [
+                ['main', ['volume', 'stream', 'prev/next', 'pause']],
+                ['playlist', ['random']]
+            ]
+        else:
+            self._ctrl_screens = [['main', ['volume', 'stream', 'prev/next']]]
+        processor.refresh_controllers()
+        self.reset_monitors()
+        self.delayed_connect_outputs()
 
+    def delayed_connect_outputs(self):
+        """ Trigger background delayed audio autoconnect, incase other mechanisms fail"""
+        sleep(0.2)
+        zynautoconnect.request_audio_connect(True)
+        if self.connect_timer:
+            self.connect_timer.cancel()
+        self.connect_timer = Timer(2, zynautoconnect.audio_autoconnect)
+        self.connect_timer.start()
+        
     # ----------------------------------------------------------------------------
     # Controllers Management
     # ----------------------------------------------------------------------------
 
-    def get_controllers_dict(self, processor):
-        dict = super().get_controllers_dict(processor)
-        return dict
-
     def send_controller_value(self, zctrl):
+        if self.proc is None:
+            return
         if zctrl.symbol == "volume":
-            if self.proc:
-                self.proc.sendline("volume {} 1".format(zctrl.value))
+                self.proc_cmd(f"volume {zctrl.value * 3}")
+        elif zctrl.symbol == "prev/next":
+            value = zctrl.value - 1
+            zctrl.set_value(1, False)
+            if self.preset:
+                if self.preset[1]:
+                    if value > 0:
+                        self.proc_cmd(f"next")
+                    elif value < 0:
+                        self.proc_cmd(f"prev")
+                    self.reset_monitors(True)
+                    self.proc_cmd("info")
+                    sleep(0.2)
+                    zynautoconnect.request_audio_connect(True)
+                    self.delayed_connect_outputs()
+                else:
+                    pending_preset = self.pending_preset_i + value
+                    if pending_preset < 0 or pending_preset >= len(self.preset2bank):
+                        return
+                    self.pending_preset_i = pending_preset
+                    self.pending_preset_ts = monotonic() + 1
+                    self.monitors_dict['title'] = f"<{self.preset2bank[self.pending_preset_i][2]}>"
+                    self.monitors_dict['reset'] = True
+                    return
         elif zctrl.symbol == "stream":
-            if zctrl.value == 0:
-                self.stop()
-            elif self.proc == None:
-                self.start()
-        elif zctrl.symbol == "wait for stream":
-            self.proc_timeout = zctrl.value
+            if zctrl.value:
+                self.proc_cmd("play")
+                self.monitors_dict["url"] = ""
+                self.delayed_connect_outputs()
+            else:
+                self.proc_cmd("stop")
+        elif zctrl.symbol == "pause":
+            # Cannot set absolute pause mode so force pause then toggle
+            if zctrl.value:
+                self.proc_cmd("play")
+            else:
+                self.proc_cmd("pause")
+        elif zctrl.symbol == "random":
+            if zctrl.value:
+                self.proc_cmd("random on")
+            else:
+                self.proc_cmd("random off")
+        return
 
     def get_monitors_dict(self):
         return self.monitors_dict

@@ -815,19 +815,22 @@ def get_plugin_ports(plugin_url):
                 group_index = world.get(group, world.ns.lv2.index, None)
                 if group_index is not None:
                     group_index = int(group_index)
-                    # logging.warning("Control group <{}> has no index.".format(group_key))
                 group_name = world.get(group, world.ns.lv2.name, None)
                 if group_name is None:
                     group_name = world.get(group, world.ns.rdfs.label, None)
                 if group_name is not None:
                     group_name = str(group_name)
-                    # logging.warning("Control group <{}> has no name.".format(group_key))
                 group_symbol = world.get(group, world.ns.lv2.symbol, None)
                 if group_symbol is not None:
                     group_symbol = str(group_symbol)
-                    # logging.warning("Control group <{}> has no symbol.".format(group_key))
-            # else:
-            # logging.debug("Control <{}> has no group.".format(symbol))
+                group_display_priority = world.get(group, world.ns.lv2.displayPriority, None)
+                if group_display_priority is not None:
+                    group_display_priority = int(group_display_priority)
+                else:
+                    group_display_priority = 0
+            else:
+                group_display_priority = 0
+                # logging.debug("Control <{}> has no group.".format(symbol))
 
             sp = []
             for p in control.get_scale_points():
@@ -864,6 +867,7 @@ def get_plugin_ports(plugin_url):
                 'group_index': group_index,
                 'group_name': group_name,
                 'group_symbol': group_symbol,
+                'group_display_priority': group_display_priority,
                 'value': vdef,
                 'range': {
                     'default': vdef,
@@ -961,8 +965,14 @@ def get_plugin_ports(plugin_url):
             if group_symbol is not None:
                 group_symbol = str(group_symbol)
                 # logging.warning("Control group <{}> has no symbol.".format(group_key))
-        # else:
-        # logging.debug("Control <{}> has no group.".format(symbol))
+            group_display_priority = world.get(group, world.ns.lv2.displayPriority, None)
+            if group_display_priority is not None:
+                group_display_priority = int(group_display_priority)
+            else:
+                group_display_priority = 0
+        else:
+            group_display_priority = 0
+            # logging.debug("Control <{}> has no group.".format(symbol))
 
         i += 1
         ports_info[i] = {
@@ -972,6 +982,7 @@ def get_plugin_ports(plugin_url):
             'group_index': group_index,
             'group_name': group_name,
             'group_symbol': group_symbol,
+            'group_display_priority': group_display_priority,
             'value': vdef,
             'range': {
                 'default': vdef,

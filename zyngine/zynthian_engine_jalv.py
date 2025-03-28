@@ -113,35 +113,34 @@ class zynthian_engine_jalv(zynthian_engine):
             'volume': [7, 98],
             'panning': [10, 64],
             'modulation wheel': [1, 0],
-            'sustain pedal': [64, 'off', ['off', 'on']],
             'filter cutoff': [74, 64],
             'filter resonance': [71, 64]
         },
         "ctrl_screens": {
-            '_default_synth': ['modulation wheel', 'sustain pedal'],
+            '_default_synth': ['modulation wheel'],
             'Calf Monosynth': ['modulation wheel'],
-            'Dexed': ['sustain pedal'],
+            'Dexed': [],
             'Fabla': [],
             'Foo YC20 Organ': [],
-            'Helm': ['sustain pedal'],
-            'MDA DX10': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA JX10': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA ePiano': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA Piano': ['volume', 'modulation wheel', 'sustain pedal'],
-            'Nekobi': ['sustain pedal'],
+            'Helm': [],
+            'MDA DX10': ['volume', 'modulation wheel'],
+            'MDA JX10': ['volume', 'modulation wheel'],
+            'MDA ePiano': ['volume', 'modulation wheel'],
+            'MDA Piano': ['volume', 'modulation wheel'],
+            'Nekobi': [],
             'Noize Mak3r': [],
-            'Obxd': ['modulation wheel', 'sustain pedal'],
-            'Pianoteq 7 Stage': ['sustain pedal'],
+            'Obxd': ['modulation wheel'],
+            'Pianoteq 7 Stage': [],
             'Raffo Synth': [],
             'Red Zeppelin 5': [],
             'reMID': ['volume'],
             'String machine': [],
             'synthv1': [],
-            'Surge': ['modulation wheel', 'sustain pedal'],
+            'Surge': ['modulation wheel'],
             'padthv1': [],
             'Vex': [],
-            'amsynth': ['modulation wheel', 'sustain pedal'],
-            'JC303': ['modulation wheel', 'sustain pedal']
+            'amsynth': ['modulation wheel'],
+            'JC303': ['modulation wheel']
         }
     }
 
@@ -677,6 +676,9 @@ class zynthian_engine_jalv(zynthian_engine):
             symbol = info['symbol']
             # logging.debug("Controller {} info =>\n{}!".format(symbol, info))
             try:
+                display_priority = info['display_priority']
+                if info['group_display_priority'] > 0:
+                    display_priority += 1000000 * info['group_display_priority']
                 # If there is points info ...
                 if len(info['scale_points']) > 1:
                     labels = []
@@ -701,7 +703,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'is_path': False,
                         'path_file_types': None,
                         'not_on_gui': info['not_on_gui'],
-                        'display_priority': info['display_priority'],
+                        'display_priority': display_priority
                     })
 
                 # If it's a numeric controller ...
@@ -728,7 +730,7 @@ class zynthian_engine_jalv(zynthian_engine):
                             'is_path': False,
                             'path_file_types': None,
                             'not_on_gui': info['not_on_gui'],
-                            'display_priority': info['display_priority']
+                            'display_priority': display_priority
                         })
                     else:
                         zctrls[symbol] = zynthian_controller(self, symbol, {
@@ -746,7 +748,7 @@ class zynthian_engine_jalv(zynthian_engine):
                             'is_path': False,
                             'path_file_types': None,
                             'not_on_gui': info['not_on_gui'],
-                            'display_priority': info['display_priority']
+                            'display_priority': display_priority
                         })
                 elif info['is_toggled']:
                     if info['value'] == 0:
@@ -770,7 +772,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'is_path': False,
                         'path_file_types': None,
                         'not_on_gui': info['not_on_gui'],
-                        'display_priority': info['display_priority']
+                        'display_priority': display_priority
                     })
                 elif info['is_path']:
                     zctrls[symbol] = zynthian_controller(self, symbol, {
@@ -788,7 +790,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'is_path': True,
                         'path_file_types': info['path_file_types'],
                         'not_on_gui': info['not_on_gui'],
-                        'display_priority': info['display_priority']
+                        'display_priority': display_priority
                     })
                 else:
                     zctrls[symbol] = zynthian_controller(self, symbol, {
@@ -806,7 +808,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'is_path': False,
                         'path_file_types': None,
                         'not_on_gui': info['not_on_gui'],
-                        'display_priority': info['display_priority'],
+                        'display_priority': display_priority,
                         'envelope': info['envelope']
                     })
 
@@ -815,9 +817,9 @@ class zynthian_engine_jalv(zynthian_engine):
                 #logging.error(e)
                 logging.exception(traceback.format_exc())
 
-        # Sort by suggested display_priority
-        new_index = sorted(zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
-        zctrls = {k: zctrls[k] for k in new_index}
+        # Sort by suggested display_priority => This is done in zynthian_engine!
+        #new_index = sorted(zctrls, key=lambda x: zctrls[x].display_priority, reverse=True)
+        #zctrls = {k: zctrls[k] for k in new_index}
 
         return zctrls
 
