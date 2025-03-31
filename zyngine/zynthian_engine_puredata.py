@@ -78,6 +78,9 @@ class zynthian_engine_puredata(zynthian_engine):
         # self.jackname = "pure_data_0"
         self.jackname = "pure_data"
 
+        # Initialize custom GUI path as None - will be set conditionally when loading presets
+        self.custom_gui_fpath = None
+
         self.preset = ""
         self.preset_config = None
 
@@ -116,8 +119,25 @@ class zynthian_engine_puredata(zynthian_engine):
     def get_preset_list(self, bank):
         return self.get_dirlist(bank[0])
 
+
+
     def set_preset(self, processor, preset, preload=False):
         self.load_preset_config(preset)
+    
+        # Set custom GUI path based on two conditions:
+        # 1. Organelle is in the preset path, OR
+        # 2. Preset config has an 'use_organelle_widget' flag set to True
+        preset_path = preset[0]
+    
+        if ("Organelle" in preset_path or 
+            (self.preset_config and 
+             self.preset_config.get('use_organelle_widget', False))):
+            # Use Organelle widget for Organelle patches or when flag is set
+            self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_organelle.py"
+        else:
+            # Don't use custom widget for other pd patches
+            self.custom_gui_fpath = None
+    
         self.command = self.base_command + " " + self.get_preset_filepath(preset)
         self.preset = preset[0]
         self.stop()
@@ -135,6 +155,16 @@ class zynthian_engine_puredata(zynthian_engine):
         zynautoconnect.request_midi_connect(True)
         processor.send_ctrl_midi_cc()
         return True
+
+
+
+
+
+
+
+
+
+
 
     def load_preset_config(self, preset):
         config_fpath = preset[0] + "/zynconfig.yml"
@@ -288,7 +318,7 @@ class zynthian_engine_puredata(zynthian_engine):
 
     @classmethod
     def zynapi_download(cls, fullpath):
-        return fullpath
+        return fullpathpreset
 
     @classmethod
     def zynapi_install(cls, dpath, bank_path):
