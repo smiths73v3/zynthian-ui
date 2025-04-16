@@ -1593,6 +1593,9 @@ class LooperHandler(
         if storedValue == value:
             value -= 1 / (COLS * 2)
 
+        if storedValue == 1 / (COLS * 2) and numpad == 0:
+            value = 0
+
         self.dispatch(globAction(setting, value))
         self.just_send("/set", ("s", "wet"), ("f", value))
 
