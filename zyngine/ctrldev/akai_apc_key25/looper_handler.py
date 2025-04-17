@@ -1312,7 +1312,7 @@ class LooperHandler(
             if doLevelsOfSelectedMode(self.state):
                 return self.handle_selected_loop_levels(numpad, row)
             if submode == self.MODE_LEVEL1:
-                if pad <= ((ROWS - 1) * COLS):
+                if pad < ((ROWS - 1) * COLS):
                     return self.handle_all_wet(numpad, track, tracks)
                 else:
                     return self.handle_glob_wet(numpad)
