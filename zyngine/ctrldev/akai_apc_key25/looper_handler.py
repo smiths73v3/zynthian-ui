@@ -1565,8 +1565,17 @@ class LooperHandler(
             self.dispatch(trackAction(trackno, ctrl, value))
             self.just_send(f"/sl/{trackno}/set", ("s", ctrl), ("f", value))
 
-    def handle_all_wet(self, numpad, track, tracks):
+    def compute_value_within_axis(self, numpad, storedValue):
         value = (numpad + 1) / COLS
+        if storedValue == value:
+            value -= 1 / (COLS * 2)
+
+        if storedValue == 1 / (COLS * 2) and numpad == 0:
+            value = 0
+
+        return value
+
+    def handle_all_wet(self, numpad, track, tracks):
         stateTrack = tracks.get(track)
         if not stateTrack:
             return
@@ -1576,25 +1585,16 @@ class LooperHandler(
         if storedValue is None:
             return
 
-        if storedValue == value:
-            value -= 1 / (COLS * 2)
-
-        if storedValue == 1 / (COLS * 2) and numpad == 0:
-            value = 0
+        value = self.compute_value_within_axis(numpad, storedValue)
 
         self.dispatch(trackAction(track, "wet", value))
         self.just_send(f"/sl/{track}/set", ("s", "wet"), ("f", value))
 
     def handle_glob_wet(self, numpad):
         setting = "wet"
-        value = (numpad + 1) / COLS
         storedValue = getGlob(setting, self.state)
 
-        if storedValue == value:
-            value -= 1 / (COLS * 2)
-
-        if storedValue == 1 / (COLS * 2) and numpad == 0:
-            value = 0
+        value = self.compute_value_within_axis(numpad, storedValue)
 
         self.dispatch(globAction(setting, value))
         self.just_send("/set", ("s", "wet"), ("f", value))
