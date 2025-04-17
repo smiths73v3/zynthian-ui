@@ -1785,6 +1785,7 @@ class LooperHandler(
     def render(self):
         pads = createAllPads(self.state)
         notes = split_every(3, pads)
+        sendable = []
         for pad in notes:
             if pad[0] == 0x80:
                 # For some reason simply sending a note off does not work.
@@ -1792,9 +1793,11 @@ class LooperHandler(
                 # The following does work, but something tells me to stay with they ctrldev_base way
                 # lib_zyncore.dev_send_note_on(self.idev, 0, pad[1], 0)
                 self._leds.led_off(pad[1], False)
-        # @todo remove those off pads from the bulk message.
+            else:
+                sendable.extend(pad)
+
         # logging.debug(pads, len(pads))
-        msg = bytes(pads)
+        msg = bytes(sendable)
         lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
         # NOW RENDER
 
