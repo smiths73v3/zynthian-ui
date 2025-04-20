@@ -4,7 +4,7 @@
 #
 # zynthian chain manager
 #
-# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2025 Fernando Moyano <jofemodo@zynthian.org>
 #                         Brian Walton <riban@zynthian.org>
 #
 # ****************************************************************************
@@ -117,14 +117,6 @@ class zynthian_chain_manager:
         self.absolute_midi_cc_binding = {}
         self.chain_midi_cc_binding = {}  # Map of list of zctrls indexed by 16-bit CHAIN,CC
         self.chan_midi_cc_binding = {}  # Map of list of zctrls indexed by 16-bit CHAN,CC
-
-        # Map of lists of currently held (sustained) zctrls, indexed by cc number - first element indicates pedal state
-        self.held_zctrls = {
-            64: [False],
-            66: [False],
-            67: [False],
-            69: [False]
-        }
 
     # ------------------------------------------------------------------------
     # Engine Management
@@ -257,6 +249,11 @@ class zynthian_chain_manager:
             # Enable CV/Gate MIDI intput (fake port zmip)
             lib_zyncore.zmop_set_route_from(
                 chain.zmop_index, ZMIP_INT_INDEX, True)
+            # Enable default native CC handling of pedals
+            cc_route_ct = (ctypes.c_uint8 * 128)()
+            for ccnum in (64, 66, 67, 69):
+                cc_route_ct[ccnum] = 1
+            lib_zyncore.zmop_set_cc_route(zmop_index, cc_route_ct)
 
         # Set MIDI channel
         self.set_midi_chan(chain_id, midi_chan)
@@ -312,8 +309,8 @@ class zynthian_chain_manager:
         zmop_index = self.chains[chain_id].zmop_index
         if 'cc_route' in chain_state and zmop_index is not None and zmop_index >= 0:
             cc_route_ct = (ctypes.c_uint8 * 128)()
-            for ccnum, ccr in enumerate(chain_state['cc_route']):
-                cc_route_ct[ccnum] = ccr
+            for ccnum in chain_state['cc_route']:
+                cc_route_ct[ccnum] = 1
             lib_zyncore.zmop_set_cc_route(zmop_index, cc_route_ct)
         return chain_id
 
@@ -681,17 +678,6 @@ class zynthian_chain_manager:
         if isinstance(chain.zmop_index, int):
             try:
                 lib_zyncore.set_active_chain(chain.zmop_index)
-                # Re-assert pedals on new active chain
-                if isinstance(chain.midi_chan, int):
-                    if 0 <= chain.midi_chan < 16:
-                        chan = chain.midi_chan
-                    else:
-                        # If chain receives *ALL CHANNELS* use channel 0 to re-assert pedals
-                        chan = 0
-                    for pedal_cc in self.held_zctrls:
-                        if self.held_zctrls[pedal_cc][0]:
-                            lib_zyncore.write_zynmidi_ccontrol_change(chan, pedal_cc, 127)
-                            # TODO: Check if zctrl gets added to self.held_zctrls
             except Exception as e:
                 logging.error(e)
 
@@ -1246,20 +1232,13 @@ class zynthian_chain_manager:
             else:
                 self.absolute_midi_cc_binding[key] = [zctrl]
 
-        # Ensure pedals are always learnt in absolute mode.
-        # TODO: This is not OK, just mitigates issue #1277 until a proper solution is implemented
-        #  => MIDI CC mode should be stored with MIDI learn info in chain manager, not in zctrl!!
-        #  => Anyway, it's not so bad, as handle_pedals also uses a fixed list of CC nums
-        if midi_cc in self.held_zctrls:
-            zctrl.midi_cc_mode_set(0)
-
         # TODO: Handle MD midi learn
-            """
-            #logging.debug(f"ADDING GLOBAL MIDI LEARN => MIDI CHANNEL {chan}, CC#{midi_cc}")
-            if zctrl.processor.eng_code == "MD":
-                # Add native MIDI learn #TODO: Should / can we still use native midi learn?
-                zctrl.processor.engine.set_midi_learn(zctrl, chan, midi_cc)
-            """
+        """
+        #logging.debug(f"ADDING GLOBAL MIDI LEARN => MIDI CHANNEL {chan}, CC#{midi_cc}")
+        if zctrl.processor.eng_code == "MD":
+            # Add native MIDI learn #TODO: Should / can we still use native midi learn?
+            zctrl.processor.engine.set_midi_learn(zctrl, chan, midi_cc)
+        """
 
     def remove_midi_learn(self, proc, symbol):
         """Remove a midi learn configuration
@@ -1323,7 +1302,6 @@ class zynthian_chain_manager:
         cc_num : CC number
         cc_val : CC value
         """
-
         # Handle bank change (CC0/32)
         # TODO: Validate and optimise bank change code
         if zynthian_gui_config.midi_bank_change:
@@ -1367,15 +1345,15 @@ class zynthian_chain_manager:
             pass
 
         # Handle active chain CC binding
-        if zynautoconnect.get_midi_in_dev_mode(zmip):
-            try:
-                key = (self.active_chain_id << 16) | (cc_num << 8)
-                zctrls = self.chain_midi_cc_binding[key]
-                for zctrl in zctrls:
-                    zctrl.midi_control_change(cc_val)
-                    self.handle_pedals(cc_num, cc_val, zctrl)
-            except:
-                pass
+        try:
+            key = (self.active_chain_id << 16) | (cc_num << 8)
+            zctrls = self.chain_midi_cc_binding[key]
+            for zctrl in zctrls:
+                if zynthian_gui_config.active_midi_channel and zctrl.midi_chan != midi_chan:
+                    continue
+                zctrl.midi_control_change(cc_val)
+        except:
+            pass
         # Handle channel CC binding
         else:
             try:
@@ -1383,27 +1361,8 @@ class zynthian_chain_manager:
                 zctrls = self.chan_midi_cc_binding[key]
                 for zctrl in zctrls:
                     zctrl.midi_control_change(cc_val)
-                    self.handle_pedals(cc_num, cc_val, zctrl)
             except:
                 pass
-
-    def handle_pedals(self, cc_num, cc_val, zctrl):
-        """Handle pedal CC
-
-        cc_num : CC number
-        cc_val : CC value
-        zctrl : zctrl to process
-        """
-
-        if cc_num in self.held_zctrls:
-            if cc_val >= 64:
-                if zctrl not in self.held_zctrls[cc_num]:
-                    self.held_zctrls[cc_num].append(zctrl)
-                self.held_zctrls[cc_num][0] = True
-            else:
-                self.held_zctrls[cc_num][0] = False
-                while len(self.held_zctrls[cc_num]) > 1:
-                    self.held_zctrls[cc_num].pop().midi_control_change(cc_val)
 
     def clean_midi_learn(self, obj):
         """Clean MIDI learn from controls

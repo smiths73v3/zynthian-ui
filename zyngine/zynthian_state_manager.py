@@ -51,7 +51,7 @@ from zyngine.zynthian_chain_manager import *
 from zyngine.zynthian_processor import zynthian_processor
 from zyngine.zynthian_audio_recorder import zynthian_audio_recorder
 from zyngine.zynthian_signal_manager import zynsigman
-from zyngine import zynthian_legacy_snapshot
+from zyngine.zynthian_legacy_snapshot import zynthian_legacy_snapshot, SNAPSHOT_SCHEMA_VERSION
 from zyngine import zynthian_engine_audio_mixer
 from zyngine import zynthian_midi_filter
 
@@ -62,7 +62,6 @@ from zyngine.zynthian_ctrldev_manager import zynthian_ctrldev_manager
 # Zynthian State Manager Class
 # ----------------------------------------------------------------------------
 
-SNAPSHOT_SCHEMA_VERSION = 1.1
 capture_dir_sdc = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data") + "/capture"
 ex_data_dir = os.environ.get('ZYNTHIAN_EX_DATA_DIR', "/media/root")
 
@@ -75,6 +74,7 @@ class zynthian_state_manager:
     SS_MIDI_RECORDER_STATE = 3
     SS_LOAD_ZS3 = 4
     SS_SAVE_ZS3 = 5
+    SS_ALL_NOTES_OFF = 6
 
     # Subsignals from other modules. Just to simplify access.
     # From S_AUDIO_PLAYER
@@ -1091,7 +1091,9 @@ class zynthian_state_manager:
         mute = self.zynmixer.get_mute(self.zynmixer.MAX_NUM_CHANNELS - 1)
         try:
             snapshot = JSONDecoder().decode(json)
-            state = self.fix_snapshot(snapshot)
+            self.set_busy_details("fixing legacy snapshot")
+            converter = zynthian_legacy_snapshot(self)
+            state = converter.convert_state(snapshot)
 
             if load_chains:
                 # Mute output to avoid unwanted noises
@@ -1273,28 +1275,6 @@ class zynthian_state_manager:
             self.load_snapshot(files[0])
             return True
         return False
-
-    def fix_snapshot(self, snapshot):
-        """Apply fixes to snapshot based on format version"""
-
-        if "schema_version" not in snapshot:
-            self.set_busy_details("fixing legacy snapshot")
-            converter = zynthian_legacy_snapshot.zynthian_legacy_snapshot()
-            state = converter.convert_state(snapshot)
-            # logging.debug(f"Fixed Snapshot: {state}")
-        else:
-            state = snapshot
-            if state["schema_version"] < SNAPSHOT_SCHEMA_VERSION:
-                if state["schema_version"] == 1:
-                    # Migrate stored Output Level values
-                    try:
-                        amixer_ctrls = snapshot["alsa_mixer"]["controllers"]
-                        for symbol in ["Digital_0", "Digital_1"]:
-                            v = amixer_ctrls[symbol]["value"]
-                            amixer_ctrls[symbol]["value"] = self.alsa_mixer_processor.controllers_dict[symbol].ticks[v]
-                    except:
-                        pass
-        return state
 
     def backup_snapshot(self, path):
         """Make a backup copy of a snapshot file"""
@@ -1780,14 +1760,11 @@ class zynthian_state_manager:
 
     def all_sounds_off(self):
         logging.info("All Sounds Off!")
-        self.start_busy("all_sounds_off")
         for chan in range(16):
             lib_zyncore.ui_send_ccontrol_change(chan, 120, 0)
-        self.end_busy("all_sounds_off")
 
     def all_notes_off(self):
         logging.info("All Notes Off!")
-        self.start_busy("all_notes_off")
         self.zynseq.libseq.stop()
         for chan in range(16):
             lib_zyncore.ui_send_ccontrol_change(chan, 123, 0)
@@ -1795,7 +1772,7 @@ class zynthian_state_manager:
             lib_zyncore.zynaptik_all_gates_off()
         except:
             pass
-        self.end_busy("all_notes_off")
+        zynsigman.send_queued(zynsigman.S_STATE_MAN, self.SS_ALL_NOTES_OFF, chan=None)
 
     def raw_all_notes_off(self):
         logging.info("Raw All Notes Off!")
@@ -1808,6 +1785,7 @@ class zynthian_state_manager:
     def all_notes_off_chan(self, chan):
         logging.info(f"All Notes Off for channel {chan}!")
         lib_zyncore.ui_send_ccontrol_change(chan, 123, 0)
+        zynsigman.send_queued(zynsigman.S_STATE_MAN, self.SS_ALL_NOTES_OFF, chan=chan)
 
     def raw_all_notes_off_chan(self, chan):
         logging.info(f"Raw All Notes Off for channel {chan}!")

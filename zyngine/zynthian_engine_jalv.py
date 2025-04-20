@@ -71,7 +71,8 @@ class zynthian_engine_jalv(zynthian_engine):
         # "http://tytel.org/helm": {"RPi5": False, "RPi4": False, "RPi3": True, "RPi2": False},				 # Better CPU with gtk but only qt4 works on RPi4
         'https://git.code.sf.net/p/qmidiarp/arp': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"},
         'https://git.code.sf.net/p/qmidiarp/lfo': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"},
-        'https://git.code.sf.net/p/qmidiarp/seq': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"}
+        'https://git.code.sf.net/p/qmidiarp/seq': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"},
+        'http://distrho.sf.net/plugins/3BandEQ': {"RPi5": False, "RPi4": False, "RPi3": False, "RPi2": False}
     }
 
     plugins_custom_gui = {
@@ -113,35 +114,34 @@ class zynthian_engine_jalv(zynthian_engine):
             'volume': [7, 98],
             'panning': [10, 64],
             'modulation wheel': [1, 0],
-            'sustain pedal': [64, 'off', ['off', 'on']],
             'filter cutoff': [74, 64],
             'filter resonance': [71, 64]
         },
         "ctrl_screens": {
-            '_default_synth': ['modulation wheel', 'sustain pedal'],
+            '_default_synth': ['modulation wheel'],
             'Calf Monosynth': ['modulation wheel'],
-            'Dexed': ['sustain pedal'],
+            'Dexed': [],
             'Fabla': [],
             'Foo YC20 Organ': [],
-            'Helm': ['sustain pedal'],
-            'MDA DX10': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA JX10': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA ePiano': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA Piano': ['volume', 'modulation wheel', 'sustain pedal'],
-            'Nekobi': ['sustain pedal'],
+            'Helm': [],
+            'MDA DX10': ['volume', 'modulation wheel'],
+            'MDA JX10': ['volume', 'modulation wheel'],
+            'MDA ePiano': ['volume', 'modulation wheel'],
+            'MDA Piano': ['volume', 'modulation wheel'],
+            'Nekobi': [],
             'Noize Mak3r': [],
-            'Obxd': ['modulation wheel', 'sustain pedal'],
-            'Pianoteq 7 Stage': ['sustain pedal'],
+            'Obxd': ['modulation wheel'],
+            'Pianoteq 7 Stage': [],
             'Raffo Synth': [],
             'Red Zeppelin 5': [],
             'reMID': ['volume'],
             'String machine': [],
             'synthv1': [],
-            'Surge': ['modulation wheel', 'sustain pedal'],
+            'Surge': ['modulation wheel'],
             'padthv1': [],
             'Vex': [],
-            'amsynth': ['modulation wheel', 'sustain pedal'],
-            'JC303': ['modulation wheel', 'sustain pedal']
+            'amsynth': ['modulation wheel'],
+            'JC303': ['modulation wheel']
         }
     }
 
