@@ -313,6 +313,11 @@ def split_every(n, iterable):
     while chunk := list(islice(it, n)):
         yield chunk
 
+# Calculate the difference
+def generator_difference(gen_a, gen_b_set):
+    for item in gen_a:
+        if item not in gen_b_set:
+            yield item
 
 def overlay(*arrays):
     # logging.debug(f"arrays {arrays}")
@@ -1060,6 +1065,7 @@ class LooperHandler(
         self.osc_target = None
         self._loop_states = {}
         self._init_time = 0
+        self.last_notes = []
         self.idev_in = idev_in
         self.idev_out = idev_out
         self.dosolo = False
@@ -1087,9 +1093,10 @@ class LooperHandler(
     def set_active(self, active):
         super().set_active(active)
         self._leds.all_off()
-        self.render()
+        self.last_notes = [];
         print(f"Active {active}")
         if active:
+            self.render()
             self.reconnect()
 
     # def sub_mode(self):
@@ -1785,8 +1792,10 @@ class LooperHandler(
     def render(self):
         pads = createAllPads(self.state)
         notes = split_every(3, pads)
+        these = generator_difference(notes, self.last_notes)
+        self.last_notes = these;
         sendable = []
-        for pad in notes:
+        for pad in these:
             if pad[0] == 0x80:
                 # For some reason simply sending a note off does not work.
                 # lib_zyncore.dev_send_midi_event(self.idev_out, bytes(pad), 3)
