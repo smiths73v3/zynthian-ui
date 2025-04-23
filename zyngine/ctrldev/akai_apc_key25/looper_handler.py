@@ -4,6 +4,7 @@ import logging
 from zyngine.ctrldev.zynthian_ctrldev_base_ui import ModeHandlerBase
 from os import listdir
 from os.path import isfile, join
+from dataclasses import dataclass, field
 import time
 import random
 import liblo
@@ -35,7 +36,6 @@ from zyngine.zynthian_engine_sooperlooper import (
     SL_STATE_REDO_ALL,
     SL_STATE_OFF_MUTED,
 )
-
 from zyngine.ctrldev.zynthian_ctrldev_base_extended import (
     KnobSpeedControl,
 )
@@ -44,7 +44,7 @@ from zyngine.ctrldev.akai_apc_key25.colors import COLORS
 from zyngine.ctrldev.akai_apc_key25.brights import BRIGHTS, LED_BRIGHTS
 from zyngine.ctrldev.akai_apc_key25.buttons import BUTTONS
 
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List
 from itertools import chain, islice
 # from collections import defaultdict
 
@@ -110,7 +110,7 @@ def syncSourceChar(source):
     if source > 0:
         return source
     return SYNC_SOURCE_CHARS.get(source, '')
-    
+
 # @todo factor out this from here and zynthian_engine_sooperlooper?
 # ------------------------------------------------------------------------------
 # Sooper Looper State Codes
@@ -859,7 +859,7 @@ def createAllPads(state):
         
         return overlay(confirmation_pads, sessionnums, emptycells) + ctrl_keys
 
-    tracks = state.get("tracks", [])
+    tracks = state.get("tracks", {})
     toprow = (
         [
             [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
@@ -895,6 +895,16 @@ def createAllPads(state):
         else:
             return overlay(eighths, pads)
 
+@dataclass
+class EventArgs:
+    pad: int = None
+    row: int = None
+    loopoffset: int = None
+    numpad: int = None
+    track: int = None
+    stateTrack: Dict[str, Any] = field(default_factory=dict)
+    tracks: List[Dict[str, Any]] = field(default_factory=list)
+    evtype: int = None
 
 class ButtonAutoLatch:
     PT_BOLD_TIME = 0.3 * 1000
@@ -984,6 +994,7 @@ class LooperHandler(
     MODE_LEVEL1 = 1
     MODE_LEVEL2 = 2
     MODE_PAN = 4
+    MODE_GROUPS = 5
     MODE_SYNC = 7
     MODE_SESSION_SAVE = 10
     MODE_SESSION_LOAD = 11
@@ -993,6 +1004,7 @@ class LooperHandler(
         MODE_LEVEL1,
         MODE_LEVEL2,
         MODE_PAN,
+        MODE_GROUPS,
         MODE_SYNC,
         MODE_SESSION_SAVE,
         MODE_SESSION_LOAD,
@@ -1042,6 +1054,7 @@ class LooperHandler(
             self, state_manager, leds, idev_in, idev_out
         )
         self._pan_handler = SubModePan(self, state_manager, leds, idev_in, idev_out)
+        self._groups_handler = SubModeGroups(self, state_manager, leds, idev_in, idev_out)
         self._sync_handler = SubModeSync(self, state_manager, leds, idev_in, idev_out)
         self._save_handler = SubModeSessionsSave(
             self, state_manager, leds, idev_in, idev_out
@@ -1055,6 +1068,7 @@ class LooperHandler(
             self.MODE_LEVEL1: self._levels1_handler,
             self.MODE_LEVEL2: self._levels2_handler,
             self.MODE_PAN: self._pan_handler,
+            self.MODE_GROUPS: self._groups_handler,
             self.MODE_SYNC: self._sync_handler,
             self.MODE_SESSION_SAVE: self._save_handler,
             self.MODE_SESSION_LOAD: self._load_handler,
@@ -1068,11 +1082,6 @@ class LooperHandler(
         self.last_notes = []
         self.idev_in = idev_in
         self.idev_out = idev_out
-        self.dosolo = False
-        self.domute = False
-        self.undoing = False
-        self.redoing = False
-        self.alt = False
 
         self._leds = leds
         self._is_shifted = False
@@ -1268,38 +1277,15 @@ class LooperHandler(
 
     def note_off(self, note, shifted_override=None):
         pass
-        # if note == BTN_STOP_ALL_CLIPS:
-        #     self._btn_timer.is_released(note)
 
     def pad_event(self, event):
         submode = getDeviceSetting("submode", self.state)
-        if submode == self.MODE_PAN:
-            return
+        # if submode == self.MODE_PAN:
+        #     return
         evtype = (event[0] >> 4) & 0x0F
         pad = event[1] & 0x7F
-        set_syncs = submode == self.MODE_SYNC
         row = padRow(pad)
         numpad = pad % COLS
-        if set_syncs:
-            # @todo: numpad 6 and row 2 and 3 would be better to get multiples of 8
-            if (row == 1 or row == 2) and numpad == 6:
-                show8ths = evtype == EV_NOTE_ON
-                self.dispatch(deviceAction("show8ths", show8ths))
-                if show8ths:
-                    setting = "eighth_per_cycle"
-                    oldvalue = getGlob(setting, self.state) or 16
-                    value = max(2, oldvalue - 1) if row == 2 else oldvalue + 1
-                    self.just_send("/set", ("s", setting), ("f", value))
-                    self.dispatch(globAction(setting, value))
-                return
-
-            # Set 8ths directly
-            if getDeviceSetting("show8ths", self.state):
-                setting = "eighth_per_cycle"
-                value = pad + 1
-                self.just_send("/set", ("s", setting), ("f", value))
-                self.dispatch(globAction(setting, value))
-                return
         loopoffset = getLoopoffset(self.state)
         track = -1 if row == 0 else shiftedTrack(row, loopoffset)
         tracks = self.state.get("tracks", [])
@@ -1309,75 +1295,17 @@ class LooperHandler(
             if track == -1
             else path(["tracks", track], self.state)
         )
-        if set_syncs:
-            return self.handle_syncs(numpad, track, stateTrack, tracks, evtype)
-        if evtype == EV_NOTE_ON:
-            if submode == self.MODE_SESSION_SAVE:
-                return self.on_save_session_pad(pad)
-            if submode == self.MODE_SESSION_LOAD:
-                return self.load_session(pad)
-            if doLevelsOfSelectedMode(self.state):
-                return self.handle_selected_loop_levels(numpad, row)
-            if submode == self.MODE_LEVEL1:
-                if pad < ((ROWS - 1) * COLS):
-                    return self.handle_all_wet(numpad, track, tracks)
-                else:
-                    return self.handle_glob_wet(numpad)
-            if track >= self.loopcount:
-                return self.handle_loop_operations(numpad)
-            if self.dosolo:
-                return self.just_send(f"/sl/{track}/hit", ("s", "solo"))
-            if self.domute:
-                return self.just_send(f"/sl/{track}/hit", ("s", "mute"))
-            if self.undoing and numpad <= 1:
-                return self.just_send(f"/sl/{track}/hit", ("s", "undo_all"))
-            if self.redoing and numpad >= 4:
-                return self.just_send(f"/sl/{track}/hit", ("s", "redo_all"))
-        # @todo: seems this also runs in other modes than the default (for NOTE_OFFs)
-        if not self.undoing or self.redoing:
-            if numpad == 0:
-                return self.handle_rec_or_overdub(track, stateTrack, evtype)
-        if numpad < 8:
-            return self.handle_loop_actions(numpad, track, evtype)
+        common_args = EventArgs(numpad=numpad,
+                                pad=pad,
+                                row=row,
+                                loopoffset=loopoffset,
+                                track=track,
+                                stateTrack=stateTrack,
+                                tracks=tracks,
+                                evtype=evtype)
+        if (hasattr(self._current_handler, 'on_pad') and callable(getattr(self._current_handler, 'on_pad'))):
+            return self._current_handler.on_pad(common_args);
         pass
-
-    def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks, evtype):
-        if evtype == EV_NOTE_OFF:
-            if track == -1 and numpad == 6:
-                self.dispatch(deviceAction('showsource', None))
-            return
-        if numpad < 6:
-            if stateTrack is None:
-                return
-            setting = SETTINGS[numpad]
-            self.just_send(
-                f"/sl/{track}/set",
-                setting,
-                int(not stateTrack.get(setting, False)),  # Convert boolean to int
-            )
-
-        if track == -1 and numpad == 7:
-            # NOTE: it seems just loop 1's setting is used for all
-            quant = int(tracks[0].get("quantize", -1))  # Default to -1 if not found
-            if quant is None:  # Check for NaN equivalent
-                quant = -1
-            self.just_send(f"/sl/{track}/set", "quantize", (quant + 1) % 4)
-
-        if track == -1 and numpad == 6:
-            # -3 = internal, -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
-            setting = "sync_source"
-            oldvalue = self.state.get("glob", {}).get(
-                setting, -3
-            )  # Default to -3 if not found
-            if oldvalue is None:  # Check for NaN equivalent
-                oldvalue = -4
-
-            value = cycle(
-                -3, self.loopcount, oldvalue
-            )  # Assuming cycle is defined elsewhere
-            self.just_send("/set", setting, value)
-            self.dispatch(batchAction([globAction(setting, value), deviceAction('showsource', True)]))
-        return
 
     def activateSubmode(self, modenum):
         handler = self._handlers[modenum]
@@ -1427,55 +1355,38 @@ class LooperHandler(
         return
 
     def handle_rest_of_buttons(self, button, evtype):
-        if evtype == EV_NOTE_ON and button == BUTTONS.BTN_STOP_ALL_CLIPS:
-            if getDeviceSetting("shifted", self.state):
-                self.just_send("/sl/-1/hit", ("s", "mute_off"))
-            else:
-                self.just_send("/sl/-1/hit", ("s", "mute_on"))
+        shifted = getDeviceSetting("shifted", self.state)
+        if hasattr(self._current_handler, 'on_button') and callable(getattr(self._current_handler, 'on_button')) and self._current_handler.on_button(button, evtype, shifted):
             return
+        
+        if button == BUTTONS.BTN_STOP_ALL_CLIPS:
+            if evtype == EV_NOTE_ON:
+                if getDeviceSetting("shifted", self.state):
+                    self.just_send("/sl/-1/hit", ("s", "mute_off"))
+                else:
+                    self.just_send("/sl/-1/hit", ("s", "mute_on"))
+            else:
+                # self.render_all_pads(state)  # Assuming render_all_pads is a method of self
+                # @todo: simply turn all leds off
+                self.request_feedback(
+                    "/ping", "/pong"
+                )  # Assuming request_feedback is a method of self
+            return
+
         if button == BUTTONS.BTN_SHIFT:
             self.dispatch(deviceAction("shifted", evtype == EV_NOTE_ON))
             return
 
-        if button == BUTTONS.BTN_UNDO:
-            self.undoing = evtype == EV_NOTE_ON
-            return
-
-        if button == BUTTONS.BTN_REDO:
-            self.redoing = evtype == EV_NOTE_ON
-            return
-
         if button == BUTTONS.BTN_TRACK_1:
-            if evtype == EV_NOTE_ON and (
-                getDeviceSetting("shifted", self.state) or doSyncMode(self.state)
-            ):
+            if evtype == EV_NOTE_ON and (getDeviceSetting("shifted", self.state)):
                 self.shift_up()  # Assuming shift_up is a method of self
-                return
-            self.alt = evtype == EV_NOTE_ON
             return
 
         if button == BUTTONS.BTN_TRACK_2:
-            if evtype == EV_NOTE_ON and (
-                getDeviceSetting("shifted", self.state) or doSyncMode(self.state)
-            ):
-                self.shift_down()  # Assuming shift_down is a method of self
+            if evtype == EV_NOTE_ON and (getDeviceSetting("shifted", self.state)):
+                self.shift_down()
             return
 
-        if button == BUTTONS.BTN_SOFT_KEY_SOLO:
-            self.dosolo = evtype == EV_NOTE_ON
-            return
-
-        if button == BUTTONS.BTN_SOFT_KEY_MUTE:
-            self.domute = evtype == EV_NOTE_ON
-            return
-
-        if button == BUTTONS.BTN_STOP_ALL_CLIPS:
-            # self.render_all_pads(state)  # Assuming render_all_pads is a method of self
-            # @todo: simply turn all leds off
-            self.request_feedback(
-                "/ping", "/pong"
-            )  # Assuming request_feedback is a method of self
-            return
         return
 
     def get_sessions(self):
@@ -1486,203 +1397,6 @@ class LooperHandler(
             if isfile(join(mypath, f)) and f.endswith(".slsess")
         ]
         self.dispatch(deviceAction("sessions", onlyfiles))
-
-    def load_session(self, pad):
-        # Create the URI
-        file_path = f"{self.SL_SESSION_PATH}{str(pad).zfill(2)}.slsess"
-
-        self.dispatch(deviceAction("sessions-last", pad))
-        # Send the session load request
-        self.just_send("/load_session", file_path, self.osc_server_url, "/error")
-
-        # Use time.sleep to mimic setTimeout
-        time.sleep(1)  # Wait for 1 second
-        self.request_feedback("/ping", "/pong")
-
-    def on_save_session_pad(self, pad):
-        # @todo: check whether there is already a session
-        confirmpad = getDeviceSetting("confirm-save", self.state)
-        if (confirmpad is not None):
-            [no, yes] = confirmers(confirmpad, COLS)
-            # print(f"Check whether pad is one of no or yes")
-            if no == pad:
-                # print(f"If no -> unset confirm-save")
-                self.dispatch(deviceAction("confirm-save", None))
-            if yes == pad:
-                # print(f"If yes -> save, and unset confirm-save")
-                self.dispatch(deviceAction("confirm-save", None))
-                self.save_session(confirmpad)
-            return
-        sessions = getDeviceSetting("sessions", self.state) or []
-        for session in sessions:
-            if session[:-7] == "{:02}".format(pad):
-                # print(f"Need to confirm {pad}")
-                self.dispatch(deviceAction("confirm-save", pad))
-                return
-
-        self.save_session(pad)
-
-    def save_session(self, pad):
-        # Create the filepath
-        file_path = f"{self.SL_SESSION_PATH}{str(pad).zfill(2)}.slsess"
-
-        self.dispatch(deviceAction("sessions-last", pad))
-        # Send the session load request
-        self.just_send("/save_session", file_path, self.osc_server_url, "/error", 1)
-
-        # Use time.sleep to mimic setTimeout
-        time.sleep(1)  # Wait for 1 second
-        self.get_sessions()
-
-    def handle_selected_loop_levels(self, numpad, row):
-        tracks = self.state.get("tracks", [])
-        value = (ROWS - row) / ROWS
-        trackno = getGlob("selected_loop_num", self.state)
-        isglob = trackno == -1
-
-        if isglob and (numpad < 2 or numpad > 4):
-            return
-
-        levelTrack = self.state["glob"] if isglob else tracks[trackno]
-        if levelTrack is None:
-            return
-
-        ctrl = TRACK_LEVELS[numpad]
-        storedValue = levelTrack.get(ctrl, 0)
-
-        if ctrl == "pitch_shift":
-            value = [12, None, 0, NotImplemented, -12][row]
-            if row == 1:
-                value = storedValue + 1
-            if row == 3:
-                value = storedValue - 1
-            self.dispatch(trackAction(trackno, ctrl, value))
-            self.just_send(f"/sl/{trackno}/set", ("s", ctrl), ("f", value))
-            return
-
-        if round(storedValue * ROWS) == round(value * ROWS):
-            value -= 1 / 10
-
-        if round(storedValue * 100) == 10 and row == ROWS - 1:
-            value = 0
-
-        if isglob:
-            self.dispatch(globAction(ctrl, value))
-            self.just_send("/set", ("s", ctrl), ("f", value))
-        else:
-            self.dispatch(trackAction(trackno, ctrl, value))
-            self.just_send(f"/sl/{trackno}/set", ("s", ctrl), ("f", value))
-
-    def compute_value_within_axis(self, numpad, storedValue):
-        value = (numpad + 1) / COLS
-        if storedValue == value:
-            value -= 1 / (COLS * 2)
-
-        if storedValue == 1 / (COLS * 2) and numpad == 0:
-            value = 0
-
-        return value
-
-    def handle_all_wet(self, numpad, track, tracks):
-        stateTrack = tracks.get(track)
-        if not stateTrack:
-            return
-
-        storedValue = stateTrack.get("wet")
-
-        if storedValue is None:
-            return
-
-        value = self.compute_value_within_axis(numpad, storedValue)
-
-        self.dispatch(trackAction(track, "wet", value))
-        self.just_send(f"/sl/{track}/set", ("s", "wet"), ("f", value))
-
-    def handle_glob_wet(self, numpad):
-        setting = "wet"
-        storedValue = getGlob(setting, self.state)
-
-        value = self.compute_value_within_axis(numpad, storedValue)
-
-        self.dispatch(globAction(setting, value))
-        self.just_send("/set", ("s", "wet"), ("f", value))
-
-    def handle_loop_operations(self, numpad):
-        if numpad <= 3:
-            self.just_send(
-                "/loop_add",
-                ("i", (numpad + 1) % 4),  # mono - 4 channels, repeating
-                ("f", 40),
-            )
-            return
-
-        elif numpad >= 4:
-            self.just_send(
-                "/loop_del",
-                ("i", -1),  # Last loop -- the only supported one
-            )
-            return
-
-    def handle_rec_or_overdub(self, track, stateTrack, evtype):
-        sus = "down" if evtype == EV_NOTE_ON else "up"
-        if track == -1:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "record_or_overdub"))
-            return
-        if stateTrack is None:
-            return
-        state = stateTrack.get("state", SL_STATE_UNKNOWN)
-        if (
-            state < SL_STATE_RECORDING
-            or (not self.alt and state == SL_STATE_RECORDING)
-            or (self.alt and state != SL_STATE_RECORDING)
-        ):
-            self.just_send(f"/sl/{track}/{sus}", ("s", "record"))
-        else:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "overdub"))
-
-    def handle_loop_actions(self, numpad, track, evtype):
-        sus = "down" if evtype == EV_NOTE_ON else "up"
-        if numpad == 1:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "multiply"))
-            return
-
-        if numpad == 2:
-            if self.undoing:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "undo"))
-            elif self.alt:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "reverse"))
-            else:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "insert"))
-            return
-
-        if numpad == 3:
-            if self.redoing:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "redo"))
-            elif self.alt:
-                if evtype == EV_NOTE_ON:
-                    self.just_send(
-                        f"/sl/{track}/set",
-                        ("s", "delay_trigger"),
-                        ("f", random.random()),
-                    )
-                else:
-                    pass
-            else:
-                self.just_send(f"/sl/{track}/{sus}", ("s", "replace"))
-            return
-        
-        if numpad == 4:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "substitute"))
-            return
-
-        if numpad == 5:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "oneshot"))
-
-        if numpad == 6:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "trigger"))
-
-        if numpad == 7:
-            self.just_send(f"/sl/{track}/{sus}", ("s", "pause"))
 
     def request_feedback(self, address, path, *args):
         self.osc_server.send(self.osc_target, address, *args, self.osc_server_url, path)
@@ -1919,10 +1633,150 @@ class SubModeDefault(ModeHandlerBase):
     ):
         super().__init__(state_manager)
         self.parent = parent
+        # NOTE: we're still using parent's toggles for this
+        self.dosolo = False
+        self.domute = False
+        self.undoing = False
+        self.redoing = False
+        self.alt = False
 
     def set_active(self, active):
         super().set_active(active)
 
+    def handle_loop_operations(self, numpad):
+        if numpad <= 3:
+            self.parent.just_send(
+                "/loop_add",
+                ("i", (numpad + 1) % 4),  # mono - 4 channels, repeating
+                ("f", 40),
+            )
+            return
+
+        elif numpad >= 4:
+            self.parent.just_send(
+                "/loop_del",
+                ("i", -1),  # Last loop -- the only supported one
+            )
+            return
+
+    def on_button(self, button, evtype, shifted):
+        if button == BUTTONS.BTN_UNDO:
+            self.undoing = evtype == EV_NOTE_ON
+            return True
+
+        if button == BUTTONS.BTN_REDO:
+            self.redoing = evtype == EV_NOTE_ON
+            return True
+        
+        if button == BUTTONS.BTN_TRACK_1:
+            if shifted:
+                return False
+            self.alt = evtype == EV_NOTE_ON
+            return True
+
+        if button == BUTTONS.BTN_SOFT_KEY_SOLO:
+            self.dosolo = evtype == EV_NOTE_ON
+            return True
+
+        if button == BUTTONS.BTN_SOFT_KEY_MUTE:
+            self.domute = evtype == EV_NOTE_ON
+            return True
+        
+
+        if button == BUTTONS.BTN_UNDO:
+            self.undoing = evtype == EV_NOTE_ON
+            return True
+
+        if button == BUTTONS.BTN_REDO:
+            self.redoing = evtype == EV_NOTE_ON
+            return True
+
+        pass
+        
+
+    def on_pad(self, args: EventArgs):
+        track = args.track
+        evtype = args.evtype
+        numpad = args.numpad
+        stateTrack = args.stateTrack
+        if evtype == EV_NOTE_ON:
+            if track >= self.parent.loopcount:
+                return self.handle_loop_operations(numpad)
+            if self.dosolo:
+                return self.parent.just_send(f"/sl/{track}/hit", ("s", "solo"))
+            if self.domute:
+                return self.parent.just_send(f"/sl/{track}/hit", ("s", "mute"))
+            if self.undoing and numpad <= 1:
+                return self.parent.just_send(f"/sl/{track}/hit", ("s", "undo_all"))
+            if self.redoing and numpad >= 4:
+                return self.parent.just_send(f"/sl/{track}/hit", ("s", "redo_all"))
+        if not self.undoing or self.redoing:
+            if numpad == 0:
+                return self.handle_rec_or_overdub(track, stateTrack, evtype)
+        if numpad < 8:
+            return self.handle_loop_actions(numpad, track, evtype)
+        pass
+        
+    def handle_rec_or_overdub(self, track, stateTrack, evtype):
+        sus = "down" if evtype == EV_NOTE_ON else "up"
+        if track == -1:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "record_or_overdub"))
+            return
+        if stateTrack is None:
+            return
+        state = stateTrack.get("state", SL_STATE_UNKNOWN)
+        if (
+            state < SL_STATE_RECORDING
+            or (not self.alt and state == SL_STATE_RECORDING)
+            or (self.alt and state != SL_STATE_RECORDING)
+        ):
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "record"))
+        else:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "overdub"))
+
+    def handle_loop_actions(self, numpad, track, evtype):
+        sus = "down" if evtype == EV_NOTE_ON else "up"
+        if numpad == 1:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "multiply"))
+            return
+
+        if numpad == 2:
+            if self.undoing:
+                self.parent.just_send(f"/sl/{track}/{sus}", ("s", "undo"))
+            elif self.alt:
+                self.parent.just_send(f"/sl/{track}/{sus}", ("s", "reverse"))
+            else:
+                self.parent.just_send(f"/sl/{track}/{sus}", ("s", "insert"))
+            return
+
+        if numpad == 3:
+            if self.redoing:
+                self.parent.just_send(f"/sl/{track}/{sus}", ("s", "redo"))
+            elif self.alt:
+                if evtype == EV_NOTE_ON:
+                    self.parent.just_send(
+                        f"/sl/{track}/set",
+                        ("s", "delay_trigger"),
+                        ("f", random.random()),
+                    )
+                else:
+                    pass
+            else:
+                self.parent.just_send(f"/sl/{track}/{sus}", ("s", "replace"))
+            return
+
+        if numpad == 4:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "substitute"))
+            return
+
+        if numpad == 5:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "oneshot"))
+
+        if numpad == 6:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "trigger"))
+
+        if numpad == 7:
+            self.parent.just_send(f"/sl/{track}/{sus}", ("s", "pause"))            
 
 class SubModeLevels1(ModeHandlerBase):
     """Submode for handling levels for loops in view"""
@@ -1938,6 +1792,47 @@ class SubModeLevels1(ModeHandlerBase):
     def set_active(self, active):
         super().set_active(active)
 
+    def on_pad(self, args: EventArgs):
+        if args.evtype == EV_NOTE_OFF:
+            return
+        if args.pad < ((ROWS - 1) * COLS):
+            return self.handle_all_wet(args)
+        else:
+            return self.handle_glob_wet(args.numpad)
+
+    def compute_value_within_axis(self, numpad, storedValue):
+        value = (numpad + 1) / COLS
+        if storedValue == value:
+            value -= 1 / (COLS * 2)
+
+        if storedValue == 1 / (COLS * 2) and numpad == 0:
+            value = 0
+
+        return value
+
+    def handle_all_wet(self, args: EventArgs):
+        stateTrack = args.stateTrack
+        if not stateTrack:
+            return
+
+        storedValue = stateTrack.get("wet")
+
+        if storedValue is None:
+            return
+
+        value = self.compute_value_within_axis(args.numpad, storedValue)
+        tracl = args.track
+        self.parent.dispatch(trackAction(args.track, "wet", value))
+        self.parent.just_send(f"/sl/{args.track}/set", ("s", "wet"), ("f", value))
+
+    def handle_glob_wet(self, numpad):
+        setting = "wet"
+        storedValue = getGlob(setting, self.parent.state)
+
+        value = self.compute_value_within_axis(numpad, storedValue)
+
+        self.parent.dispatch(globAction(setting, value))
+        self.parent.just_send("/set", ("s", "wet"), ("f", value))
 
 class SubModeLevels2(ModeHandlerBase):
     """Submode for handling levels for selected loop"""
@@ -1957,6 +1852,49 @@ class SubModeLevels2(ModeHandlerBase):
         else:
             self.parent.unregister_selected(["in_peak_meter"])
 
+    def on_pad(self, args: EventArgs):
+        if (args.evtype == EV_NOTE_OFF):
+            return
+        return self.handle_selected_loop_levels(args.numpad, args.row, args.tracks)
+            
+    def handle_selected_loop_levels(self, numpad, row, tracks):
+        value = (ROWS - row) / ROWS
+        trackno = getGlob("selected_loop_num", self.parent.state)
+        isglob = trackno == -1
+
+        if isglob and (numpad < 2 or numpad > 4):
+            return
+
+        levelTrack = self.parent.state["glob"] if isglob else tracks[trackno]
+        if levelTrack is None:
+            return
+
+        ctrl = TRACK_LEVELS[numpad]
+        storedValue = levelTrack.get(ctrl, 0)
+
+        if ctrl == "pitch_shift":
+            value = [12, None, 0, NotImplemented, -12][row]
+            if row == 1:
+                value = storedValue + 1
+            if row == 3:
+                value = storedValue - 1
+            self.parent.dispatch(trackAction(trackno, ctrl, value))
+            self.parent.just_send(f"/sl/{trackno}/set", ("s", ctrl), ("f", value))
+            return
+
+        if round(storedValue * ROWS) == round(value * ROWS):
+            value -= 1 / 10
+
+        if round(storedValue * 100) == 10 and row == ROWS - 1:
+            value = 0
+
+        if isglob:
+            self.parent.dispatch(globAction(ctrl, value))
+            self.parent.just_send("/set", ("s", ctrl), ("f", value))
+        else:
+            self.parent.dispatch(trackAction(trackno, ctrl, value))
+            self.parent.just_send(f"/sl/{trackno}/set", ("s", ctrl), ("f", value))
+    
 
 class SubModePan(ModeHandlerBase):
     """Submode for handling pan for loops in view"""
@@ -1972,6 +1910,25 @@ class SubModePan(ModeHandlerBase):
     def set_active(self, active):
         super().set_active(active)
 
+    def on_pad(self, args: EventArgs):
+        return
+
+class SubModeGroups(ModeHandlerBase):
+    """Submode to handle groups of loops"""
+
+    MODENAME = "groups"
+
+    def __init__(
+        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+    ):
+        super().__init__(state_manager)
+        self.parent = parent
+
+    def set_active(self, active):
+        super().set_active(active)
+
+    def on_pad(self, common_args: EventArgs):
+        return
 
 class SubModeSync(ModeHandlerBase):
     """Submode for setting sync/quantize settings for loops in view"""
@@ -1987,6 +1944,73 @@ class SubModeSync(ModeHandlerBase):
     def set_active(self, active):
         super().set_active(active)
         self.parent.dispatch(deviceAction("showsource", None))
+
+    def on_pad(self, args: EventArgs):
+        # @todo: numpad 6 and row 2 and 3 would be better to get multiples of 8
+        row = args.row
+        numpad = args.numpad
+        pad = args.pad
+        evtype = args.evtype
+        if (row == 1 or row == 2) and numpad == 6:
+            show8ths = evtype == EV_NOTE_ON
+            self.parent.dispatch(deviceAction("show8ths", show8ths))
+            if show8ths:
+                setting = "eighth_per_cycle"
+                oldvalue = getGlob(setting, self.parent.state) or 16
+                value = max(2, oldvalue - 1) if row == 2 else oldvalue + 1
+                self.parent.just_send("/set", ("s", setting), ("f", value))
+                self.parent.dispatch(globAction(setting, value))
+            return
+
+        # Set 8ths directly
+        if getDeviceSetting("show8ths", self.parent.state):
+            setting = "eighth_per_cycle"
+            value = pad + 1
+            self.parent.just_send("/set", ("s", setting), ("f", value))
+            self.parent.dispatch(globAction(setting, value))
+            return
+        track = args.track
+        stateTrack = args.stateTrack
+        tracks = args.tracks
+        return self.handle_syncs(numpad, track, stateTrack, tracks, evtype)
+
+    def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks, evtype):
+        if evtype == EV_NOTE_OFF:
+            if track == -1 and numpad == 6:
+                self.parent.dispatch(deviceAction('showsource', None))
+            return
+        if numpad < 6:
+            if stateTrack is None:
+                return
+            setting = SETTINGS[numpad]
+            self.parent.just_send(
+                f"/sl/{track}/set",
+                setting,
+                int(not stateTrack.get(setting, False)),  # Convert boolean to int
+            )
+
+        if track == -1 and numpad == 7:
+            # NOTE: it seems just loop 1's setting is used for all
+            quant = int(tracks[0].get("quantize", -1))  # Default to -1 if not found
+            if quant is None:  # Check for NaN equivalent
+                quant = -1
+            self.parent.just_send(f"/sl/{track}/set", "quantize", (quant + 1) % 4)
+
+        if track == -1 and numpad == 6:
+            # -3 = internal, -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
+            setting = "sync_source"
+            oldvalue = self.parent.state.get("glob", {}).get(
+                setting, -3
+            )  # Default to -3 if not found
+            if oldvalue is None:  # Check for NaN equivalent
+                oldvalue = -4
+
+            value = cycle(
+                -3, self.parent.loopcount, oldvalue
+            )  # Assuming cycle is defined elsewhere
+            self.parent.just_send("/set", setting, value)
+            self.parent.dispatch(batchAction([globAction(setting, value), deviceAction('showsource', True)]))
+        return
 
 class SubModeSessionsSave(ModeHandlerBase):
     """Submode for saving sessions"""
@@ -2006,6 +2030,43 @@ class SubModeSessionsSave(ModeHandlerBase):
         else:
             self.parent.dispatch(deviceAction("confirm-save", None))
 
+    def on_pad(self, args: EventArgs):
+        if args.evtype == EV_NOTE_OFF:
+            return
+        pad = args.pad;
+        # @todo: check whether there is already a session
+        confirmpad = getDeviceSetting("confirm-save", self.parent.state)
+        if (confirmpad is not None):
+            [no, yes] = confirmers(confirmpad, COLS)
+            # print(f"Check whether pad is one of no or yes")
+            if no == pad:
+                # print(f"If no -> unset confirm-save")
+                self.parent.dispatch(deviceAction("confirm-save", None))
+            if yes == pad:
+                # print(f"If yes -> save, and unset confirm-save")
+                self.parent.dispatch(deviceAction("confirm-save", None))
+                self.save_session(confirmpad)
+            return
+        sessions = getDeviceSetting("sessions", self.parent.state) or []
+        for session in sessions:
+            if session[:-7] == "{:02}".format(pad):
+                # print(f"Need to confirm {pad}")
+                self.parent.dispatch(deviceAction("confirm-save", pad))
+                return
+
+        self.save_session(pad)
+
+    def save_session(self, pad):
+        # Create the filepath
+        file_path = f"{self.parent.SL_SESSION_PATH}{str(pad).zfill(2)}.slsess"
+
+        self.parent.dispatch(deviceAction("sessions-last", pad))
+        # Send the session load request
+        self.parent.just_send("/save_session", file_path, self.parent.osc_server_url, "/error", 1)
+
+        # Use time.sleep to mimic setTimeout
+        time.sleep(1)  # Wait for 1 second
+        self.parent.get_sessions()
 
 class SubModeSessionsLoad(ModeHandlerBase):
     """Submode for loading sessions"""
@@ -2020,3 +2081,22 @@ class SubModeSessionsLoad(ModeHandlerBase):
 
     def set_active(self, active):
         super().set_active(active)
+
+    def on_pad(self, args: EventArgs):
+        if (args.evtype == EV_NOTE_OFF):
+            return
+        return self.load_session(args.pad)
+
+    def load_session(self, pad):
+        # Create the URI
+        file_path = f"{self.parent.SL_SESSION_PATH}{str(pad).zfill(2)}.slsess"
+
+        self.parent.dispatch(deviceAction("sessions-last", pad))
+        # Send the session load request
+        self.parent.just_send("/load_session", file_path, self.parent.osc_server_url, "/error")
+
+        # Use time.sleep to mimic setTimeout
+        time.sleep(1)  # Wait for 1 second
+        self.parent.request_feedback("/ping", "/pong")
+        
+
