@@ -495,7 +495,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
             theTrack = (
                 state.get("glob")
                 if tracknum == -1
-                else state.get("tracks", {}).get(tracknum, {})
+                else path(["tracks", tracknum], state) or {}
             )
             # level = theTrack[key]
 
@@ -1302,7 +1302,7 @@ class LooperHandler(
                 return
         loopoffset = getLoopoffset(self.state)
         track = -1 if row == 0 else shiftedTrack(row, loopoffset)
-        tracks = self.state["tracks"]
+        tracks = self.state.get("tracks", [])
         # Let loop 0 be the source of truth for all (sync/quant; rec_or_overdub is special-cased on loop -1 anyway)
         stateTrack = (
             path(["tracks", 0], self.state)
@@ -1534,7 +1534,7 @@ class LooperHandler(
         self.get_sessions()
 
     def handle_selected_loop_levels(self, numpad, row):
-        tracks = self.state.get("tracks")
+        tracks = self.state.get("tracks", [])
         value = (ROWS - row) / ROWS
         trackno = getGlob("selected_loop_num", self.state)
         isglob = trackno == -1
