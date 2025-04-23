@@ -1797,8 +1797,9 @@ class LooperHandler(
                 sendable.extend(pad)
 
         # logging.debug(pads, len(pads))
-        msg = bytes(sendable)
-        lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
+        if (len(sendable) > 0):
+            msg = bytes(sendable)
+            lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
         # NOW RENDER
 
     def dispatch(self, action):
