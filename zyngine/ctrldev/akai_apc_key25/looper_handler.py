@@ -1333,6 +1333,7 @@ class LooperHandler(
                 return self.just_send(f"/sl/{track}/hit", ("s", "undo_all"))
             if self.redoing and numpad >= 4:
                 return self.just_send(f"/sl/{track}/hit", ("s", "redo_all"))
+        # @todo: seems this also runs in other modes than the default (for NOTE_OFFs)
         if not self.undoing or self.redoing:
             if numpad == 0:
                 return self.handle_rec_or_overdub(track, stateTrack, evtype)
