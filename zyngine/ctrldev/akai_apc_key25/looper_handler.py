@@ -882,7 +882,8 @@ def createAllPads(state):
     # logging.debug(f"matrix{matrix}")
     pads = matrix + overlay(soft_keys, ctrl_keys)
     if len(pads):
-        if getDeviceSetting("shifted", state):
+        # Don't show it because we wanna track the crazy pan behaviour
+        if submode != LooperHandler.MODE_PAN and getDeviceSetting("shifted", state):
             firstLoop = 2 - loopoffset
             if firstLoop > 9 and firstLoop < 100:
                 return overlay(
