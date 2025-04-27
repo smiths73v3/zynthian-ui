@@ -809,7 +809,9 @@ def createAllPads(state):
             return [
                 0x90,
                 btn,
-                1 if submode == LooperHandler.MODE_PAN else 0,
+                1 if submode == LooperHandler.MODE_PAN
+                else 2 if submode == LooperHandler.MODE_GROUPS
+                else 0,
             ]  # @check Used to have to convert this to num
         if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
             return [0x90, btn, 1 if set_syncs else 0]
