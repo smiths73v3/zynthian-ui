@@ -211,8 +211,8 @@ class zynthian_engine_jalv(zynthian_engine):
                 if not self.plugin_name.endswith("v1"):
                     self.command_env['DISPLAY'] = "X"
 
-            # Use jalv_asyncli (development version) =>
-            self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
+            # Use jalv's development version =>
+            #self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
 
             self.command_prompt = ">"
 
