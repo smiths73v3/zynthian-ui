@@ -166,7 +166,8 @@ class zynthian_chain_manager:
     # Chain Management
     # ------------------------------------------------------------------------
 
-    def add_chain(self, chain_id, midi_chan=None, midi_thru=False, audio_thru=False, mixer_chan=None, zmop_index=None, title="", chain_pos=None, fast_refresh=True):
+    def add_chain(self, chain_id, midi_chan=None, midi_thru=False, audio_thru=False, mixer_chan=None, zmop_index=None,
+                  title="", chain_pos=None, fast_refresh=True):
         """Add a chain
 
         chain_id: UID of chain (None to get next available)
@@ -233,22 +234,17 @@ class zynthian_chain_manager:
             # Enable all MIDI input devices by default => TODO: Should we allow user to define default routing?
             for zmip in range(MAX_NUM_MIDI_DEVS):
                 try:
-                    unroute = zmip in self.state_manager.ctrldev_manager.drivers and self.state_manager.ctrldev_manager.drivers[
-                        zmip].unroute_from_chains
+                    unroute = zmip in self.state_manager.ctrldev_manager.drivers and self.state_manager.ctrldev_manager.drivers[zmip].unroute_from_chains
                 except Exception as e:
                     unroute = False
                     logging.warning(f"ctrldev_manager => {e}")
-                lib_zyncore.zmop_set_route_from(
-                    chain.zmop_index, zmip, not unroute)
+                lib_zyncore.zmop_set_route_from(chain.zmop_index, zmip, not unroute)
             # Enable StepSeq MIDI intput
-            lib_zyncore.zmop_set_route_from(
-                chain.zmop_index, ZMIP_STEP_INDEX, True)
+            lib_zyncore.zmop_set_route_from(chain.zmop_index, ZMIP_STEP_INDEX, True)
             # Enable SMF sequencer MIDI intput
-            lib_zyncore.zmop_set_route_from(
-                chain.zmop_index, ZMIP_SEQ_INDEX, True)
+            lib_zyncore.zmop_set_route_from(chain.zmop_index, ZMIP_SEQ_INDEX, True)
             # Enable CV/Gate MIDI intput (fake port zmip)
-            lib_zyncore.zmop_set_route_from(
-                chain.zmop_index, ZMIP_INT_INDEX, True)
+            lib_zyncore.zmop_set_route_from(chain.zmop_index, ZMIP_INT_INDEX, True)
             # Enable default native CC handling of pedals
             cc_route_ct = (ctypes.c_uint8 * 128)()
             for ccnum in (64, 66, 67, 69):
@@ -770,7 +766,8 @@ class zynthian_chain_manager:
         else:
             return 1
 
-    def add_processor(self, chain_id, eng_code, parallel=False, slot=None, proc_id=None, post_fader=False, fast_refresh=True, eng_config=None):
+    def add_processor(self, chain_id, eng_code, parallel=False, slot=None, proc_id=None, post_fader=False,
+                      fast_refresh=True, eng_config=None, midi_autolearn=True):
         """Add a processor to a chain
 
         chain : Chain ID
@@ -781,6 +778,7 @@ class zynthian_chain_manager:
         post_fader : True to move the fader position
         fast_refresh : False to trigger slow autoconnect (Default: Fast autoconnect)
         eng_config: Extended configuration for the engine (optional)
+        midi_autolearn: True to auto-learn MIDI-CC based controllers (i.e. False when creating from state)
         Returns : processor object or None on failure
         """
 
@@ -799,15 +797,12 @@ class zynthian_chain_manager:
             return None
 
         if self.state_manager.is_busy():
-            self.state_manager.start_busy(
-                "add_processor", None, f"adding {eng_code} to chain {chain_id}")
+            self.state_manager.start_busy("add_processor", None, f"adding {eng_code} to chain {chain_id}")
         else:
-            self.state_manager.start_busy(
-                "add_processor", "Adding Processor", f"adding {eng_code} to chain {chain_id}")
+            self.state_manager.start_busy("add_processor", "Adding Processor", f"adding {eng_code} to chain {chain_id}")
 
         logging.debug(f"Adding processor '{eng_code}' with ID '{proc_id}'")
-        processor = zynthian_processor(
-            eng_code, self.engine_info[eng_code], proc_id)
+        processor = zynthian_processor(eng_code, self.engine_info[eng_code], proc_id, midi_autolearn)
         chain = self.chains[chain_id]
         # Add proc early to allow engines to add more as required, e.g. Aeolus
         self.processors[proc_id] = processor
@@ -1175,8 +1170,8 @@ class zynthian_chain_manager:
                             mode = CHAIN_MODE_PARALLEL
                         else:
                             mode = CHAIN_MODE_SERIES
-                        self.add_processor(chain_id, eng_code, mode, proc_id=int(
-                            proc_id), fast_refresh=False, eng_config=eng_config)
+                        self.add_processor(chain_id, eng_code, mode, proc_id=int(proc_id),
+                                           fast_refresh=False, eng_config=eng_config, midi_autolearn=False)
             if "fader_pos" in chain_state and self.get_slot_count(chain_id, "Audio Effect") >= chain_state["fader_pos"]:
                 self.chains[chain_id].fader_pos = chain_state["fader_pos"]
             else:
