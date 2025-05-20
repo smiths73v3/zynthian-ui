@@ -1912,7 +1912,7 @@ class zynthian_state_manager:
                                 chan_cc = int(chan_cc)
                                 chan = (chan_cc >> 8) & 0x7f
                                 cc = chan_cc & 0x7f
-                                self.chain_manager.add_midi_learn(chan, cc, processor.controllers_dict[symbol], zmip)
+                                self.chain_manager.add_midi_learn(chan, cc, processor.controllers_dict[symbol], izmip)
 
             self.ctrldev_manager.set_state_drivers(ctrldev_state_drivers)
 
