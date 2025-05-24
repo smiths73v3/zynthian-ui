@@ -286,6 +286,12 @@ CHARS = {
 matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_BRIGHT_10}
 matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
 
+def toggle_value(value, lst):
+    if value in lst:
+        lst.remove(value)  # Remove the value if it's already in the list
+    else:
+        lst.append(value) 
+    return lst
 
 # Some 'functional' code (well, not really)
 def path(keys, obj):
@@ -710,9 +716,9 @@ def get_soft_keys(loopoffset, storeState):
             [
                 0x90,
                 0x52 + y,
-                0x02
+                COLORS.SOFT_BLINK
                 if tracknum == selected_loop_num and doLevelsOfSelectedMode(storeState)
-                else (0x01 if tracknum == selected_loop_num else 0),
+                else (COLORS.SOFT_ON if tracknum == selected_loop_num else COLORS.SOFT_OFF),
             ]
         )
 
@@ -742,6 +748,8 @@ def globAction(setting, value):
 def deviceAction(setting, value):
     return {"type": "device", "setting": setting, "value": value}
 
+def assocAction(setting, value):
+    return {"type": "assoc", "setting": setting, "value": value}
 
 def batchAction(actions):
     return {"type": "batch", "value": actions}
@@ -760,6 +768,8 @@ def trackAction(track, ctrl, value):
 def getDeviceSetting(setting, state):
     return path(["device", setting], state)
 
+def getAny(setting, state):
+    return path(setting, state)
 
 def getGlob(setting, state):
     return path(["glob", setting], state)
@@ -867,7 +877,7 @@ def createAllPads(state):
             [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
-        if submode == LooperHandler.MODE_DEFAULT
+        if submode in [LooperHandler.MODE_DEFAULT, LooperHandler.MODE_GROUPS]
         else []
     )
     toprow = list(chain.from_iterable(toprow))
@@ -895,6 +905,30 @@ def createAllPads(state):
                 return overlay(make_loopnum_overlay(firstLoop, 5), pads)
         elif getDeviceSetting("showsource", state):
             return overlay(make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 1), pads)
+        elif getDeviceSetting("group-selecting", state):
+            groupnum = getDeviceSetting("group-selected", state)
+            loops = getAny(["device", "groups", groupnum, "loops"], state) or []
+            for i in range(len(pads) - 2, 0, -3):
+                pad = pads[i]
+                if pad == BUTTONS.BTN_SOFT_KEY_SELECT:
+                    pads[i-1] = 0x90
+                    pads[i+1] = COLORS.SOFT_BLINK
+                elif pad < 32:
+                    row = padRow(pad)
+                    loopoffset = getLoopoffset(state)
+                    loopnum = -1 if row == 0 else shiftedTrack(row, loopoffset)
+                    pads[i-1] = BRIGHTS.LED_BRIGHT_100 if loopnum in loops else BRIGHTS.LED_BRIGHT_10
+                elif pad < (32 + 5):
+                    pads[i-1] = BRIGHTS.LED_PULSING_8 if groupnum == (pad % COLS) else BRIGHTS.LED_BRIGHT_50
+                    # pads[i+1] = SL_STATES[TRACK_COMMANDS[pad % COLS]]["color"]
+            return pads        
+
+        elif submode == LooperHandler.MODE_GROUPS:
+            for i in range(len(pads) - 2, 0, -3):
+                pad = pads[i]
+                if (pad > 31) and (pad < 37):
+                    pads[i-1] = BRIGHTS.LED_BLINKING_4 if getDeviceSetting('group-solo', state) == pad % COLS else BRIGHTS.LED_BRIGHT_100
+            return pads
         else:
             return overlay(eighths, pads)
 
@@ -916,7 +950,7 @@ class ButtonAutoLatch:
         self._hits = {}
 
     def performance_now(self):
-        # Implement a method to return the current time in milliseconds
+        # Implement a method  to return the current time in milliseconds
         import time
 
         return time.time() * 1000
@@ -1488,6 +1522,8 @@ class LooperHandler(
             return assoc_path(state, ["tracks", action["value"]], {})
         elif action["type"] == "device":
             return assoc_path(state, ["device", action["setting"]], action["value"])
+        elif action["type"] == "assoc":
+            return assoc_path(state, action["setting"], action["value"])
         elif action["type"] == "offsetUp":
             max_offset = 1  # ==> -1, which is all!
             cur_offset = getLoopoffset(state)
@@ -1632,7 +1668,7 @@ class SubModeDefault(ModeHandlerBase):
     MODENAME = "default"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1787,7 +1823,7 @@ class SubModeLevels1(ModeHandlerBase):
     MODENAME = "levels1"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1843,7 +1879,7 @@ class SubModeLevels2(ModeHandlerBase):
     MODENAME = "levels2"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1905,7 +1941,7 @@ class SubModePan(ModeHandlerBase):
     MODENAME = "pan"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1922,15 +1958,91 @@ class SubModeGroups(ModeHandlerBase):
     MODENAME = "groups"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
 
+    @property
+    def activegroupnum(self):
+        return getDeviceSetting("group-selected", self.parent.state)
+
+    @property
+    def isselecting(self):
+        return getDeviceSetting("group-selecting", self.parent.state)
+    
+    @property
+    def activegroup(self):
+        return self.getgroup(self.activegroupnum)
+
+    @property
+    def sologroup(self):
+        return getDeviceSetting("group-solo", self.parent.state)
+
+    def getgroup(self, group: int):        
+        return path([group], getDeviceSetting("groups", self.parent.state)) or {"num": group, "loops": []}
+    
+    def setselecting(self, mode):
+        self.parent.dispatch(deviceAction("group-selecting", mode))
+
+    def setactivegroup(self, group):
+        self.parent.dispatch(deviceAction("group-selected", group))
+
+    
     def set_active(self, active):
         super().set_active(active)
+        if not active:
+            self.setselecting(False)
+        else:
+            self.setactivegroup(0)
+
+    def toggle_into_active_group(self, row):
+        group = self.activegroup
+        num = group.get('num')
+        loops = group.get('loops')
+        loopoffset = getLoopoffset(self.parent.state)
+        loopnum = row - (loopoffset - 1) - 1
+        loops = toggle_value(loopnum, loops)
+        self.parent.dispatch( assocAction(["device", "groups", num],  { "num" : num, "loops": loops, "soloed":  group.get('soloed', None)}))
+
+    def toggle_group(self, num):
+        group = self.getgroup(num)
+        loops = group.get('loops', [])
+        if len(loops) == 0:
+            return
+        soloed = self.sologroup == num
+        tracks = path(["tracks"], self.parent.state)
+        if soloed:
+            for i in loops:
+                self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
+            self.parent.dispatch( deviceAction("group-solo", None))
+        else:
+#            self.parent.just_send(f"/sl/-1/hit", ("s", "mute_on"))
+            for i in range(0, len(tracks)):
+                if tracks[i] is not None:
+                    if i in loops:
+                        self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
+                    else:
+                        self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
+            self.parent.dispatch( deviceAction("group-solo", num))
+
+    def on_button(self, button, evtype, shifted):
+        if evtype == EV_NOTE_ON:
+            if button == BUTTONS.BTN_SOFT_KEY_SELECT:
+                self.setselecting(not self.isselecting)
+                return True
 
     def on_pad(self, common_args: EventArgs):
+        if common_args.evtype == EV_NOTE_ON:
+            if common_args.row == 0:
+                if common_args.numpad < 5:
+                    if self.isselecting:
+                        self.setactivegroup(common_args.numpad)
+                        return True
+                    else:
+                        self.toggle_group(common_args.numpad)
+            if self.isselecting:
+                self.toggle_into_active_group(common_args.row)
         return
 
 class SubModeSync(ModeHandlerBase):
@@ -2021,7 +2133,7 @@ class SubModeSessionsSave(ModeHandlerBase):
     MODENAME = "sessionsave"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -2077,7 +2189,7 @@ class SubModeSessionsLoad(ModeHandlerBase):
     MODENAME = "sessionload"
 
     def __init__(
-        self, parent, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
