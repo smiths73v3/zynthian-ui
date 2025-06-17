@@ -23,17 +23,16 @@
 # ******************************************************************************
 
 import os
+import liblo
 import shutil
 import logging
 import oyaml as yaml
 from time import sleep
 from os.path import isfile, join
-from subprocess import check_output, STDOUT
 
 import zynautoconnect
 from . import zynthian_engine
 from . import zynthian_controller
-from zyncoder.zyncore import lib_zyncore
 
 # ------------------------------------------------------------------------------
 # Puredata Engine Class
@@ -112,14 +111,37 @@ class zynthian_engine_puredata(zynthian_engine):
         self.zctrl_config = None
 
         if self.config_remote_display():
-            self.base_command = f"pd -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1 -open \"{self.startup_patch}\""
+            self.base_command = f"pd -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1"
         else:
-            self.base_command = f"pd -nogui -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1 -open \"{self.startup_patch}\""
+            self.base_command = f"pd -nogui -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1"
 
         self.reset()
 
     def get_jackname(self):
         return self.jackname_midi
+
+    # ---------------------------------------------------------------------------
+    # OSC Management
+    # ---------------------------------------------------------------------------
+
+    def osc_init(self):
+        # Initialize OSC client.
+        try:
+            self.osc_target = liblo.Address("localhost", self.osc_target_port, self.osc_proto)
+            logging.info("OSC target in port {}".format(self.osc_target_port))
+        except liblo.AddressError as err:
+            self.osc_target = None
+            logging.error(f"OSC client initialization error: {err}")
+
+        # Start OSC server
+        try:
+            self.osc_server = liblo.ServerThread(self.osc_server_port)
+            #self.setup_osc_handlers()
+            self.osc_server.start()
+            logging.info("OSC server running in port {}".format(self.osc_server_port))
+        except Exception as err:
+            self.osc_server = None
+            logging.error(f"OSC Server can't be started ({err}). Running without OSC feedback.")
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -167,23 +189,29 @@ class zynthian_engine_puredata(zynthian_engine):
         else:
             # Don't use custom widget for other pd patches
             self.custom_gui_fpath = None
-    
-        self.command = self.base_command + " " + self.get_preset_filepath(preset)
-        self.preset = preset[0]
-        self.stop()
-        amidi_ports = self.get_amidi_clients()
-        self.start()
-        for symbol in processor.controllers_dict:
-            self.state_manager.chain_manager.remove_midi_learn(processor, symbol)
-        processor.refresh_controllers()
-        sleep(2.0)
-        amidi_ports = list(set(self.get_amidi_clients()) - set(amidi_ports))
-        if len(amidi_ports) > 0:
-            self.jackname_midi = f"Pure Data \\[{amidi_ports[0]}\\]"
-            logging.debug(f"MIDI jackname => \"{self.jackname_midi}\"")
-        else:
-            self.jackname_midi = f"Pure Data"
-            logging.error(f"Can't get MIDI jackname!")
+
+        try:
+            self.osc_target_port = 3000 + 10 * processor.id
+            self.osc_server_port = 3000 + 10 * processor.id + 1
+            self.command = self.base_command + f" -send \";osc_receive_port {self.osc_target_port}; osc_send_port {self.osc_server_port}\""
+            self.command += f" -open \"{self.startup_patch}\" \"{self.get_preset_filepath(preset)}\""
+            self.preset = preset[0]
+            self.stop()
+            amidi_ports = self.get_amidi_clients()
+            self.start()
+            for symbol in processor.controllers_dict:
+                self.state_manager.chain_manager.remove_midi_learn(processor, symbol)
+            processor.refresh_controllers()
+            sleep(2.0)
+            amidi_ports = list(set(self.get_amidi_clients()) - set(amidi_ports))
+            if len(amidi_ports) > 0:
+                self.jackname_midi = f"Pure Data \\[{amidi_ports[0]}\\]"
+                logging.debug(f"MIDI jackname => \"{self.jackname_midi}\"")
+            else:
+                self.jackname_midi = f"Pure Data"
+                logging.error(f"Can't get MIDI jackname!")
+        except Exception as err:
+            logging.error(err)
 
         # Need to all autoconnect because restart of process
         try:

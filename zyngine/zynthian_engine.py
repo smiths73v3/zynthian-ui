@@ -222,23 +222,17 @@ class zynthian_engine(zynthian_basic_engine):
     def osc_init(self):
         if self.osc_server is None and self.osc_target_port:
             try:
-                self.osc_target = liblo.Address(
-                    'localhost', self.osc_target_port, self.osc_proto)
-                logging.info("OSC target in port {}".format(
-                    self.osc_target_port))
-                self.osc_server = liblo.ServerThread(
-                    None, self.osc_proto, reg_methods=False)
+                self.osc_target = liblo.Address('localhost', self.osc_target_port, self.osc_proto)
+                logging.info("OSC target in port {}".format(self.osc_target_port))
+                self.osc_server = liblo.ServerThread(None, self.osc_proto, reg_methods=False)
                 # self.osc_server = liblo.Server(None, self.osc_proto, reg_methods=False)
                 self.osc_server_port = self.osc_server.get_port()
-                self.osc_server_url = liblo.Address(
-                    'localhost', self.osc_server_port, self.osc_proto).get_url()
-                logging.info("OSC server running in port {}".format(
-                    self.osc_server_port))
+                self.osc_server_url = liblo.Address('localhost', self.osc_server_port, self.osc_proto).get_url()
+                logging.info("OSC server running in port {}".format(self.osc_server_port))
                 self.osc_add_methods()
                 self.osc_server.start()
             except liblo.AddressError as err:
-                logging.error(
-                    "OSC Server can't be started ({}). Running without OSC feedback.".format(err))
+                logging.error("OSC Server can't be started ({}). Running without OSC feedback.".format(err))
 
     def osc_end(self):
         if self.osc_server:

@@ -37,11 +37,12 @@ COLOR_BUTTON = "#B07000"
 COLOR_BUTTON_LIGHT = "#00A000"
 COLOR_KNOB = "#B07000"
 
-ORGANELLE_OSC_PORT_IN = 3000
-ORGANELLE_OSC_PORT_OUT = 3001
-
 ORGANELLE_OLED_WIDTH = 128
 ORGANELLE_OLED_HEIGHT = 64
+
+
+ORGANELLE_OSC_PORT_IN = 3000
+ORGANELLE_OSC_PORT_OUT = 3001
 
 
 class OscButton(tk.Canvas):
@@ -322,6 +323,9 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.zyngui_control = self.zyngui.screens['control']
         self.shown = False
 
+        self.osc_target = None
+        self.osc_server = None
+
         # Oled plot & update
         self.update_pending = False
         self.last_flip_time = 0
@@ -332,24 +336,13 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.line_bboxes = {}         # Cached bounding boxes for text lines
         self.pending_batch = []       # List of pending canvas operations
         self.text_items_by_position = {}  # Map text items by (x, y) position
+        self.canvas_by_proc = {}
 
         # Navigation state.
         self.current_page_index = 0
         self.in_parameter_view = False
         self.select_mode = False
         self.aux_pushed = False
-
-        # Initialize OSC client.
-        try:
-            self.osc_target = liblo.Address("localhost", ORGANELLE_OSC_PORT_OUT)
-        except liblo.AddressError as err:
-            logging.error(f"OSC client initialization error: {err}")
-            self.osc_target = None
-
-        # Start OSC server for display.
-        self.server = liblo.ServerThread(ORGANELLE_OSC_PORT_IN)
-        self.setup_osc_handlers()
-        self.server.start()
 
         # Calculate widget geometry
         layout = self.zyngui_control.layout
@@ -415,12 +408,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
         # OLED display container.
         self.display_frame = tk.Frame(self.top_container, bg=COLOR_PANEL, padx=padx, pady=pady)
         self.display_frame.pack(side="left")
-        self.canvas = tk.Canvas(self.display_frame, width=self.oled_width, height=self.oled_height,
-                                bg=zynthian_gui_config.color_bg, takefocus=0)
-        self.canvas.pack()
-        self.bg_rect = self.canvas.create_rectangle(0, 0, self.oled_width, self.oled_height, fill="", width=0)
-        self.canvas.tag_bind(self.bg_rect, "<ButtonPress-1>", self.on_canvas_touch)
-        self.canvas.bind("<ButtonPress-1>", self.on_canvas_touch, add="+")
+        self.canvas = None
 
         # Controls frame.
         self.controls_frame = tk.Frame(self, bg=COLOR_PANEL)
@@ -447,8 +435,33 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.zselector_ctrl = zynthian_controller(None, "Select", {'labels': ['<>']})
         self.zselector_gui = None
 
+    def set_processor_canvas(self):
+        if self.canvas:
+            self.canvas.forget()
+        try:
+            self.canvas = self.canvas_by_proc[self.processor.id]
+        except:
+            self.canvas = tk.Canvas(self.display_frame, width=self.oled_width, height=self.oled_height,
+                                    bg=zynthian_gui_config.color_bg, takefocus=0)
+            self.canvas_by_proc[self.processor.id] = self.canvas
+            self.bg_rect = self.canvas.create_rectangle(0, 0, self.oled_width, self.oled_height, fill="", width=0)
+            self.canvas.tag_bind(self.bg_rect, "<ButtonPress-1>", self.on_canvas_touch)
+            self.canvas.bind("<ButtonPress-1>", self.on_canvas_touch, add="+")
+        self.canvas.pack()
+
+    def set_processor(self, processor):
+        # Set widget processor
+        super().set_processor(processor)
+        self.set_processor_canvas()
+        # Configure OSC
+        self.osc_target = processor.engine.osc_target
+        self.osc_server = processor.engine.osc_server
+        self.setup_osc_handlers()
+
     def setup_osc_handlers(self):
         """Register OSC handlers for various message paths."""
+        if not self.osc_server:
+            return
         self.osc_handlers = {
             "/oled/gFlip": self.handle_gFlip,
             "/oled/gCleanln": self.handle_gCleanln,
@@ -468,8 +481,8 @@ class zynthian_widget_organelle(zynthian_widget_base):
             "/enc_sel": self.handle_enc_sel
         }
         for path, handler in self.osc_handlers.items():
-            self.server.add_method(path, None, handler)
-        self.server.add_method(None, None, self.fallback_handler)
+            self.osc_server.add_method(path, None, handler)
+        self.osc_server.add_method(None, None, self.fallback_handler)
 
     def handle_led(self, path, args):
         logging.debug(f"Received OSC LED message: {path} {args}")
