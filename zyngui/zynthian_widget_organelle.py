@@ -437,13 +437,22 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.zselector_ctrl = zynthian_controller(None, "Select", {'labels': ['<>']})
         self.zselector_gui = None
 
+    def clear_canvas(self):
+        self.canvas.delete("all")
+        self.line_items.clear()
+        self.inverted_lines.clear()
+        self.line_bboxes.clear()
+        self.text_items_by_position = {}
+
     def set_processor(self, processor):
         # Set widget processor
         super().set_processor(processor)
         # Configure OSC
-        self.osc_target = processor.engine.osc_target
-        self.osc_server = processor.engine.osc_server
-        self.setup_osc_handlers()
+        if self.osc_server != self.processor.engine.osc_server:
+            self.clear_canvas()
+            self.osc_target = self.processor.engine.osc_target
+            self.osc_server = self.processor.engine.osc_server
+            self.setup_osc_handlers()
 
     def setup_osc_handlers(self):
         """Register OSC handlers for various message paths."""
@@ -467,9 +476,11 @@ class zynthian_widget_organelle(zynthian_widget_base):
             "/enc_down": self.handle_enc_down,
             "/enc_sel": self.handle_enc_sel
         }
+        self.osc_server.del_method(None, None)
         for path, handler in self.osc_handlers.items():
             self.osc_server.add_method(path, None, handler)
-        self.osc_server.add_method(None, None, self.fallback_handler)
+        self.processor.engine.osc_add_methods()
+        #self.osc_server.add_method(None, None, self.fallback_handler)
 
     def handle_led(self, path, args):
         logging.debug(f"Received OSC LED message: {path} {args}")
@@ -555,7 +566,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
             self.schedule_update()
 
     def handle_gCleanln(self, path, args):
-        logging.debug(f"Received OSC gCleanln: {path} {args}")
+        #logging.debug(f"Received OSC gCleanln: {path} {args}")
         if len(args) < 1:
             logging.error(f"gCleanln message received with insufficient arguments: {args}")
             return
@@ -580,18 +591,10 @@ class zynthian_widget_organelle(zynthian_widget_base):
     def handle_gClear(self, path, args):
         logging.debug(f"Received OSC: {path} {args}")
         self.in_parameter_view = False
-
-        def clear_canvas():
-            self.canvas.delete("all")
-            self.line_items.clear()
-            self.inverted_lines.clear()
-            self.line_bboxes.clear()
-            self.text_items_by_position = {}
-
-        self.add_to_batch(clear_canvas)
+        self.add_to_batch(self.clear_canvas)
 
     def handle_gLine(self, path, args):
-        logging.debug(f"Received OSC: {path} {args}")
+        #logging.debug(f"Received OSC: {path} {args}")
         mode, x1, y1, x2, y2, color = args
         x1, y1 = int(x1 * self.oled_scale) + 2, int(y1 * self.oled_scale) + 6
         x2, y2 = int(x2 * self.oled_scale) + 2, int(y2 * self.oled_scale) + 6
@@ -603,7 +606,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.add_to_batch(draw_line)
 
     def handle_gSetPixel(self, path, args):
-        logging.debug(f"Received OSC: {path} {args}")
+        #logging.debug(f"Received OSC: {path} {args}")
         dummy, x, y, c = args
         x, y = int(x * self.oled_scale), int(y * self.oled_scale)
         fill_color = "white" if int(c) == 1 else "black"
@@ -614,7 +617,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.add_to_batch(draw_pixel)
 
     def handle_gBox(self, path, args):
-        logging.debug(f"Received OSC: {path} {args}")
+        #logging.debug(f"Received OSC: {path} {args}")
         if len(args) >= 6:
             mode, x, y, w, h, color = args[:6]
             woffset = self.oled_scale - 1
@@ -650,7 +653,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
             logging.error(f"gFillArea message received with insufficient arguments: {args}")
 
     def handle_gCircle(self, path, args):
-        logging.debug(f"Received OSC: {path} {args}")
+        #logging.debug(f"Received OSC: {path} {args}")
         mode, x, y, r, color = args
         woffset = self.oled_scale - 1
         x = int(x * self.oled_scale) + woffset
@@ -664,7 +667,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.add_to_batch(draw_circle)
 
     def handle_gFilledCircle(self, path, args):
-        logging.debug(f"Received OSC: {path} {args}")
+        #logging.debug(f"Received OSC: {path} {args}")
         mode, x, y, r, color = args
         woffset = self.oled_scale - 1
         x = int(x * self.oled_scale) + woffset
@@ -678,7 +681,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.add_to_batch(draw_filled_circle)
 
     def handle_gPrintln(self, path, args):
-        logging.debug(f"Received OSC gPrintln - {len(args)} args: {args}")
+        #logging.debug(f"Received OSC gPrintln - {len(args)} args: {args}")
         if len(args) < 5:
             logging.error(f"gPrintln message received with insufficient arguments: {args}")
             return
@@ -730,7 +733,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.add_to_batch(draw_text)
 
     def handle_ginvertLine(self, path, args):
-        logging.debug(f"Received OSC ginvertLine - {args}")
+        #logging.debug(f"Received OSC ginvertLine - {args}")
         if len(args) < 1:
             logging.error(f"ginvertLine message received with insufficient arguments: {args}")
             return

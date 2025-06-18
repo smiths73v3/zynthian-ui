@@ -32,6 +32,7 @@ from os.path import isfile, join
 
 import zynautoconnect
 from . import zynthian_engine
+from . import zynthian_basic_engine
 from . import zynthian_controller
 
 # ------------------------------------------------------------------------------
@@ -126,22 +127,35 @@ class zynthian_engine_puredata(zynthian_engine):
 
     def osc_init(self):
         # Initialize OSC client.
-        try:
-            self.osc_target = liblo.Address("localhost", self.osc_target_port, self.osc_proto)
-            logging.info("OSC target in port {}".format(self.osc_target_port))
-        except liblo.AddressError as err:
-            self.osc_target = None
-            logging.error(f"OSC client initialization error: {err}")
+        if not self.osc_target:
+            try:
+                self.osc_target = liblo.Address("localhost", self.osc_target_port, self.osc_proto)
+                logging.info("OSC target in port {}".format(self.osc_target_port))
+            except liblo.AddressError as err:
+                self.osc_target = None
+                logging.error(f"OSC client initialization error: {err}")
 
         # Start OSC server
-        try:
-            self.osc_server = liblo.ServerThread(self.osc_server_port)
-            #self.setup_osc_handlers()
-            self.osc_server.start()
-            logging.info("OSC server running in port {}".format(self.osc_server_port))
-        except Exception as err:
-            self.osc_server = None
-            logging.error(f"OSC Server can't be started ({err}). Running without OSC feedback.")
+        if not self.osc_server:
+            try:
+                self.osc_server = liblo.ServerThread(self.osc_server_port)
+                self.osc_add_methods()
+                self.osc_server.start()
+                logging.info("OSC server running in port {}".format(self.osc_server_port))
+            except Exception as err:
+                self.osc_server = None
+                logging.error(f"OSC Server can't be started ({err}). Running without OSC feedback.")
+
+    def cb_osc_all(self, path, args, types, src):
+        logging.info("OSC MESSAGE '{}' from '{}'".format(path, src.url))
+        # TODO: FIFO buffer
+
+    # ---------------------------------------------------------------------------
+    # Subproccess Management & IPC
+    # ---------------------------------------------------------------------------
+
+    #def start(self):
+    #    return zynthian_basic_engine.start(self)
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -181,19 +195,22 @@ class zynthian_engine_puredata(zynthian_engine):
             self.custom_gui_fpath = self.ui_dir + "/zyngui/zynthian_widget_organelle.py"
             if not self.zctrl_config:
                 self.zctrl_config = self.default_organelle_zctrl_config
-
         elif self.preset_config and self.preset_config.get('use_euclidseq_widget', False):
             # Use EuclidSeq widget when flag is set
             self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_euclidseq.py"
-
         else:
             # Don't use custom widget for other pd patches
             self.custom_gui_fpath = None
 
         try:
-            self.osc_target_port = 3000 + 10 * processor.id
-            self.osc_server_port = 3000 + 10 * processor.id + 1
-            self.command = self.base_command + f" -send \";osc_receive_port {self.osc_target_port}; osc_send_port {self.osc_server_port}\""
+            self.command = self.base_command
+            if self.custom_gui_fpath:
+                self.osc_target_port = 3000 + 10 * processor.id
+                self.osc_server_port = 3000 + 10 * processor.id + 1
+                self.command += f" -send \";osc_receive_port {self.osc_target_port}; osc_send_port {self.osc_server_port}\""
+            else:
+                self.osc_target_port = None
+                self.osc_server_port = None
             self.command += f" -open \"{self.startup_patch}\" \"{self.get_preset_filepath(preset)}\""
             self.preset = preset[0]
             self.stop()
