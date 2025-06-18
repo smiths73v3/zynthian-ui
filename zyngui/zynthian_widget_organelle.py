@@ -40,10 +40,7 @@ COLOR_KNOB = "#B07000"
 ORGANELLE_OLED_WIDTH = 128
 ORGANELLE_OLED_HEIGHT = 64
 
-
-ORGANELLE_OSC_PORT_IN = 3000
-ORGANELLE_OSC_PORT_OUT = 3001
-
+MULTI_INSTANCE = True
 
 class OscButton(tk.Canvas):
     """
@@ -408,7 +405,12 @@ class zynthian_widget_organelle(zynthian_widget_base):
         # OLED display container.
         self.display_frame = tk.Frame(self.top_container, bg=COLOR_PANEL, padx=padx, pady=pady)
         self.display_frame.pack(side="left")
-        self.canvas = None
+        self.canvas = tk.Canvas(self.display_frame, width=self.oled_width, height=self.oled_height,
+                                bg=zynthian_gui_config.color_bg, takefocus=0)
+        self.bg_rect = self.canvas.create_rectangle(0, 0, self.oled_width, self.oled_height, fill="", width=0)
+        self.canvas.tag_bind(self.bg_rect, "<ButtonPress-1>", self.on_canvas_touch)
+        self.canvas.bind("<ButtonPress-1>", self.on_canvas_touch, add="+")
+        self.canvas.pack()
 
         # Controls frame.
         self.controls_frame = tk.Frame(self, bg=COLOR_PANEL)
@@ -435,24 +437,9 @@ class zynthian_widget_organelle(zynthian_widget_base):
         self.zselector_ctrl = zynthian_controller(None, "Select", {'labels': ['<>']})
         self.zselector_gui = None
 
-    def set_processor_canvas(self):
-        if self.canvas:
-            self.canvas.forget()
-        try:
-            self.canvas = self.canvas_by_proc[self.processor.id]
-        except:
-            self.canvas = tk.Canvas(self.display_frame, width=self.oled_width, height=self.oled_height,
-                                    bg=zynthian_gui_config.color_bg, takefocus=0)
-            self.canvas_by_proc[self.processor.id] = self.canvas
-            self.bg_rect = self.canvas.create_rectangle(0, 0, self.oled_width, self.oled_height, fill="", width=0)
-            self.canvas.tag_bind(self.bg_rect, "<ButtonPress-1>", self.on_canvas_touch)
-            self.canvas.bind("<ButtonPress-1>", self.on_canvas_touch, add="+")
-        self.canvas.pack()
-
     def set_processor(self, processor):
         # Set widget processor
         super().set_processor(processor)
-        self.set_processor_canvas()
         # Configure OSC
         self.osc_target = processor.engine.osc_target
         self.osc_server = processor.engine.osc_server
