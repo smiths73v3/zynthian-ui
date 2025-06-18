@@ -232,6 +232,8 @@ class zynthian_gui_control(zynthian_gui_selector):
             super().set_selector(zs_hiden)
 
     def show_widget(self, processor):
+        self.purge_widgets()
+
         if self.screen_type:  # and not module_path
             module_path = f"/zynthian/zynthian-ui/zyngui/zynthian_widget_{self.screen_type}.py"
         elif processor.engine.custom_gui_fpath:
@@ -314,10 +316,11 @@ class zynthian_gui_control(zynthian_gui_selector):
         for k in list(self.widgets.keys()):
             parts = k.split("#")
             try:
-                proc_id = parts[1]
+                proc_id = int(parts[1])
             except:
                 continue
             if proc_id not in self.zyngui.chain_manager.processors:
+                logging.debug(f"Deleting orphaned widget: {k}")
                 del self.widgets[k]
 
     def set_current_widget(self, widget):
