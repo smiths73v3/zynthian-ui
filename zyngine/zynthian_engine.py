@@ -238,6 +238,7 @@ class zynthian_engine(zynthian_basic_engine):
         if self.osc_server:
             try:
                 self.osc_server.stop()
+                self.osc_server.free()
                 self.osc_server = None
                 logging.info("OSC server stopped")
             except Exception as err:
