@@ -2000,11 +2000,24 @@ class SubModeGroups(ModeHandlerBase):
         if len(loops) == 0:
             return
         soloed = self.sologroup == num
+        current_loop_selection = []
         tracks = path(["tracks"], self.parent.state)
-        if soloed:
-            for i in loops:
-                self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
-            self.parent.dispatch( deviceAction("group-solo", None))
+        previous_loop_selection = getDeviceSetting('prev-loop-selection', self.parent.state) or range(0, len(tracks))
+        for i in range(0, len(tracks)):
+            if tracks[i] is not None:
+                if tracks[i].get('state') != SL_STATE_MUTED:
+                    current_loop_selection.append(i)
+        is_effectively_active = set(current_loop_selection) == set(loops)
+        # print(f"active: {is_effectively_active}")
+        # print(current_loop_selection, loops)
+        if is_effectively_active:
+            for i in range(0, len(tracks)):
+                if tracks[i] is not None:
+                    if i in previous_loop_selection:
+                        self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
+                    else:
+                        self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
+            self.parent.dispatch(deviceAction("group-solo", None))
         else:
             for i in range(0, len(tracks)):
                 if tracks[i] is not None:
@@ -2012,7 +2025,8 @@ class SubModeGroups(ModeHandlerBase):
                         self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
                     else:
                         self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
-            self.parent.dispatch( deviceAction("group-solo", num))
+            self.parent.dispatch(deviceAction("prev-loop-selection", current_loop_selection))
+            self.parent.dispatch(deviceAction("group-solo", num))
 
     def on_button(self, button, evtype, shifted):
         if shifted:
