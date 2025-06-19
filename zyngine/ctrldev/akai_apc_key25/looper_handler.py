@@ -820,7 +820,6 @@ def createAllPads(state):
                 0x90,
                 btn,
                 1 if submode == LooperHandler.MODE_PAN
-                else 2 if submode == LooperHandler.MODE_GROUPS
                 else 0,
             ]  # @check Used to have to convert this to num
         if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
@@ -877,7 +876,7 @@ def createAllPads(state):
             [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
-        if submode in [LooperHandler.MODE_DEFAULT, LooperHandler.MODE_GROUPS]
+        if submode in [LooperHandler.MODE_DEFAULT]
         else []
     )
     toprow = list(chain.from_iterable(toprow))
@@ -923,7 +922,7 @@ def createAllPads(state):
                     # pads[i+1] = SL_STATES[TRACK_COMMANDS[pad % COLS]]["color"]
             return pads        
 
-        elif submode == LooperHandler.MODE_GROUPS:
+        elif submode == LooperHandler.MODE_DEFAULT:
             for i in range(len(pads) - 2, 0, -3):
                 pad = pads[i]
                 if (pad > 31) and (pad < 37):
@@ -1031,7 +1030,6 @@ class LooperHandler(
     MODE_LEVEL1 = 1
     MODE_LEVEL2 = 2
     MODE_PAN = 4
-    MODE_GROUPS = 5
     MODE_SYNC = 7
     MODE_SESSION_SAVE = 10
     MODE_SESSION_LOAD = 11
@@ -1041,7 +1039,6 @@ class LooperHandler(
         MODE_LEVEL1,
         MODE_LEVEL2,
         MODE_PAN,
-        MODE_GROUPS,
         MODE_SYNC,
         MODE_SESSION_SAVE,
         MODE_SESSION_LOAD,
@@ -1091,7 +1088,6 @@ class LooperHandler(
             self, state_manager, leds, idev_in, idev_out
         )
         self._pan_handler = SubModePan(self, state_manager, leds, idev_in, idev_out)
-        self._groups_handler = SubModeDefaultWithGroups(self, state_manager, leds, idev_in, idev_out)
         self._sync_handler = SubModeSync(self, state_manager, leds, idev_in, idev_out)
         self._save_handler = SubModeSessionsSave(
             self, state_manager, leds, idev_in, idev_out
@@ -1105,7 +1101,6 @@ class LooperHandler(
             self.MODE_LEVEL1: self._levels1_handler,
             self.MODE_LEVEL2: self._levels2_handler,
             self.MODE_PAN: self._pan_handler,
-            self.MODE_GROUPS: self._groups_handler,
             self.MODE_SYNC: self._sync_handler,
             self.MODE_SESSION_SAVE: self._save_handler,
             self.MODE_SESSION_LOAD: self._load_handler,
@@ -1689,14 +1684,14 @@ class SubModeDefault(ModeHandlerBase):
                 ("i", (numpad + 1) % 4),  # mono - 4 channels, repeating
                 ("f", 40),
             )
-            return
+            return True
 
         elif numpad >= 4:
             self.parent.just_send(
                 "/loop_del",
                 ("i", -1),  # Last loop -- the only supported one
             )
-            return
+            return True
 
     def on_button(self, button, evtype, shifted):
         if button == BUTTONS.BTN_UNDO:
@@ -2035,8 +2030,11 @@ class SubModeGroups(ModeHandlerBase):
                         self.setactivegroup(common_args.numpad)
                         return True
                     else:
-                        self.toggle_group(common_args.numpad)
-                        return True
+                        if self.undoing or self.redoing:
+                            pass
+                        else:
+                            self.toggle_group(common_args.numpad)
+                            return True
             if self.isselecting:
                 self.toggle_into_active_group(common_args.row)
                 return True
