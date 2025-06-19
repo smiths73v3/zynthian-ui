@@ -1081,7 +1081,7 @@ class LooperHandler(
         self._knobs_ease = KnobSpeedControl()
         self._auto_latch = ButtonAutoLatch()
         self._state_manager = state_manager
-        self._default_handler = SubModeDefault(
+        self._default_handler = SubModeDefaultWithGroups(
             self, state_manager, leds, idev_in, idev_out
         )
         self._levels1_handler = SubModeLevels1(
@@ -1091,7 +1091,7 @@ class LooperHandler(
             self, state_manager, leds, idev_in, idev_out
         )
         self._pan_handler = SubModePan(self, state_manager, leds, idev_in, idev_out)
-        self._groups_handler = SubModeGroups(self, state_manager, leds, idev_in, idev_out)
+        self._groups_handler = SubModeDefaultWithGroups(self, state_manager, leds, idev_in, idev_out)
         self._sync_handler = SubModeSync(self, state_manager, leds, idev_in, idev_out)
         self._save_handler = SubModeSessionsSave(
             self, state_manager, leds, idev_in, idev_out
@@ -1957,12 +1957,6 @@ class SubModeGroups(ModeHandlerBase):
 
     MODENAME = "groups"
 
-    def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
-    ):
-        super().__init__(state_manager)
-        self.parent = parent
-
     @property
     def activegroupnum(self):
         return getDeviceSetting("group-selected", self.parent.state)
@@ -2017,7 +2011,6 @@ class SubModeGroups(ModeHandlerBase):
                 self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
             self.parent.dispatch( deviceAction("group-solo", None))
         else:
-#            self.parent.just_send(f"/sl/-1/hit", ("s", "mute_on"))
             for i in range(0, len(tracks)):
                 if tracks[i] is not None:
                     if i in loops:
@@ -2027,6 +2020,8 @@ class SubModeGroups(ModeHandlerBase):
             self.parent.dispatch( deviceAction("group-solo", num))
 
     def on_button(self, button, evtype, shifted):
+        if shifted:
+            pass
         if evtype == EV_NOTE_ON:
             if button == BUTTONS.BTN_SOFT_KEY_SELECT:
                 self.setselecting(not self.isselecting)
@@ -2041,9 +2036,33 @@ class SubModeGroups(ModeHandlerBase):
                         return True
                     else:
                         self.toggle_group(common_args.numpad)
+                        return True
             if self.isselecting:
                 self.toggle_into_active_group(common_args.row)
-        return
+                return True
+        pass
+
+class SubModeDefaultWithGroups(SubModeDefault, SubModeGroups):
+    """Submode for controlling loops in view, with groups"""
+
+    MODENAME = "groups"
+
+    def __init__( self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None):
+        SubModeDefault.__init__(self, parent, state_manager, leds, idev_in, idev_out)
+        
+    def set_active(self, active):
+        SubModeGroups.set_active(self, active)
+
+    def on_button(self, button, evtype, shifted):
+        handled = SubModeDefault.on_button(self, button, evtype, shifted)
+        if (not handled):
+            return SubModeGroups.on_button(self, button, evtype, shifted)
+        return handled
+
+    def on_pad(self, common_args: EventArgs):
+        if SubModeGroups.on_pad(self, common_args):
+            return True
+        return SubModeDefault.on_pad(self, common_args)
 
 class SubModeSync(ModeHandlerBase):
     """Submode for setting sync/quantize settings for loops in view"""
