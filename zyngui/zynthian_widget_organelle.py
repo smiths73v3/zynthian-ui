@@ -42,15 +42,16 @@ ORGANELLE_OLED_HEIGHT = 64
 
 MULTI_INSTANCE = True
 
+
 class OscButton(tk.Canvas):
     """
     Custom touchable button that sends OSC messages when pressed.
     """
 
-    def __init__(self, parent, diameter=70, osc_target=None, label="", osc_path="/button", **kwargs):
+    def __init__(self, parent, diameter=70, widget=None, label="", osc_path="/button", **kwargs):
         super().__init__(parent, width=diameter, height=diameter, bg=COLOR_PANEL, highlightthickness=0, **kwargs)
         self.diameter = diameter
-        self.osc_target = osc_target
+        self.widget = widget
         self.osc_path = osc_path
 
         # Draw the circular button.
@@ -74,11 +75,10 @@ class OscButton(tk.Canvas):
 
     def send_osc(self, value):
         """Send an OSC message with the specified value."""
-        if self.osc_target:
-            try:
-                liblo.send(self.osc_target, self.osc_path, value)
-            except Exception as e:
-                logging.error(f"Error sending OSC message: {e}")
+        try:
+            liblo.send(self.widget.osc_target, self.osc_path, value)
+        except Exception as e:
+            logging.error(f"Error sending OSC message: {e}")
 
 
 class LedIndicator(tk.Canvas):
@@ -90,9 +90,8 @@ class LedIndicator(tk.Canvas):
         4: "yellow", 5: "purple", 6: "cyan", 7: "white"
     }
 
-    def __init__(self, parent, diameter=15, osc_target=None, **kwargs):
+    def __init__(self, parent, diameter=15, **kwargs):
         super().__init__(parent, width=diameter, height=diameter, bg=COLOR_PANEL, highlightthickness=0, **kwargs)
-        self.osc_target = osc_target
         self.led = self.create_oval(2, 2, diameter - 2, diameter - 2, fill=self.COLORS[0], outline=COLOR_OUTLINE, width=1)
         self.current_state = 0
 
@@ -137,7 +136,6 @@ class VolumeSlider(tk.Frame):
         try:
             zctrl_volume = self.zyngui_control.screen_processor.controllers_dict['volume']
             zctrl_volume.set_value(zctrl_volume.value_max * float(value) / 100.0)
-            #liblo.send(self.osc_target, "/vol", float(vol))
         except Exception as e:
             #logging.error(f"Error sending OSC volume message: {e}")
             logging.error(f"Can't set volume zctrl value {value}: {e}")
@@ -156,7 +154,8 @@ class VolumeSlider(tk.Frame):
             zctrl_volume = self.zyngui_control.screen_processor.controllers_dict['volume']
             self.slider.set(100.0 * zctrl_volume.value / zctrl_volume.value_max)
         except Exception as e:
-            logging.error(f"Can't get volume zctrl => {e}")
+            #logging.error(f"Can't get volume zctrl => {e}")
+            pass
 
 
 class MarkedEncoder(tk.Canvas):
@@ -164,11 +163,11 @@ class MarkedEncoder(tk.Canvas):
     Marked encoder knob with tick marks and a rotating pointer indicator.
     """
 
-    def __init__(self, parent, diameter=120, osc_target=None, label="ENC", **kwargs):
+    def __init__(self, parent, diameter=120, widget=None, label="ENC", **kwargs):
         super().__init__(parent, width=diameter, height=diameter,
                          bg=COLOR_PANEL, highlightthickness=0, **kwargs)
         self.diameter = diameter
-        self.osc_target = osc_target
+        self.widget = widget
         self.rotation_steps = 4  # Quantized OSC events
         self.last_step = 0
 
@@ -229,10 +228,10 @@ class MarkedEncoder(tk.Canvas):
         center = self.diameter / 2
         center_radius = self.diameter / 5
         distance = math.hypot(event.x - center, event.y - center)
-        if distance <= center_radius and self.osc_target:
+        if distance <= center_radius and self.widget:
             try:
-                liblo.send(self.osc_target, "/enc_sel", 1)
-                self.after(100, lambda: liblo.send(self.osc_target, "/enc_sel", 0))
+                liblo.send(self.widget.osc_target, "/enc_sel", 1)
+                self.after(100, lambda: liblo.send(self.widget.osc_target, "/enc_sel", 0))
             except Exception as e:
                 logging.error(f"Error sending OSC message: {e}")
 
@@ -287,14 +286,14 @@ class MarkedEncoder(tk.Canvas):
         #new_step = int(angle / (3.8 * math.pi) * self.rotation_steps) % self.rotation_steps
         new_step = int(angle / (2 * math.pi) * self.rotation_steps) % self.rotation_steps
 
-        if new_step != self.last_step and self.osc_target:
+        if new_step != self.last_step and self.widget:
             try:
                 if rotating_clockwise and not self.at_max_limit:
-                    liblo.send(self.osc_target, "/enc_down", 1)
-                    self.after(50, lambda: liblo.send(self.osc_target, "/enc_down", 0))
+                    liblo.send(self.widget.osc_target, "/enc_down", 1)
+                    self.after(50, lambda: liblo.send(self.widget.osc_target, "/enc_down", 0))
                 elif rotating_counterclockwise and not self.at_min_limit:
-                    liblo.send(self.osc_target, "/enc_up", 1)
-                    self.after(50, lambda: liblo.send(self.osc_target, "/enc_up", 0))
+                    liblo.send(self.widget.osc_target, "/enc_up", 1)
+                    self.after(50, lambda: liblo.send(self.widget.osc_target, "/enc_up", 0))
             except Exception as e:
                 logging.error(f"Error sending OSC message: {e}")
             self.last_step = new_step
@@ -370,7 +369,7 @@ class zynthian_widget_organelle(zynthian_widget_base):
             self.switch_i_selmode = None
             self.switch_i_aux = None
 
-        #self.show_touch_widgets = True
+        self.show_touch_widgets = True
         if layout['columns'] == 2:
             if self.show_touch_widgets:
                 self.wunit = int(0.015 * self.width)
@@ -423,14 +422,14 @@ class zynthian_widget_organelle(zynthian_widget_base):
             else:
                 self.volume_slider = VolumeSlider(self.controls_frame, zyngui_control=self.zyngui_control, width=self.width, height=6*self.hunit)
                 self.volume_slider.pack(side="top", padx=0, pady=0)
-            self.aux_button = OscButton(self.controls_frame, diameter=6 * self.wunit, osc_target=self.osc_target, label="AUX", osc_path="/aux")
+            self.aux_button = OscButton(self.controls_frame, diameter=6 * self.wunit, widget=self, label="AUX", osc_path="/aux")
             self.aux_button.pack(side="left", padx=self.wunit)
-            self.fs_button = OscButton(self.controls_frame, diameter=6 * self.wunit, osc_target=self.osc_target, label="FS", osc_path="/fs")
-            self.encoder = MarkedEncoder(self.controls_frame, diameter=8 * self.wunit, osc_target=self.osc_target, label="ENC")
+            self.fs_button = OscButton(self.controls_frame, diameter=6 * self.wunit, widget=self, label="FS", osc_path="/fs")
+            self.encoder = MarkedEncoder(self.controls_frame, diameter=8 * self.wunit, widget=self, label="ENC")
         else:
             self.volume_slider = None
 
-        self.led_indicator = LedIndicator(self.controls_frame, diameter=3*self.wunit, osc_target=self.osc_target)
+        self.led_indicator = LedIndicator(self.controls_frame, diameter=3*self.wunit)
         self.led_indicator.pack(side="left", padx=self.wunit)
 
         # Organelle selector zctrl
