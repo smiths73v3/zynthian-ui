@@ -226,7 +226,7 @@ class zynthian_engine_puredata(zynthian_engine):
 
         try:
             self.command = self.base_command
-            if self.custom_gui_fpath:
+            if self.custom_gui_fpath or (self.preset_config and self.preset_config.get('osc_zctrls', False)):
                 self.osc_target_port = 3000 + 10 * processor.id
                 self.osc_server_port = 3000 + 10 * processor.id + 1
                 self.command += f" -send \";osc_receive_port {self.osc_target_port}; osc_send_port {self.osc_server_port}\""
