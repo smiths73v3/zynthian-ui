@@ -446,41 +446,70 @@ class zynthian_widget_organelle(zynthian_widget_base):
 
     def set_processor(self, processor):
         # Set widget processor
-        super().set_processor(processor)
-        # Configure OSC
-        if self.osc_server != self.processor.engine.osc_server:
-            self.clear_canvas()
-            self.osc_target = self.processor.engine.osc_target
-            self.osc_server = self.processor.engine.osc_server
-            self.setup_osc_handlers()
+        if self.processor != processor:
+            self.processor = processor
+            self.processor.engine.osc_reset_child_handlers()
+            self.processor.engine.osc_add_child_handler(self.handle_osc_message)
+            self.processor.engine.osc_flush_unhandle_messages()
 
-    def setup_osc_handlers(self):
-        """Register OSC handlers for various message paths."""
-        if not self.osc_server:
-            return
-        self.osc_handlers = {
-            "/oled/gFlip": self.handle_gFlip,
-            "/oled/gCleanln": self.handle_gCleanln,
-            "/oled/gClear": self.handle_gClear,
-            "/oled/gSetPixel": self.handle_gSetPixel,
-            "/oled/gLine": self.handle_gLine,
-            "/oled/gBox": self.handle_gBox,
-            "/oled/gFillArea": self.handle_gFillArea,
-            "/oled/gCircle": self.handle_gCircle,
-            "/oled/gFilledCircle": self.handle_gFilledCircle,
-            "/oled/gPrintln": self.handle_gPrintln,
-            "/oled/gInvertArea": self.handle_gInvertArea,
-            "/oled/ginvertLine": self.handle_ginvertLine,
-            "/led": self.handle_led,
-            "/enc_up": self.handle_enc_up,
-            "/enc_down": self.handle_enc_down,
-            "/enc_sel": self.handle_enc_sel
-        }
-        self.osc_server.del_method(None, None)
-        for path, handler in self.osc_handlers.items():
-            self.osc_server.add_method(path, None, handler)
-        self.processor.engine.osc_add_methods()
-        #self.osc_server.add_method(None, None, self.fallback_handler)
+        # Configure OSC
+        if self.osc_target != self.processor.engine.osc_target:
+            #self.clear_canvas()
+            self.osc_target = self.processor.engine.osc_target
+
+    def handle_osc_message(self, path, args):
+        """Manage OSC messages."""
+        match path:
+            case "/oled/gFlip":
+                self.handle_gFlip(path, args)
+                return True
+            case "/oled/gCleanln":
+                self.handle_gCleanln(path, args)
+                return True
+            case "/oled/gClear":
+                self.handle_gClear(path, args)
+                return True
+            case "/oled/gSetPixel":
+                self.handle_gSetPixel(path, args)
+                return True
+            case "/oled/gLine":
+                self.handle_gLine(path, args)
+                return True
+            case "/oled/gBox":
+                self.handle_gBox(path, args)
+                return True
+            case "/oled/gFillArea":
+                self.handle_gFillArea(path, args)
+                return True
+            case "/oled/gCircle":
+                self.handle_gCircle(path, args)
+                return True
+            case "/oled/gFilledCircle":
+                self.handle_gFilledCircle(path, args)
+                return True
+            case "/oled/gPrintln":
+                self.handle_gPrintln(path, args)
+                return True
+            case "/oled/gInvertArea":
+                self.handle_gInvertArea(path, args)
+                return True
+            case "/oled/ginvertLine":
+                self.handle_ginvertLine(path, args)
+                return True
+            case "/led":
+                self.handle_led(path, args)
+                return True
+            case "/enc_up":
+                self.handle_enc_up(path, args)
+                return True
+            case "/enc_down":
+                self.handle_enc_down(path, args)
+                return True
+            case "/enc_sel":
+                self.handle_enc_sel(path, args)
+                return True
+            case _:
+                return False
 
     def handle_led(self, path, args):
         logging.debug(f"Received OSC LED message: {path} {args}")

@@ -107,6 +107,11 @@ class zynthian_engine_puredata(zynthian_engine):
         # Initialize custom GUI path as None - will be set conditionally when loading presets
         self.custom_gui_fpath = None
 
+        # Specific OSC stuff
+        self.osc_zctrls = {}
+        self.osc_child_handlers = []
+        self.osc_unhandle_messages = []
+
         self.preset = ""
         self.preset_config = None
         self.zctrl_config = None
@@ -126,6 +131,8 @@ class zynthian_engine_puredata(zynthian_engine):
     # ---------------------------------------------------------------------------
 
     def osc_init(self):
+        self.osc_drop_unhandle_messages()
+
         # Initialize OSC client.
         if not self.osc_target:
             try:
@@ -139,23 +146,38 @@ class zynthian_engine_puredata(zynthian_engine):
         if not self.osc_server:
             try:
                 self.osc_server = liblo.ServerThread(self.osc_server_port)
-                self.osc_add_methods()
+                self.osc_server.add_method(None, None, self.osc_handle_all)
                 self.osc_server.start()
                 logging.info("OSC server running in port {}".format(self.osc_server_port))
             except Exception as err:
                 self.osc_server = None
                 logging.error(f"OSC Server can't be started ({err}). Running without OSC feedback.")
 
-    def cb_osc_all(self, path, args, types, src):
-        logging.info("OSC MESSAGE '{}' from '{}'".format(path, src.url))
-        # TODO: FIFO buffer
+    def osc_handle_all(self, path, args):
+        try:
+            self.osc_zctrls[path].set_value(args[0], send=False)
+        except:
+            if self.osc_child_handlers:
+                for handler in self.osc_child_handlers:
+                    if handler(path, args):
+                        return
+            else:
+                self.osc_unhandle_messages.append([path, args])
+                logging.info(f"UNHANDLE OSC MESSAGE: {path}")
 
-    # ---------------------------------------------------------------------------
-    # Subproccess Management & IPC
-    # ---------------------------------------------------------------------------
+    def osc_add_child_handler(self, child_handler):
+        self.osc_child_handlers.append(child_handler)
 
-    #def start(self):
-    #    return zynthian_basic_engine.start(self)
+    def osc_reset_child_handlers(self):
+        self.osc_child_handlers = []
+
+    def osc_flush_unhandle_messages(self):
+        for osc_msg in self.osc_unhandle_messages:
+            self.osc_handle_all(osc_msg[0], osc_msg[1])
+        self.osc_unhandle_messages = []
+
+    def osc_drop_unhandle_messages(self):
+        self.osc_unhandle_messages = []
 
     # ---------------------------------------------------------------------------
     # Processor Management
@@ -293,10 +315,10 @@ class zynthian_engine_puredata(zynthian_engine):
     def get_controllers_dict(self, processor):
         zctrls = {}
         self._ctrl_screens = []
+        self.osc_zctrls = {}
         if self.zctrl_config:
             for ctrl_group, ctrl_dict in self.zctrl_config.items():
                 logging.debug(f"Preset Config '{ctrl_group}' ...")
-
                 c = 1
                 ctrl_set = []
                 if ctrl_group == 'midi_controllers':
@@ -318,8 +340,11 @@ class zynthian_engine_puredata(zynthian_engine):
                             logging.debug(f"CTRL {name} => {options}")
                             options['name'] = str.replace(name, '_', ' ')
                             options['processor'] = processor
-                            zctrls[name] = zynthian_controller(self, name, options)
+                            zctrl = zynthian_controller(self, name, options)
+                            zctrls[name] = zctrl
                             ctrl_set.append(name)
+                            if 'osc_path' in options:
+                                self.osc_zctrls[options['osc_path']] = zctrl
                         except Exception as err:
                             logging.error(f"Generating Controller Screens: {err}")
                     if len(ctrl_set) >= 1:
