@@ -1296,10 +1296,10 @@ class LooperHandler(
                 else:
                     if channel_count == 2:
                         if c == 1:
-                            if delta < 0 or track.get("pan_2", 0) >= 0.5:
+                            if delta < 0 or track.get("pan_2", 0) == 1:
                                 self.increase(delta, ctrl, track, loopnum)
                         if c == 2:
-                            if delta > 0 or track.get("pan_1", 0) <= 0.5:
+                            if delta > 0 or track.get("pan_1", 0) == 0:
                                 self.increase(delta, ctrl, track, loopnum)
                     else:
                         self.increase(delta, ctrl, track, loopnum)
