@@ -1320,7 +1320,7 @@ class LooperHandler(
         numpad = pad % COLS
         loopoffset = getLoopoffset(self.state)
         track = -1 if row == 0 else shiftedTrack(row, loopoffset)
-        tracks = self.state.get("tracks", [])
+        tracks = self.state.get("tracks", {})
         # Let loop 0 be the source of truth for all (sync/quant; rec_or_overdub is special-cased on loop -1 anyway)
         stateTrack = (
             path(["tracks", 0], self.state)
@@ -1505,7 +1505,7 @@ class LooperHandler(
 
     def reducer(self, state=None, action=None):
         if state is None:
-            state = {"tracks": []}
+            state = {"tracks": {}}
 
         if action is None:
             return state
@@ -1899,7 +1899,7 @@ class SubModeLevels2(ModeHandlerBase):
         if isglob and (numpad < 2 or numpad > 4):
             return
 
-        levelTrack = self.parent.state["glob"] if isglob else tracks[trackno]
+        levelTrack = self.parent.state["glob"] if isglob else tracks.get(trackno)
         if levelTrack is None:
             return
 
@@ -2004,15 +2004,15 @@ class SubModeGroups(ModeHandlerBase):
         tracks = path(["tracks"], self.parent.state)
         previous_loop_selection = getDeviceSetting('prev-loop-selection', self.parent.state) or range(0, len(tracks))
         for i in range(0, len(tracks)):
-            if tracks[i] is not None:
-                if tracks[i].get('state') != SL_STATE_MUTED:
+            if tracks.get(i) is not None:
+                if tracks.get(i).get('state') != SL_STATE_MUTED:
                     current_loop_selection.append(i)
         is_effectively_active = set(current_loop_selection) == set(loops)
         # print(f"active: {is_effectively_active}")
         # print(current_loop_selection, loops)
         if is_effectively_active:
             for i in range(0, len(tracks)):
-                if tracks[i] is not None:
+                if tracks.get(i) is not None:
                     if i in previous_loop_selection:
                         self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
                     else:
@@ -2020,7 +2020,7 @@ class SubModeGroups(ModeHandlerBase):
             self.parent.dispatch(deviceAction("group-solo", None))
         else:
             for i in range(0, len(tracks)):
-                if tracks[i] is not None:
+                if tracks.get(i) is not None:
                     if i in loops:
                         self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
                     else:
@@ -2137,7 +2137,7 @@ class SubModeSync(ModeHandlerBase):
 
         if track == -1 and numpad == 7:
             # NOTE: it seems just loop 1's setting is used for all
-            quant = int(tracks[0].get("quantize", -1))  # Default to -1 if not found
+            quant = int(tracks.get(0).get("quantize", -1))  # Default to -1 if not found
             if quant is None:  # Check for NaN equivalent
                 quant = -1
             self.parent.just_send(f"/sl/{track}/set", "quantize", (quant + 1) % 4)
