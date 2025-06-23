@@ -2014,7 +2014,10 @@ class SubModeGroups(ModeHandlerBase):
             for i in range(0, len(tracks)):
                 if tracks.get(i) is not None:
                     if i in previous_loop_selection:
-                        self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
+                        if tracks.get(i).get('state') == SL_STATE_PAUSED:
+                           self.parent.just_send(f"/sl/{i}/hit", ("s", "pause"))
+                        else:
+                            self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
                     else:
                         self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
             self.parent.dispatch(deviceAction("group-solo", None))
@@ -2022,7 +2025,10 @@ class SubModeGroups(ModeHandlerBase):
             for i in range(0, len(tracks)):
                 if tracks.get(i) is not None:
                     if i in loops:
-                        self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
+                        if tracks.get(i).get('state') == SL_STATE_PAUSED:
+                           self.parent.just_send(f"/sl/{i}/hit", ("s", "pause"))
+                        else:
+                            self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_off"))
                     else:
                         self.parent.just_send(f"/sl/{i}/hit", ("s", "mute_on"))
             self.parent.dispatch(deviceAction("prev-loop-selection", current_loop_selection))
