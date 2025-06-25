@@ -362,18 +362,18 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                 options["MIDI System Messages"] = None
                 mode_info = "Route non real-time system messages from this device.\n\n"
                 if lib_zyncore.zmip_get_flag_system(idev):
-                    title = f"\u2612 {ZMIP_MODE_SYS} Non real-time system messages"
+                    title = f"\u2612 {ZMIP_MODE_SYS} Non real-time"
                     options[title] = ["SYSTEM/OFF", [mode_info, "midi_input.png"]]
                 else:
-                    title = f"\u2610 {ZMIP_MODE_SYS} Non real-time system messages"
+                    title = f"\u2610 {ZMIP_MODE_SYS} Non real-time"
                     options[title] = ["SYSTEM/ON", [mode_info, "midi_input.png"]]
 
                 mode_info = "Route real-time system messages from this device.\n\n"
                 if lib_zyncore.zmip_get_flag_system_rt(idev):
-                    title = f"\u2612 {ZMIP_MODE_SYS_RT} Transport messages"
+                    title = f"\u2612 {ZMIP_MODE_SYS_RT} Transport"
                     options[title] = ["SYSTEM_RT/OFF", [mode_info, "midi_input.png"]]
                 else:
-                    title = f"\u2610 {ZMIP_MODE_SYS_RT} Transport messages "
+                    title = f"\u2610 {ZMIP_MODE_SYS_RT} Transport"
                     options[title] = ["SYSTEM_RT/ON", [mode_info, "midi_input.png"]]
 
                 # Reload drivers => Hot reload the driver classes!
