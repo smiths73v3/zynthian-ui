@@ -136,7 +136,11 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
             if self.input:
                 port = zynautoconnect.devices_in[idev]
                 mode = get_mode_str(idev)
-                input_mode_info = f"\n\n{ZMIP_MODE_ACTIVE} Active mode\n{ZMIP_MODE_MULTI} Multitimbral mode\n{ZMIP_MODE_CONTROLLER} Driver loaded"
+                input_mode_info = f"\n\n{ZMIP_MODE_ACTIVE} Active mode\n"
+                input_mode_info += f"{ZMIP_MODE_MULTI} Multitimbral mode\n"
+                input_mode_info += f"{ZMIP_MODE_SYS} System messages\n"
+                input_mode_info += f"{ZMIP_MODE_SYS_RT} Transport messages\n"
+                input_mode_info += f"{ZMIP_MODE_CONTROLLER} Driver loaded"
                 if self.chain is None:
                     self.list_data.append((port.aliases[0], idev, f"{mode}{port.aliases[1]}",
                                            [f"Bold select to show options for '{port.aliases[1]}'.{input_mode_info}", "midi_input.png"]))
@@ -356,24 +360,20 @@ class zynthian_gui_midi_config(zynthian_gui_selector_info):
                     options[title] = ["ACTI", [mode_info, "midi_input.png"]]
 
                 options["MIDI System Messages"] = None
-                mode_info = "Block/pass-thru non-RT system messages.\n\n"
+                mode_info = "Route non real-time system messages from this device.\n\n"
                 if lib_zyncore.zmip_get_flag_system(idev):
                     title = f"\u2612 {ZMIP_MODE_SYS} Non real-time system messages"
-                    mode_info += f"{title}. Pass-thru non real-time system messages."
                     options[title] = ["SYSTEM/OFF", [mode_info, "midi_input.png"]]
                 else:
                     title = f"\u2610 {ZMIP_MODE_SYS} Non real-time system messages"
-                    mode_info += f"{title}. Block non real-time system messages."
                     options[title] = ["SYSTEM/ON", [mode_info, "midi_input.png"]]
 
-                mode_info = "Block/pass-thru RT system messages.\n\n"
+                mode_info = "Route real-time system messages from this device.\n\n"
                 if lib_zyncore.zmip_get_flag_system_rt(idev):
                     title = f"\u2612 {ZMIP_MODE_SYS_RT} Transport messages"
-                    mode_info += f"{title}. Pass-thru transport (system real-time) messages."
                     options[title] = ["SYSTEM_RT/OFF", [mode_info, "midi_input.png"]]
                 else:
                     title = f"\u2610 {ZMIP_MODE_SYS_RT} Transport messages "
-                    mode_info += f"{title}. Block transport (system real-time) messages."
                     options[title] = ["SYSTEM_RT/ON", [mode_info, "midi_input.png"]]
 
                 # Reload drivers => Hot reload the driver classes!
