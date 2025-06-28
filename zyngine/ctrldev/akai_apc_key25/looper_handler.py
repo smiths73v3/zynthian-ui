@@ -1116,9 +1116,8 @@ class LooperHandler(
         self.idev_out = idev_out
 
         self._leds = leds
-        self._is_shifted = False
-        self.loopcount = 0
         self.state = {}
+        self.loopcount = 0
         self._leds.all_off()
         self._current_handler.set_active(True)
         self.init()
@@ -1130,6 +1129,18 @@ class LooperHandler(
         #     logging.debug("Initializing LED controller...")
         #     self._leds = FeedbackLEDs(idev_out)
         #     logging.debug("LED controller initialized")
+
+    @property
+    def loopcount(self):
+        return getGlob('loopcount', self.state) or 0
+
+    @loopcount.setter
+    def loopcount(self, value):
+        return self.dispatch(globAction('loopcount', value))
+
+    @loopcount.deleter
+    def loopcount(self):
+        return self.dispatch(globAction('loopcount', 0))
 
     def set_active(self, active):
         super().set_active(active)
