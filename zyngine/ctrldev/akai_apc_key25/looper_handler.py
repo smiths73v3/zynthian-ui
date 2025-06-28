@@ -469,8 +469,8 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
             if channels is None:
                 return lambda x: BRIGHTS.LED_OFF
             if channels == 2:
-                pads_left = panPads(track["pan_1"])
-                pads_right = panPads(track["pan_2"])
+                pads_left = panPads(track.get("pan_1", 0))
+                pads_right = panPads(track.get("pan_2", 1))
                 both = set(pads_left) & set(pads_right)
                 any_pads = set(pads_left) | set(pads_right)
 
@@ -481,7 +481,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
                     if x in any_pads
                     else BRIGHTS.LED_BRIGHT_25
                 )
-            pads = panPads(track.get("pan_1", []))
+            pads = panPads(track.get("pan_1", 0.5))
             return (
                 lambda x: BRIGHTS.LED_BRIGHT_100 if x in pads else BRIGHTS.LED_BRIGHT_25
             )
@@ -552,8 +552,8 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
             if channels is None:
                 return lambda x: SL_STATES[track_state]["color"]
             if channels == 2:
-                pads_left = panPads(track["pan_1"])
-                pads_right = panPads(track["pan_2"])
+                pads_left = panPads(track.get("pan_1", 0))
+                pads_right = panPads(track.get("pan_2", 1))
                 both = set(pads_left) & set(pads_right)
                 # any_pads = set(pads_left) | set(pads_right)
 
