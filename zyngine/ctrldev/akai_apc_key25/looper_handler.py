@@ -668,6 +668,9 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
             if set_syncs:
                 pads = [
                     [
+                        BRIGHTS.LED_OFF
+                        if track == {}
+                        else
                         BRIGHTS.LED_BRIGHT_100
                         if track.get(SETTINGS[x])
                         else BRIGHTS.LED_BRIGHT_10,
@@ -1336,6 +1339,8 @@ class LooperHandler(
         stateTrack = (
             path(["tracks", 0], self.state)
             if track == -1
+            else {}
+            if track >= self.loopcount
             else path(["tracks", track], self.state)
         )
         common_args = EventArgs(numpad=numpad,
@@ -2141,7 +2146,11 @@ class SubModeSync(ModeHandlerBase):
         track = args.track
         stateTrack = args.stateTrack
         tracks = args.tracks
-        return self.handle_syncs(numpad, track, stateTrack, tracks, evtype)
+        if stateTrack == {}:
+            if args.evtype == EV_NOTE_ON:
+                return SubModeDefault.handle_loop_operations(self, args.numpad)
+        else:
+            return self.handle_syncs(numpad, track, stateTrack, tracks, evtype)
 
     def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks, evtype):
         if evtype == EV_NOTE_OFF:
