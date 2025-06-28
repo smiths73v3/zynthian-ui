@@ -618,7 +618,7 @@ def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
 
     for y in range(ROWS):  # Equivalent to [0, 1, 2, 3, 4]
         tracknum = y - loopoffset
-        track = list_get(tracks, tracknum, {})
+        track = list_get(tracks, tracknum, {}) if tracknum < getGlob('loopcount', storeState) else {}
         cellLedModeFn = trackLedModeFn(track, y)
         cellColorFn = trackColorFn(track, y)
 
