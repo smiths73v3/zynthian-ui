@@ -1840,6 +1840,8 @@ class SubModeLevels1(ModeHandlerBase):
     def on_pad(self, args: EventArgs):
         if args.evtype == EV_NOTE_OFF:
             return
+        if args.track >= self.parent.loopcount:
+            return SubModeDefault.handle_loop_operations(self, args.numpad)
         if args.pad < ((ROWS - 1) * COLS):
             return self.handle_all_wet(args)
         else:
@@ -1956,6 +1958,10 @@ class SubModePan(ModeHandlerBase):
         super().set_active(active)
 
     def on_pad(self, args: EventArgs):
+        if (args.evtype == EV_NOTE_OFF):
+            return
+        if args.track >= self.parent.loopcount:
+            return SubModeDefault.handle_loop_operations(self, args.numpad)
         return
 
 class SubModeGroups(ModeHandlerBase):
