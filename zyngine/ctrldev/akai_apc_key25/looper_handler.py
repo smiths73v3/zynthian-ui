@@ -1078,6 +1078,8 @@ class LooperHandler(
         logging.debug(
             "=================================================================\n"
         )
+        self.state = {}
+        self.loopcount = 0
         self._knobs_ease = KnobSpeedControl()
         self._auto_latch = ButtonAutoLatch()
         self._state_manager = state_manager
@@ -1098,7 +1100,6 @@ class LooperHandler(
         self._load_handler = SubModeSessionsLoad(
             self, state_manager, leds, idev_in, idev_out
         )
-        self._current_handler = self._default_handler
         self._handlers = {
             self.MODE_DEFAULT: self._default_handler,
             self.MODE_LEVEL1: self._levels1_handler,
@@ -1108,6 +1109,8 @@ class LooperHandler(
             self.MODE_SESSION_SAVE: self._save_handler,
             self.MODE_SESSION_LOAD: self._load_handler,
         }
+        self._current_handler = None
+        self.activateSubmode(self.MODE_DEFAULT)
         self._init_complete = False
         self._shutting_down = False
         self.osc_server = None
@@ -1119,10 +1122,7 @@ class LooperHandler(
         self.idev_out = idev_out
 
         self._leds = leds
-        self.state = {}
-        self.loopcount = 0
         self._leds.all_off()
-        self._current_handler.set_active(True)
         self.init()
         # Light up first button in each row
         # self._leds.led_state(82, LED_ON)  # First snapshot
@@ -1360,7 +1360,8 @@ class LooperHandler(
         current_handler = self._current_handler
         self._current_handler = handler
         handler.set_active(True)
-        current_handler.set_active(False)
+        if current_handler:
+            current_handler.set_active(False)
         self.dispatch(deviceAction("submode", modenum))
 
     def nextModeNum(self, button):
