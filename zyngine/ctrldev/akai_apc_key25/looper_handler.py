@@ -1386,8 +1386,6 @@ class LooperHandler(
     def handle_mode_buttons(self, button, evtype):
         if evtype == EV_NOTE_ON:
             next = self.nextModeNum(button)
-            print(f"Next: {next}")
-            # self.dispatch(deviceAction("submode", next))
             self.activateSubmode(next)
         return
 
