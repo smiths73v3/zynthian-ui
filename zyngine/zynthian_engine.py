@@ -48,6 +48,7 @@ class zynthian_basic_engine:
     # Data dirs
     # ---------------------------------------------------------------------------
 
+    ui_dir = os.environ.get('ZYNTHIAN_UI_DIR', "/zynthian/zynthian-ui")
     config_dir = os.environ.get('ZYNTHIAN_CONFIG_DIR', "/zynthian/config")
     data_dir = os.environ.get('ZYNTHIAN_DATA_DIR', "/zynthian/zynthian-data")
     my_data_dir = os.environ.get('ZYNTHIAN_MY_DATA_DIR', "/zynthian/zynthian-my-data")
@@ -111,8 +112,7 @@ class zynthian_basic_engine:
                 self.proc.terminate(True)
                 self.proc = None
             except Exception as err:
-                logging.error(
-                    "Can't stop engine {} => {}".format(self.name, err))
+                logging.error("Can't stop engine {} => {}".format(self.name, err))
 
     def proc_get_output(self):
         if self.command_prompt:
@@ -222,28 +222,23 @@ class zynthian_engine(zynthian_basic_engine):
     def osc_init(self):
         if self.osc_server is None and self.osc_target_port:
             try:
-                self.osc_target = liblo.Address(
-                    'localhost', self.osc_target_port, self.osc_proto)
-                logging.info("OSC target in port {}".format(
-                    self.osc_target_port))
-                self.osc_server = liblo.ServerThread(
-                    None, self.osc_proto, reg_methods=False)
+                self.osc_target = liblo.Address('localhost', self.osc_target_port, self.osc_proto)
+                logging.info("OSC target in port {}".format(self.osc_target_port))
+                self.osc_server = liblo.ServerThread(None, self.osc_proto, reg_methods=False)
                 # self.osc_server = liblo.Server(None, self.osc_proto, reg_methods=False)
                 self.osc_server_port = self.osc_server.get_port()
-                self.osc_server_url = liblo.Address(
-                    'localhost', self.osc_server_port, self.osc_proto).get_url()
-                logging.info("OSC server running in port {}".format(
-                    self.osc_server_port))
+                self.osc_server_url = liblo.Address('localhost', self.osc_server_port, self.osc_proto).get_url()
+                logging.info("OSC server running in port {}".format(self.osc_server_port))
                 self.osc_add_methods()
                 self.osc_server.start()
             except liblo.AddressError as err:
-                logging.error(
-                    "OSC Server can't be started ({}). Running without OSC feedback.".format(err))
+                logging.error("OSC Server can't be started ({}). Running without OSC feedback.".format(err))
 
     def osc_end(self):
         if self.osc_server:
             try:
                 self.osc_server.stop()
+                self.osc_server.free()
                 self.osc_server = None
                 logging.info("OSC server stopped")
             except Exception as err:
@@ -667,7 +662,7 @@ class zynthian_engine(zynthian_basic_engine):
                 else:
                     zctrl = zynthian_controller(self, ctrl[0], options)
                     processor.controllers_dict[zctrl.symbol] = zctrl
-                    if zctrl.midi_cc is not None:
+                    if zctrl.midi_cc is not None and processor.midi_autolearn and zctrl.midi_autolearn:
                         self.state_manager.chain_manager.add_midi_learn(zctrl.midi_chan, zctrl.midi_cc, zctrl)
 
         return processor.controllers_dict

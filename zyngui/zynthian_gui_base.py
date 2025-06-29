@@ -227,10 +227,12 @@ class zynthian_gui_base(tkinter.Frame):
         if self.title_timer:
             self.title_timer.cancel()
             self.title_timer = None
+        elif timeout:
+            self.title = self.select_path.get()
+
         if timeout:
             self.title_timer = Timer(timeout, self.on_title_timeout)
             self.title_timer.start()
-            self.title = self.select_path.get()
         else:
             self.title = title
             if fg:

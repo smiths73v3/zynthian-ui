@@ -144,6 +144,7 @@ class zynthian_gui:
         self.zynpot_lock = Lock()
         self.zynpot_dval = zynthian_gui_config.num_zynpots * [0]
         self.zynpot_pr_state = zynthian_gui_config.num_zynpots * [0]
+        self.zynswitch_autolong_disabled = False
         self.dtsw = []
 
         self.exit_code = 0
@@ -164,7 +165,9 @@ class zynthian_gui:
         self.init_wsleds()
 
         # Init multitouch driver
-        if os.environ.get('DISPLAY_ROTATION', 'None') == 'Inverted' or zynthian_gui_config.check_wiring_layout(["Z2", "V5"]):
+        # => Note this condition is redundant, but needed to ensure some legacy V5 configs to work
+        # => It should be simplified in the future and keep the second part only
+        if zynthian_gui_config.check_kit_version(["V5"]) or os.environ.get('DISPLAY_ROTATION', 'None') == 'Inverted':
             self.multitouch = MultiTouch(invert_x_axis=True, invert_y_axis=True)
         else:
             self.multitouch = MultiTouch()
@@ -238,11 +241,11 @@ class zynthian_gui:
                 from zyngui.zynthian_wsleds_v5touch import zynthian_wsleds_v5touch
                 self.wsleds = zynthian_wsleds_v5touch(self)
                 self.wsleds.start()
-        elif zynthian_gui_config.check_wiring_layout("Z2"):
+        elif zynthian_gui_config.check_wiring_layout(["Z2"]):
             from zyngui.zynthian_wsleds_z2 import zynthian_wsleds_z2
             self.wsleds = zynthian_wsleds_z2(self)
             self.wsleds.start()
-        elif zynthian_gui_config.wiring_layout.startswith("V5"):
+        elif zynthian_gui_config.check_wiring_layout(["V5"]):
             from zyngui.zynthian_wsleds_v5 import zynthian_wsleds_v5
             self.wsleds = zynthian_wsleds_v5(self)
             self.wsleds.start()
@@ -582,11 +585,9 @@ class zynthian_gui:
                 screen = self.current_screen
             else:
                 screen = "audio_mixer"
-
         elif screen == "alsa_mixer":
             self.state_manager.alsa_mixer_processor.refresh_controllers(params)
             self.current_processor = self.state_manager.alsa_mixer_processor
-
         elif screen == "audio_player":
             if self.state_manager.audio_player:
                 self.current_processor = self.state_manager.audio_player
@@ -1297,6 +1298,14 @@ class zynthian_gui:
         except Exception as e:
             logging.error(e)
 
+    def cuia_zynpot_abs(self, params=None):
+        try:
+            self.get_current_screen_obj().zynpot_abs(*params)
+        except AttributeError:
+            pass
+        except Exception as e:
+            logging.error(e)
+
     def cuia_zynswitch(self, params=None):
         try:
             i = params[0]
@@ -1508,6 +1517,23 @@ class zynthian_gui:
 
     def cuia_preset_fav(self, params=None):
         self.show_favorites()
+
+    # -------------------------------------------------------------------
+    # ZS3 management CUIAs:
+    # -------------------------------------------------------------------
+
+    def cuia_zs3_load(self, params=None):
+        if len(params) >= 1:
+            if isinstance(params[0], int):
+                self.state_manager.load_zs3_by_index(params[0])
+            else:
+                self.state_manager.load_zs3(params[0])
+
+    def cuia_zs3_next(self, params=None):
+        self.state_manager.load_next_zs3()
+
+    def cuia_zs3_prev(self, params=None):
+        self.state_manager.load_prev_zs3()
 
     def cuia_enable_midi_learn_cc(self, params=None):
         # TODO: Find zctrl
@@ -1869,6 +1895,12 @@ class zynthian_gui:
         except:
             return 0
 
+    def zynswitch_disable_autolong(self):
+        self.zynswitch_autolong_disabled = True
+
+    def zynswitch_enable_autolong(self):
+        self.zynswitch_autolong_disabled = False
+
     def zynswitches(self):
         """Process physical switch triggers"""
 
@@ -1881,14 +1913,15 @@ class zynthian_gui:
             except:
                 i += 1
                 continue
-            # Increase the long push limit when push-rotating
-            if self.get_zynswitch_pr_state(i) > 1:
-                zs_long_us = 1000 * 20000
+            # Increase the long push time limit when auto-long push is disabled or push-rotating
+            if self.zynswitch_autolong_disabled or self.get_zynswitch_pr_state(i) > 1:
+                zs_long_us = 20 * 1000000
             else:
                 zs_long_us = zynthian_gui_config.zynswitch_long_us
             # dtus is 0 if switched pressed, dur of last press or -1 if already processed
             dtus = lib_zyncore.get_zynswitch(i, zs_long_us)
             if dtus >= 0:
+                #logging.debug(f"ZYNSWITCH {i}: DTUS={dtus}, AUTOLONG-PUSH TIME LIMIT => {zs_long_us}")
                 self.cuia_queue.put_nowait(("zynswitch", (i, self.zynswitch_timing(dtus))))
             i += 1
 
@@ -1931,6 +1964,10 @@ class zynthian_gui:
 
         if self.capture_log_fname:
             self.write_capture_log("ZYNSWITCH:L,{}".format(i))
+
+        if callable(getattr(self.screens[self.current_screen], "switch", None)):
+            if self.screens[self.current_screen].switch(i, 'L'):
+                return True
 
         # Standard 4 ZynSwitches
         if i == 0:
@@ -2172,10 +2209,10 @@ class zynthian_gui:
             # Every 4 cycles...
             if j > 4:
                 j = 0
-
                 # Refresh GUI Controllers
                 try:
                     self.screens[self.current_screen].plot_zctrls()
+                    pass
                 except AttributeError:
                     pass
                 except Exception as e:
@@ -2330,17 +2367,18 @@ class zynthian_gui:
             cuia = "unknown"
             try:
                 # Check for long press before release
-                long_ts = monotonic() - zynthian_gui_config.zynswitch_long_seconds
-                for i, ts in enumerate(zynswitch_cuia_ts):
-                    if ts is not None and ts < long_ts:
-                        zynswitch_cuia_ts[i] = None
-                        try:
-                            zpi = zynthian_gui_config.zynpot2switch.index(i)
-                            zp_pr_state = self.zynpot_pr_state[zpi]
-                        except:
-                            zp_pr_state = 0
-                        if zp_pr_state <= 1:
-                            self.zynswitch_long(i)
+                if not self.zynswitch_autolong_disabled:
+                    long_ts = monotonic() - zynthian_gui_config.zynswitch_long_seconds
+                    for i, ts in enumerate(zynswitch_cuia_ts):
+                        if ts is not None and ts < long_ts:
+                            zynswitch_cuia_ts[i] = None
+                            try:
+                                zpi = zynthian_gui_config.zynpot2switch.index(i)
+                                zp_pr_state = self.zynpot_pr_state[zpi]
+                            except:
+                                zp_pr_state = 0
+                            if zp_pr_state <= 1:
+                                self.zynswitch_long(i)
                 event = self.cuia_queue.get(True, repeat_interval)
                 params = None
                 if isinstance(event, str):

@@ -71,17 +71,18 @@ class zynthian_engine_jalv(zynthian_engine):
         # "http://tytel.org/helm": {"RPi5": False, "RPi4": False, "RPi3": True, "RPi2": False},				 # Better CPU with gtk but only qt4 works on RPi4
         'https://git.code.sf.net/p/qmidiarp/arp': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"},
         'https://git.code.sf.net/p/qmidiarp/lfo': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"},
-        'https://git.code.sf.net/p/qmidiarp/seq': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"}
+        'https://git.code.sf.net/p/qmidiarp/seq': {"RPi5": "X11UI", "RPi4": "X11UI", "RPi3": "X11UI", "RPi2": "X11UI"},
+        'http://distrho.sf.net/plugins/3BandEQ': {"RPi5": False, "RPi4": False, "RPi3": False, "RPi2": False}
     }
 
     plugins_custom_gui = {
-        'http://gareus.org/oss/lv2/meters#spectr30mono': "/zynthian/zynthian-ui/zyngui/zynthian_widget_spectr30.py",
-        'http://gareus.org/oss/lv2/meters#spectr30stereo': "/zynthian/zynthian-ui/zyngui/zynthian_widget_spectr30.py",
-        'http://gareus.org/oss/lv2/tuna#one': "/zynthian/zynthian-ui/zyngui/zynthian_widget_tunaone.py",
-        'http://gareus.org/oss/lv2/tuna#mod': "/zynthian/zynthian-ui/zyngui/zynthian_widget_tunaone.py",
-        'http://looperlative.com/plugins/lp3-basic': "/zynthian/zynthian-ui/zyngui/zynthian_widget_looper.py",
-        'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader': "/zynthian/zynthian-ui/zyngui/zynthian_widget_aidax.py",
-        'http://github.com/mikeoliphant/neural-amp-modeler-lv2': "/zynthian/zynthian-ui/zyngui/zynthian_widget_nam.py"
+        'http://gareus.org/oss/lv2/meters#spectr30mono': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_spectr30.py",
+        'http://gareus.org/oss/lv2/meters#spectr30stereo': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_spectr30.py",
+        'http://gareus.org/oss/lv2/tuna#one': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_tunaone.py",
+        'http://gareus.org/oss/lv2/tuna#mod': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_tunaone.py",
+        'http://looperlative.com/plugins/lp3-basic': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_looper.py",
+        'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_aidax.py",
+        'http://github.com/mikeoliphant/neural-amp-modeler-lv2': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_nam.py"
     }
 
     # ------------------------------------------------------------------------------
@@ -113,35 +114,35 @@ class zynthian_engine_jalv(zynthian_engine):
             'volume': [7, 98],
             'panning': [10, 64],
             'modulation wheel': [1, 0],
-            'sustain pedal': [64, 'off', ['off', 'on']],
             'filter cutoff': [74, 64],
             'filter resonance': [71, 64]
         },
         "ctrl_screens": {
-            '_default_synth': ['modulation wheel', 'sustain pedal'],
+            '_default_synth': ['modulation wheel'],
             'Calf Monosynth': ['modulation wheel'],
-            'Dexed': ['sustain pedal'],
+            'Dexed': [],
             'Fabla': [],
             'Foo YC20 Organ': [],
-            'Helm': ['sustain pedal'],
-            'MDA DX10': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA JX10': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA ePiano': ['volume', 'modulation wheel', 'sustain pedal'],
-            'MDA Piano': ['volume', 'modulation wheel', 'sustain pedal'],
-            'Nekobi': ['sustain pedal'],
+            'Helm': [],
+            'MDA DX10': ['volume', 'modulation wheel'],
+            'MDA JX10': ['volume', 'modulation wheel'],
+            'MDA ePiano': ['volume', 'modulation wheel'],
+            'MDA Piano': ['volume', 'modulation wheel'],
+            'Nekobi': [],
             'Noize Mak3r': [],
-            'Obxd': ['modulation wheel', 'sustain pedal'],
-            'Pianoteq 7 Stage': ['sustain pedal'],
+            'Obxd': ['modulation wheel'],
+            'Pianoteq 7 Stage': [],
             'Raffo Synth': [],
             'Red Zeppelin 5': [],
             'reMID': ['volume'],
             'String machine': [],
             'synthv1': [],
-            'Surge': ['modulation wheel', 'sustain pedal'],
+            'Surge': ['modulation wheel'],
             'padthv1': [],
             'Vex': [],
-            'amsynth': ['modulation wheel', 'sustain pedal'],
-            'JC303': ['modulation wheel', 'sustain pedal']
+            'amsynth': ['modulation wheel'],
+            'JC303': [],
+            'Novachord': []
         }
     }
 
@@ -196,14 +197,17 @@ class zynthian_engine_jalv(zynthian_engine):
             logging.debug("CREATING JALV ENGINE => {}".format(self.jackname))
 
             if self.config_remote_display() and self.native_gui:
-                if self.native_gui == "Qt5UI":
-                    jalv_bin = "jalv.qt5"
-                elif self.native_gui == "Qt4UI":
-                    # jalv_bin = "jalv.qt4"
-                    jalv_bin = "jalv.gtk3"
-                else:  # elif self.native_gui=="X11UI":
-                    jalv_bin = "jalv.gtk3"
-                self.command = [jalv_bin, "--jack-name", self.jackname, self.plugin_url]
+                if self.native_gui == "UI":
+                    self.command = ["jalv", "-s", "-n", self.jackname, self.plugin_url]
+                else:
+                    if self.native_gui == "Qt5UI":
+                        jalv_bin = "jalv.qt5"
+                    elif self.native_gui == "Qt4UI":
+                        # jalv_bin = "jalv.qt4"
+                        jalv_bin = "jalv.gtk3"
+                    else:  # elif self.native_gui=="X11UI":
+                        jalv_bin = "jalv.gtk3"
+                    self.command = [jalv_bin, "--jack-name", self.jackname, self.plugin_url]
             else:
                 self.command = ["jalv", "-n", self.jackname, self.plugin_url]
                 # Some plugins need a X11 display for running headless (QT5, QT6),
@@ -211,8 +215,8 @@ class zynthian_engine_jalv(zynthian_engine):
                 if not self.plugin_name.endswith("v1"):
                     self.command_env['DISPLAY'] = "X"
 
-            # Use jalv_asyncli (development version) =>
-            self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
+            # Use jalv's development version =>
+            #self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
 
             self.command_prompt = ">"
 
@@ -643,12 +647,14 @@ class zynthian_engine_jalv(zynthian_engine):
             except Exception as e:
                 logging.error(e)
 
+        # Return number of remaining presets in bank
         try:
             n = len(self.preset_info[bank[2]]['presets'])
             if n > 0:
                 return n
         except Exception as e:
             pass
+        # If user bank is empty, delete it!
         zynthian_engine_jalv.lv2_remove_bank(bank)
         return 0
 

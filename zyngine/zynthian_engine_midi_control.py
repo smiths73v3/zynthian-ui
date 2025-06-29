@@ -119,7 +119,6 @@ class zynthian_engine_midi_control(zynthian_engine):
 		['62 LSB', 62, 0],
 		['63 LSB', 63, 0],
 
-		#['64 sustain pedal', 64, 0],
 		['64 sustain', 64, 'off', ['off', 'on']],
 		['65 portamento', 65, 'off', ['off', 'on']],
 		['66 sostenuto', 66, 'off', ['off', 'on']],
@@ -274,7 +273,7 @@ class zynthian_engine_midi_control(zynthian_engine):
 			return False
 
 	# ----------------------------------------------------------------------------
-	# Controllers Managament
+	# Controllers Management
 	# ----------------------------------------------------------------------------
 
 	def generate_ctrl_screens(self):
@@ -283,8 +282,10 @@ class zynthian_engine_midi_control(zynthian_engine):
 		i = 0
 		while i < len(self._ctrls):
 			title = f"CC#{i:02} - CC#{i+3:02}"
+			#logging.debug(f"Generated CTRL SCREEN '{title}' ...")
 			ctrl_set = []
 			for j in range(4):
+				#logging.debug(f"\t => Adding ctrl[{i + j}] => {self._ctrls[i + j][0]}")
 				ctrl_set.append(self._ctrls[i + j][0])
 			self._ctrl_screens.append([title, ctrl_set])
 			i += 4
