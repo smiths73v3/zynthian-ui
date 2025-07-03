@@ -176,7 +176,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                                         "headphones.png"]))
 
         self.list_data.append((self.hotplug_audio_menu, 0, "Hotplug USB Audio",
-                               ["Configure USB audio hotplug.\n\nWhen enabled, USB audio devices will be detected and available. This does not include any device that is already configured as the main audio device which must always reamain connected.",
+                               ["Configure USB audio hotplug.\n\nWhen enabled, USB audio devices will be detected and available. This does not include any device that is already configured as the main audio device which must always remain connected.",
                                 "audio_options.png"]))
 
         if zynthian_gui_config.snapshot_mixer_settings:
