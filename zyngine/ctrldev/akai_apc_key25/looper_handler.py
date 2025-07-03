@@ -1245,14 +1245,9 @@ class LooperHandler(
     def on_shift_changed(self, val):
         self.dispatch(deviceAction("shifted", val))
 
-    def cc_change(self, ccnum, ccval):
-        pass
-
     def midi_event(self, event):
         evtype = (event[0] >> 4) & 0x0F
         button = event[1] & 0x7F
-        if evtype == EV_CC:
-            return self.cc_event(event)
         if (
             evtype in [EV_NOTE_OFF, EV_NOTE_ON]
         ) and BUTTONS.BTN_PAD_START <= button <= BUTTONS.BTN_PAD_END:
@@ -1266,9 +1261,7 @@ class LooperHandler(
             return self.select_loop_for_button(button)
         self.handle_rest_of_buttons(button, evtype)
 
-    def cc_event(self, event):
-        ccnum = event[1] & 0x7F
-        ccval = event[2] & 0x7F
+    def cc_change(self, ccnum, ccval):
         delta = self._knobs_ease.feed(
             ccnum, ccval, getDeviceSetting("shifted", self.state)
         )  # @todo: use self._is_shifted (or not at all?)

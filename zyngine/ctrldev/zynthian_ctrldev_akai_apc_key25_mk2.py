@@ -354,10 +354,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
 
         elif evtype == EV_CC:
 
-            if self._current_handler == self._looper_handler:
-                self._looper_handler.midi_event(ev)
-                return
-
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
             return self._current_handler.cc_change(ccnum, ccval)
