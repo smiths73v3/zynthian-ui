@@ -76,13 +76,13 @@ class zynthian_engine_jalv(zynthian_engine):
     }
 
     plugins_custom_gui = {
-        'http://gareus.org/oss/lv2/meters#spectr30mono': "/zynthian/zynthian-ui/zyngui/zynthian_widget_spectr30.py",
-        'http://gareus.org/oss/lv2/meters#spectr30stereo': "/zynthian/zynthian-ui/zyngui/zynthian_widget_spectr30.py",
-        'http://gareus.org/oss/lv2/tuna#one': "/zynthian/zynthian-ui/zyngui/zynthian_widget_tunaone.py",
-        'http://gareus.org/oss/lv2/tuna#mod': "/zynthian/zynthian-ui/zyngui/zynthian_widget_tunaone.py",
-        'http://looperlative.com/plugins/lp3-basic': "/zynthian/zynthian-ui/zyngui/zynthian_widget_looper.py",
-        'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader': "/zynthian/zynthian-ui/zyngui/zynthian_widget_aidax.py",
-        'http://github.com/mikeoliphant/neural-amp-modeler-lv2': "/zynthian/zynthian-ui/zyngui/zynthian_widget_nam.py"
+        'http://gareus.org/oss/lv2/meters#spectr30mono': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_spectr30.py",
+        'http://gareus.org/oss/lv2/meters#spectr30stereo': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_spectr30.py",
+        'http://gareus.org/oss/lv2/tuna#one': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_tunaone.py",
+        'http://gareus.org/oss/lv2/tuna#mod': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_tunaone.py",
+        'http://looperlative.com/plugins/lp3-basic': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_looper.py",
+        'http://aidadsp.cc/plugins/aidadsp-bundle/rt-neural-loader': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_aidax.py",
+        'http://github.com/mikeoliphant/neural-amp-modeler-lv2': zynthian_engine.ui_dir + "/zyngui/zynthian_widget_nam.py"
     }
 
     # ------------------------------------------------------------------------------
@@ -141,7 +141,8 @@ class zynthian_engine_jalv(zynthian_engine):
             'padthv1': [],
             'Vex': [],
             'amsynth': ['modulation wheel'],
-            'JC303': ['modulation wheel']
+            'JC303': [],
+            'Novachord': []
         }
     }
 
@@ -196,14 +197,17 @@ class zynthian_engine_jalv(zynthian_engine):
             logging.debug("CREATING JALV ENGINE => {}".format(self.jackname))
 
             if self.config_remote_display() and self.native_gui:
-                if self.native_gui == "Qt5UI":
-                    jalv_bin = "jalv.qt5"
-                elif self.native_gui == "Qt4UI":
-                    # jalv_bin = "jalv.qt4"
-                    jalv_bin = "jalv.gtk3"
-                else:  # elif self.native_gui=="X11UI":
-                    jalv_bin = "jalv.gtk3"
-                self.command = [jalv_bin, "--jack-name", self.jackname, self.plugin_url]
+                if self.native_gui == "UI":
+                    self.command = ["jalv", "-s", "-n", self.jackname, self.plugin_url]
+                else:
+                    if self.native_gui == "Qt5UI":
+                        jalv_bin = "jalv.qt5"
+                    elif self.native_gui == "Qt4UI":
+                        # jalv_bin = "jalv.qt4"
+                        jalv_bin = "jalv.gtk3"
+                    else:  # elif self.native_gui=="X11UI":
+                        jalv_bin = "jalv.gtk3"
+                    self.command = [jalv_bin, "--jack-name", self.jackname, self.plugin_url]
             else:
                 self.command = ["jalv", "-n", self.jackname, self.plugin_url]
                 # Some plugins need a X11 display for running headless (QT5, QT6),
@@ -211,8 +215,8 @@ class zynthian_engine_jalv(zynthian_engine):
                 if not self.plugin_name.endswith("v1"):
                     self.command_env['DISPLAY'] = "X"
 
-            # Use jalv_asyncli (development version) =>
-            self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
+            # Use jalv's development version =>
+            #self.command[0] = "/zynthian/zynthian-sw/jalv_asyncli/build/" + self.command[0]
 
             self.command_prompt = ">"
 
@@ -643,12 +647,14 @@ class zynthian_engine_jalv(zynthian_engine):
             except Exception as e:
                 logging.error(e)
 
+        # Return number of remaining presets in bank
         try:
             n = len(self.preset_info[bank[2]]['presets'])
             if n > 0:
                 return n
         except Exception as e:
             pass
+        # If user bank is empty, delete it!
         zynthian_engine_jalv.lv2_remove_bank(bank)
         return 0
 

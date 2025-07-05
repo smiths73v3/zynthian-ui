@@ -726,8 +726,7 @@ class zynthian_state_manager:
                         i += 1
                     # This is probably not correct and we should continue reading in the next period
                     if i == n:
-                        logging.error(
-                            f"SysEx message from device {izmip} is not terminated")
+                        logging.error(f"SysEx message from device {izmip} is not terminated")
                         continue
                     # Crop data until find the 0xF7 mark
                     while sysex_data[-1] != 0xF7:
@@ -750,7 +749,9 @@ class zynthian_state_manager:
                 if evtype == 0xF:
                     # SysEx
                     if chan == 0x0:
-                        continue
+                        # Handle SysEx from external devices only
+                        if izmip < self.get_max_num_midi_devs():
+                            zynsigman.send_queued(zynsigman.S_MIDI, zynsigman.SS_MIDI_SYSEX, izmip=izmip, data=ev)
                     # Clock
                     elif chan == 0x8:
                         self.status_midi_clock = True
@@ -1182,8 +1183,7 @@ class zynthian_state_manager:
                         except:
                             pass
 
-                    self.chain_manager.set_state(
-                        state['chains'], engine_config, merge)
+                    self.chain_manager.set_state(state['chains'], engine_config, merge)
                 self.chain_manager.stop_unused_engines()
                 zynautoconnect.resume()
 
@@ -1613,6 +1613,7 @@ class zynthian_state_manager:
         for id, processor in self.chain_manager.processors.items():
             processor_state = {
                 "bank_info": processor.bank_info,
+                "bank_subdir_info": processor.bank_subdir_info,
                 "preset_info": processor.preset_info,
                 "controllers": {}
             }
@@ -1739,6 +1740,31 @@ class zynthian_state_manager:
                         logging.debug(
                             f"Purging chain {chain_id} from ZS3 {key}")
                         del state["chains"][chain_id]
+
+    def get_last_zs3_index(self):
+        return list(self.zs3.keys()).index(self.last_zs3_id)
+
+    def load_zs3_by_index(self, index):
+        try:
+            zs3_id = list(self.zs3.keys())[index]
+        except:
+            logging.warning(f"Can't find ZS3 with index {index}")
+            return
+        return self.load_zs3(zs3_id)
+
+    def load_next_zs3(self):
+        try:
+            index = self.get_last_zs3_index() + 1
+        except:
+            return False
+        return self.load_zs3_by_index(index)
+
+    def load_prev_zs3(self):
+        try:
+            index = self.get_last_zs3_index() - 1
+        except:
+            return False
+        return self.load_zs3_by_index(index)
 
     # ------------------------------------------------------------------
     # Jackd Info
@@ -1907,12 +1933,18 @@ class zynthian_state_manager:
                 if "midi_cc" in state:
                     for chan_cc, cfg in state["midi_cc"].items():
                         for proc_id, symbol in cfg:
-                            if proc_id in self.chain_manager.processors:
+                            try:
                                 processor = self.chain_manager.processors[proc_id]
-                                chan_cc = int(chan_cc)
-                                chan = (chan_cc >> 8) & 0x7f
-                                cc = chan_cc & 0x7f
-                                self.chain_manager.add_midi_learn(chan, cc, processor.controllers_dict[symbol], zmip)
+                            except:
+                                continue
+                            try:
+                                zctrl = processor.controllers_dict[symbol]
+                            except:
+                                logging.warning(f"Can't MIDI learn '{symbol}'. Controller not found in processor {proc_id}.")
+                                continue
+                            chan = (chan_cc >> 8) & 0xff
+                            cc = chan_cc & 0x7f
+                            self.chain_manager.add_midi_learn(chan, cc, zctrl, izmip)
 
             self.ctrldev_manager.set_state_drivers(ctrldev_state_drivers)
 
@@ -1978,8 +2010,6 @@ class zynthian_state_manager:
             lib_zyncore.set_tuning_freq(ctypes.c_double(self.fine_tuning_freq))
             # Set MIDI Master Channel
             lib_zyncore.set_midi_master_chan(zynthian_gui_config.master_midi_channel)
-            # Set MIDI System Messages flag
-            lib_zyncore.set_midi_system_events(zynthian_gui_config.midi_sys_enabled)
             # Setup MIDI filter rules
             if self.midi_filter_script:
                 self.midi_filter_script.clean()
@@ -2035,11 +2065,6 @@ class zynthian_state_manager:
             self.zynseq.libseq.setClockSource(1)
 
         self.zynseq.libseq.setMidiClockOutput(val == 1)
-
-        if val > 0:
-            lib_zyncore.set_midi_system_events(1)
-        else:
-            lib_zyncore.set_midi_system_events(zynthian_gui_config.midi_sys_enabled)
 
         # Save config
         if save_config:

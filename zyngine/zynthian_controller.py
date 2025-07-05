@@ -93,6 +93,7 @@ class zynthian_controller:
         # Parameters to send values if engine-specific send method not available
         self.midi_chan = None  # MIDI channel to send CC messages from control
         self.midi_cc = None  # MIDI CC number to send CC messages from control
+        self.midi_autolearn = True  # Auto-learn MIDI-CC based controllers
         self.midi_feedback = None  # [chan,cc] for MIDI control feedback
         self.midi_cc_momentary_switch = False
         self.midi_cc_mode = -1                  # CC mode: -1=unknown,  0=abs, 1=rel1, 2=rel2, 3=rel3
@@ -102,7 +103,6 @@ class zynthian_controller:
         self.midi_cc_mode_detecting_zero = 0    # Used by CC mode detection algorithm
         self.midi_cc_debounce = False # True to enable debounce of toggle
         self.midi_cc_debounce_timer = None
-        self.osc_port = None  # OSC destination port
         self.osc_path = None  # OSC path to send value to
         self.graph_path = None  # Complex map of control to engine parameter
 
@@ -178,8 +178,8 @@ class zynthian_controller:
             self.midi_chan = options['midi_chan']
         if 'midi_cc' in options:
             self.midi_cc = options['midi_cc']
-        if 'osc_port' in options:
-            self.osc_port = options['osc_port']
+        if 'midi_autolearn' in options:
+            self.midi_autolearn = options['midi_autolearn']
         if 'osc_path' in options:
             self.osc_path = options['osc_path']
         if 'graph_path' in options:
@@ -382,7 +382,7 @@ class zynthian_controller:
             if self.midi_cc_debounce:
                 if self.midi_cc_debounce_timer:
                     self.midi_cc_debounce_timer.cancel()
-                self.midi_cc_debounce_timer = Timer(0.02, self.debounce_cb, (value, True))
+                self.midi_cc_debounce_timer = Timer(0.02, self.midi_cc_debounce_cb, (value, True))
                 self.midi_cc_debounce_timer.start()
             else:
                 self.set_value(value, send=True)
@@ -406,11 +406,12 @@ class zynthian_controller:
                 else:
                     self.value = self.value_max
             return
-        elif self.ticks:
-            # TODO Do something here?
-            pass
         elif self.is_integer:
             val = int(val)
+
+        # TODO Do something here?
+        # elif self.ticks:
+        #   pass
 
         if val > self.value_max:
             self.value = self.value_max
@@ -523,15 +524,12 @@ class zynthian_controller:
             if self.value_range == 0:
                 return 0
             elif self.is_logarithmic:
-                val = int(127 * math.log10((9 * self.value - (10 *
-                          self.value_min - self.value_max)) / self.value_range))
+                val = int(127 * math.log10((9 * self.value - (10 * self.value_min - self.value_max)) / self.value_range))
             else:
-                val = min(
-                    127, int(127 * (self.value - self.value_min) / self.value_range))
+                val = min(127, int(127 * (self.value - self.value_min) / self.value_range))
         except Exception as e:
             logging.error(e)
             val = 0
-
         return val
 
     def get_ctrl_osc_val(self):
@@ -573,7 +571,7 @@ class zynthian_controller:
     # MIDI CC processing
     # ----------------------------------------------------------------------------
 
-    def debounce_cb(self, val, send):
+    def midi_cc_debounce_cb(self, val, send):
         self.midi_cc_debounce_timer = None
         self.set_value(val, send)
 
@@ -604,7 +602,7 @@ class zynthian_controller:
             if self.midi_cc_debounce:
                 if self.midi_cc_debounce_timer:
                     self.midi_cc_debounce_timer.cancel()
-                self.midi_cc_debounce_timer = Timer(0.02, self.debounce_cb, (value, send))
+                self.midi_cc_debounce_timer = Timer(0.02, self.midi_cc_debounce_cb, (value, send))
                 self.midi_cc_debounce_timer.start()
             else:
                 self.set_value(value, send)
