@@ -50,8 +50,10 @@ def load_yaml_config(fpath):
 		logging.error(f"Bad formatted yaml in config file '{fpath}' => {e}")
 		return {}
 
+
 class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
-	dev_ids = ["X-Touch IN 1"]
+	#dev_ids = ["X-Touch IN 1"]
+	dev_ids = ["*"]
 	midi_chan = 0x0  # zero is the default don't change
 	sysex_answer_cb = None
 	unroute_from_chains = True
