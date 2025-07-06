@@ -255,9 +255,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 			col = int(id) + self.first_zyn_channel_fader
 			if col < len(self.get_ordered_chain_ids_filtered()):
 				chain = self.get_chain_by_position(col)
-				mixer_chan = chain.mixer_chan
-				if mixer_chan is not None:
-					self.chain_manager.set_active_chain_by_id(chain_id=chain.chain_id)
+				self.chain_manager.set_active_chain_by_id(chain_id=chain.chain_id)
 
 	def encoderpress(self, id, ccnum, ccval):
 		if self.encoder_assign == 'global_view':
