@@ -126,7 +126,7 @@ class zynthian_engine_inet_radio(zynthian_engine):
                                   text=True, bufsize=1, stdout=PIPE, stderr=STDOUT, stdin=PIPE)
                 sleep(1)
                 self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.client.setblocking(False)
+                # self.client.setblocking(False) # Effect will be overridden by settimeout() in next line.
                 self.client.settimeout(1)
                 self.client.connect(("localhost", 4212)) #TODO Assign port in config
                 self.client.recv(4096)
@@ -177,7 +177,10 @@ class zynthian_engine_inet_radio(zynthian_engine):
             buffer = bytes()
             while True:
                 try:
-                    buffer += self.client.recv(1024)
+                    response = self.client.recv(1024)
+                    buffer += response
+                    if response == b'':
+                        break
                 except TimeoutError:
                     break
             if buffer:
