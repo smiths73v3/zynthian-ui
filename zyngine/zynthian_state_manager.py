@@ -1096,10 +1096,15 @@ class zynthian_state_manager:
             converter = zynthian_legacy_snapshot(self)
             state = converter.convert_state(snapshot)
 
+            if load_sequences and "zynseq_riff_b64" in state:
+                b64_bytes = state["zynseq_riff_b64"].encode("utf-8")
+                binary_riff_data = base64.decodebytes(b64_bytes)
+                self.zynseq.restore_riff_data(binary_riff_data)
+                self.zynseq.update_tempo()
+
             if load_chains:
                 # Mute output to avoid unwanted noises
-                self.zynmixer.set_mute(
-                    self.zynmixer.MAX_NUM_CHANNELS - 1, True)
+                self.zynmixer.set_mute(self.zynmixer.MAX_NUM_CHANNELS - 1, True)
 
                 zynautoconnect.pause()
                 if "chains" in state:
@@ -1213,10 +1218,9 @@ class zynthian_state_manager:
                 if "midi_profile_state" in state:
                     self.set_midi_profile_state(state["midi_profile_state"])
 
-            if load_sequences and "zynseq_riff_b64" in state:
-                b64_bytes = state["zynseq_riff_b64"].encode("utf-8")
-                binary_riff_data = base64.decodebytes(b64_bytes)
-                self.zynseq.restore_riff_data(binary_riff_data)
+                # After loading initial state, enable midi autolearn in all processors
+                for proc in self.chain_manager.processors.values():
+                    proc.set_midi_autolearn(True)
 
             if fpath == self.last_snapshot_fpath and "last_state_fpath" in state:
                 self.last_snapshot_fpath = state["last_snapshot_fpath"]
