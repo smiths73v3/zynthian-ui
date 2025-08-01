@@ -64,7 +64,8 @@ class zynthian_gui_help:
         # Patch HtmlFrame widget
         self.main_frame.event_generate = self.main_frame.html.event_generate
         # Bind events
-        self.main_frame.on_done_loading(self.done_loading)
+        # smiths73v3: on_done_loading did not exist on x86_64
+        #self.main_frame.on_done_loading(self.done_loading)
         self.main_frame.bind("<Button-1>", self.cb_touch_push)
         self.main_frame.bind("<ButtonRelease-1>", self.cb_touch_release)
         self.main_frame.bind("<B1-Motion>", self.cb_touch_motion)
