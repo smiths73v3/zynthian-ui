@@ -620,10 +620,12 @@ class zynthian_engine_alsa_mixer(zynthian_engine):
         except:
             self.ctrl_list = None
 
-        if self.device_name in self.volume_units_percent_devices:
-            self.volume_units = alsaaudio.VOLUME_UNITS_PERCENTAGE
-        else:
-            self.volume_units = alsaaudio.VOLUME_UNITS_RAW
+        #if self.device_name in self.volume_units_percent_devices:
+        #    self.volume_units = alsaaudio.VOLUME_UNITS_PERCENTAGE
+        #else:
+        #    self.volume_units = alsaaudio.VOLUME_UNITS_RAW
+        # smiths73v3, bypass this until we have the proper alsa support in x86_64
+        self.volume_units = 0
 
         if self.device_name == "sndrpihifiberry":
             self.set_sndrpihifiberry_overrides()
