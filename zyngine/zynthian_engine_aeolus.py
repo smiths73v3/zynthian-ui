@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-#******************************************************************************
+# ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian Engine (zynthian_engine_aeolus)
 #
 # zynthian_engine implementation for Aeolus
 #
-# Copyright (C) 2015-2018 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
 #
-#******************************************************************************
+# ******************************************************************************
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -20,540 +20,728 @@
 #
 # For a full copy of the GNU General Public License see the LICENSE.txt file.
 #
-#******************************************************************************
+# ******************************************************************************
 
-import os
-import glob
 import copy
-import shutil
-import struct
+import json
 import logging
-from collections import OrderedDict
+import pexpect
+from time import sleep
+from subprocess import Popen, DEVNULL
+from os.path import exists as file_exists
 
+# Zynthian specific modules
+import zynautoconnect
 from . import zynthian_engine
-from . import zynthian_controller
+from zynconf import ServerPort
+from zyncoder.zyncore import lib_zyncore
+from zyngine.zynthian_processor import zynthian_processor
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Aeolus Engine Class
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
 
 class zynthian_engine_aeolus(zynthian_engine):
-
-	# ---------------------------------------------------------------------------
-	# Tuning temperaments
-	# ---------------------------------------------------------------------------
-
-	tuning_temp_dict = {
-		"Meantone 1/4": 1,
-		"Werckmeister III": 2,
-		"Kimberger III": 3,
-		"Well Tempered": 4,
-		"Equally Tempered": 5,
-		"Vogel/Ahrend": 6,
-		"Vallotti": 7,
-		"Kellner": 8,
-		"Lehman": 9,
-		"Pure C/F/G": 10
-#		"Pythagorean": 11 => Crash!!
-	}
-
-	# ---------------------------------------------------------------------------
-	# Controllers & Screens
-	# ---------------------------------------------------------------------------
-
-	#TODO: Parse instrument definition 
-	instrument = [{
-		"name": "Manual III",
-		"chan": 2,
-		"buttons": [
-			'Principal 8',
-			'Gemshorn 8',
-			'Quinta-dena 8',
-			'Suabile 8',
-			'Rohrflöte 4',
-			'Dulzflöte 4',
-			'Quintflöte 2 2/3',
-			'Super-octave 2',
-			'Sifflet 1',
-			'Cymbel VI',
-			'Oboe',
-			'Tremulant'
-		]
-	},{
-		"name": "Manual II",
-		"chan": 1,
-		"buttons": [
-			'Rohrflöte 8',
-			'Harmonic Flute 4',
-			'Flauto Dolce 4',
-			'Nasard 2 2/3',
-			'Ottavina 2',
-			'Tertia 1 3/5',
-			'Sesqui-altera',
-			'Septime',
-			'None',
-			'Krumhorn',
-			'Melodia',
-			'Tremulant',
-			'II+III'
-		]
-	},{
-		"name": "Manual I",
-		"chan": 0,
-		"buttons": [
-			'Principal 8',
-			'Principal 4',
-			'Octave 2',
-			'Octave 1',
-			'Quint 5 1/3',
-			'Quint 2 2/3',
-			'Tibia 8',
-			'Celesta 8',
-			'Flöte 8',
-			'Flöte 4',
-			'Flöte 2',
-			'Cymbel VI',
-			'Mixtur',
-			'Trumpet',
-			'I+II',
-			'I+III'
-		]
-	},{
-		"name": "Pedals",
-		"chan": 3,
-		"buttons": [
-			'Subbass 16',
-			'Principal 16',
-			'Principal 8',
-			'Principal 4',
-			'Octave 2',
-			'Octave 1',
-			'Quint 5 1/3',
-			'Quint 2 2/3',
-			'Mixtur',
-			'Fagott 16',
-			'Trombone 16',
-			'Bombarde 32',
-			'Trumpet',
-			'P+I',
-			'P+II',
-			'P+III'
-		]
-	}]
-
-	common_ctrls=[
-		['Swell',7,64],
-		['TFreq',12,42],
-		['TMod',13,64],
-		['Sustain',64,"off","off|on"]
-	]
-
-	_ctrls=[]
-	_ctrl_screens=[]
-
-	#----------------------------------------------------------------------------
-	# Config variables
-	#----------------------------------------------------------------------------
-
-	waves_dpath = "/usr/share/aeolus/stops/waves"
-	config_fpath = "/usr/share/aeolus/stops/Aeolus/definition"
-	presets_fpath = "/root/.aeolus-presets"
-	#presets_fpath = "/usr/share/aeolus/stops/Aeolus/presets"
-
-	n_banks = 32
-	n_presets = 32
-	stop_cc_num = 98
-	ctrl_cc_num_start = 14
-
-	#----------------------------------------------------------------------------
-	# Initialization
-	#----------------------------------------------------------------------------
-
-	def __init__(self, zyngui=None):
-		super().__init__(zyngui)
-		self.name = "Aeolus"
-		self.nickname = "AE"
-		self.jackname = "aeolus"
-
-		self.options['midi_chan']=False
-
-		if self.config_remote_display():
-			self.proc_start_sleep = 3
-			self.command_prompt = None
-			self.command = "aeolus"
-		else:
-			self.command_prompt = "\nAeolus>"
-			self.command = "aeolus -t"
-
-		self.get_current_config()
-
-		self.presets_data = self.read_presets_file()
-		self.generate_ctrl_list()
-
-		self.tuning_temp = None
-		self.reset()
-
-
-
-	def start(self):
-		super().start()
-
-		#Save waves when needed and possible (no GUI!)
-		if self.command_prompt and self.is_empty_waves():
-			logging.error("New config saved!")
-			self.proc_cmd("!")
-
-
-	def get_current_config(self):
-		# Get current config ...
-		with open(self.config_fpath, 'r') as cfg_file:
-			self.config_lines = cfg_file.readlines()
-			for line in self.config_lines:
-				if line.startswith("/tuning"):
-					parts = line[8:].split(' ')
-					try:
-						self.current_tuning_freq = float(parts[0])
-						logging.info("Current tuning frequency = {:.1f}".format(self.current_tuning_freq))
-					except Exception as e:
-						logging.error("Can't get current tuning frequency! Using default (440.0 Hz) => {}".format(e))
-						self.current_tuning_freq = 440.0
-					try:
-						self.current_tuning_temp = int(parts[1])
-						logging.info("Current tuning temperament = {:d}".format(self.current_tuning_temp))
-					except Exception as e:
-						logging.error("Can't get current tuning temperament! Using default (Equally Tempered) => {}".format(e))
-						self.current_tuning_temp = 5
-
-
-	def fix_config(self):
-		regenerate = False
-		# Generate tuning line
-		tuning_line = "/tuning {:.1f} {:d}\n".format(self.zyngui.fine_tuning_freq, self.tuning_temp)
-		# Get current config ...
-		for i,line in enumerate(self.config_lines):
-			if line.startswith("/tuning"):
-				if line!=tuning_line:
-					self.config_lines[i] = tuning_line
-					regenerate = True
-				break
-		# Delete waves & fix config file
-		if regenerate:
-			self.del_waves()
-			with open(self.config_fpath, 'w+') as cfg_file:
-				cfg_file.writelines(self.config_lines)
-			return True
-
-
-	def del_waves(self):
-		try:
-			shutil.rmtree(self.waves_dpath, ignore_errors=True)
-			os.mkdir(self.waves_dpath)
-			logging.info("Waves deleted! Retuning ...")
-		except Exception as e:
-			logging.error("Can't delete waves! => {}".format(e))
-
-
-	def is_empty_waves(self):
-		if not os.listdir(self.waves_dpath):
-			return True
-		else:
-			return False
-
-
-	# ---------------------------------------------------------------------------
-	# Layer Management
-	# ---------------------------------------------------------------------------
-
-	def add_layer(self, layer):
-		super().add_layer(layer)
-
-
-	def del_layer(self, layer):
-		super().del_layer(layer)
-
-	# ---------------------------------------------------------------------------
-	# MIDI Channel Management
-	# ---------------------------------------------------------------------------
-
-	@classmethod
-	def get_needed_channels(cls):
-		chans = []
-		for manual in cls.instrument:
-			chans.append(manual['chan'])
-		return chans
-
-	#----------------------------------------------------------------------------
-	# Bank Managament
-	#----------------------------------------------------------------------------
-
-	def get_bank_list(self, layer=None):
-		res=[]
-		if not self.tuning_temp:
-			for title, i in self.tuning_temp_dict.items():
-				res.append((title, i, title))
-			self.zyngui.screens['bank'].index = self.current_tuning_temp-1
-		else:
-			i=-1
-			for gc in self.presets_data['group_config']:
-				if gc['bank']>i:
-					i=gc['bank']
-					title="Bank {0:02d}".format(i+1)
-					res.append((title,i,title))
-		return res
-
-
-	def set_bank(self, layer, bank):
-		if not self.tuning_temp:
-			self.tuning_temp = bank[1]
-			res = False
-		else:
-			res = True
-
-		if self.fix_config() or not self.proc:
-			self.stop()
-			self.start()
-			self.zyngui.zynautoconnect_midi(True)
-			self.zyngui.zynautoconnect_audio()
-			self.layers[0].load_bank_list()
-			self.layers[0].reset_bank()
-			
-			if not res:
-				return False
-
-		self.zyngui.zynmidi.set_midi_bank_lsb(layer.get_midi_chan(), bank[1])
-		#Change Bank for all Layers
-		for l in self.layers:
-			if l!=layer:
-				l.bank_index=layer.bank_index
-				l.bank_name=layer.bank_name
-				l.bank_info=copy.deepcopy(layer.bank_info)
-		return True
-
-	#----------------------------------------------------------------------------
-	# Preset Managament
-	#----------------------------------------------------------------------------
-
-	def get_preset_list(self, bank):
-		res=[]
-		i=-1
-		#for i in range(self.n_presets):
-		for gc in self.presets_data['group_config']:
-			if gc['preset']>i and gc['bank']==bank[1]:
-				i=gc['preset']
-				title="Preset {0:02d}".format(i+1)
-				res.append([str(bank[1]) + '/' + title,[0,bank[1],i],title,gc['gconf']])
-		return res
-
-
-	def set_preset(self, layer, preset, preload=False):
-		#Send Program Change
-		self.zyngui.zynmidi.set_midi_preset(layer.get_midi_chan(), preset[1][0], preset[1][1], preset[1][2])
-
-		if not preload:
-			#Update Controller Values
-			for ig, gc in enumerate(preset[3]):
-				for ic, ctrl in enumerate(self.instrument[ig]['ctrls']):
-					if (gc >> ic) & 1:
-						ctrl[2]='on'
-					else:
-						ctrl[2]='off'
-			self.refresh_all()
-
-			#Change Preset for all Layers
-			for l in self.layers:
-				if l!=layer:
-					l.preset_index=layer.preset_index
-					l.preset_name=layer.preset_name
-					l.preset_info=copy.deepcopy(layer.preset_info)
-					l.preset_bank_index=l.bank_index
-					l.preload_index=l.preset_index
-					l.preload_name=l.preset_name
-					l.preload_info=l.preset_info
-
-		return True
-
-	#----------------------------------------------------------------------------
-	# Controllers Managament
-	#----------------------------------------------------------------------------
-
-	@classmethod
-	def generate_ctrl_list(cls):
-		#Generate ctrl list for each group in instrument
-		n=0
-		for ig, group in enumerate(cls.instrument):
-			#Generate _ctrls list
-			i=0
-			cls.instrument[ig]['ctrls']=[]
-			#self.instrument[ig]['ctrls']=copy.deepcopy(self.common_ctrls)
-			for ctrl_name in group['buttons']:
-				cc_num=cls.ctrl_cc_num_start+n
-				cls.instrument[ig]['ctrls'].append([ctrl_name,cc_num,'off','off|on',[ig,i]])
-				i+=1
-				n+=1
-		
-			#Generate _ctrl_screens list
-			cls.instrument[ig]['ctrl_screens']=[]
-			ctrl_set=[]
-			i=0
-			for ctrl in cls.instrument[ig]['ctrls']:
-				ctrl_set.append(ctrl[0])
-				if len(ctrl_set)==4:
-					cls.instrument[ig]['ctrl_screens'].append(["{} ({})".format(group['name'],i),ctrl_set])
-					ctrl_set=[]
-					i+=1
-			if len(ctrl_set)>0:
-				cls.instrument[ig]['ctrl_screens'].append(["{} ({})".format(group['name'],i),ctrl_set])
-
-
-	def get_controllers_dict(self, layer):
-		#Find ctrl list for layer's group
-		for group in self.instrument:
-			if group['chan']==layer.midi_chan:
-				self._ctrls=group['ctrls']
-				self._ctrl_screens=group['ctrl_screens']
-				return super().get_controllers_dict(layer)
-
-		return OrderedDict()
-
-
-
-	def send_controller_value(self, zctrl):
-		self.midi_zctrl_change(zctrl, int(zctrl.get_value()))
-
-	#----------------------------------------------------------------------------
-	# MIDI CC processing
-	#----------------------------------------------------------------------------
-
-	def midi_zctrl_change(self, zctrl, val):
-		try:
-			if isinstance(zctrl.graph_path,list):
-				if isinstance(val,int):
-					if val>=64:
-						val="on"
-					else:
-						val="off"
-
-					if val!=zctrl.get_value2label():
-						zctrl.set_value(val)
-	
-				if val=="on":
-					mm="10"
-				else:
-					mm="01"
-
-				v1="01{0}0{1:03b}".format(mm,zctrl.graph_path[0])
-				v2="000{0:05b}".format(zctrl.graph_path[1])
-				self.zyngui.zynmidi.set_midi_control(zctrl.midi_chan,self.stop_cc_num,int(v1,2))
-				self.zyngui.zynmidi.set_midi_control(zctrl.midi_chan,self.stop_cc_num,int(v2,2))
-
-				#logging.debug("Aeolus Stop ({}) => mm={}, group={}, button={})".format(val,mm,zctrl.graph_path[0],zctrl.graph_path[1]))
-
-		except Exception as e:
-			logging.debug(e)
-
-	#--------------------------------------------------------------------------
-	# Special
-	#--------------------------------------------------------------------------
-
-	def get_chan_name(self, chan):
-		for group in self.instrument:
-			if group['chan']==chan:
-				return group['name']
-
-
-	@classmethod
-	def read_presets_file(cls):
-
-		with open(cls.presets_fpath, mode='rb') as file:
-			data = file.read()
-
-			pos=0
-			header=struct.unpack("6sbHHHH", data[pos:16])
-			#logging.debug(header)
-			pos+=16
-			if header[0].decode('ASCII')!="PRESET":
-				logging.error("FORMAT => Bad Header")
-
-			n_groups=header[5]
-			if n_groups!=len(cls.instrument):
-				logging.error("Number of groups ({}) doesn't fit with engine's configuration ({}) !".format(n_groups,len(cls.instrument)))
-
-			chan_config=[]
-			for num in range(8):
-				chan_config.append([])
-				for group in range(16):
-					res=struct.unpack("H", data[pos:pos+2])
-					pos+=2
-					chan_config[num].append(res[0])
-					logging.debug("CHAN CONFIG (NUM {0}, GROUP {1} => {2:b}".format(num,group,res[0]))
-
-			for i,group in enumerate(cls.instrument):
-				group['chan'] = chan_config[0][i] & 0xF;
-
-			group_config=[]
-			try:
-				while True:
-					res=struct.unpack("BBBB", data[pos:pos+4])
-					pos+=4
-					if res[0]>=cls.n_banks:
-						logging.error("FORMAT => Bank index ({}>={})".format(res[0],cls.n_banks))
-						return
-					if res[1]>=cls.n_presets:
-						logging.error("FORMAT => Preset index ({}>={})".format(res[1],cls.n_presets))
-						return
-					logging.debug("BANK {}, PRESET {} =>".format(res[0],res[1]))
-					gconf=[]
-					for group in range(n_groups):
-						gc=struct.unpack("I", data[pos:pos+4])
-						pos+=4
-						gconf.append(gc[0])
-						logging.debug("GROUP CONFIG {0} => {1:b}".format(group,gc[0]))
-
-					group_config.append({
-						'bank': res[0],
-						'preset': res[1],
-						'gconf':gconf
-					})
-					
-			except:
-				pass
-
-			return {
-				'n_groups' : n_groups,
-				'chan_config' : chan_config,
-				'group_config': group_config
-			}
-
-	# ---------------------------------------------------------------------------
-	# Extended Config
-	# ---------------------------------------------------------------------------
-
-	def get_extended_config(self):
-		xconfig = { 
-			'tuning_temp': self.tuning_temp,
-		}
-		return xconfig
-
-
-	def set_extended_config(self, xconfig):
-		try:
-			self.tuning_temp = xconfig['tuning_temp']
-		except Exception as e:
-			logging.error("Can't setup extended config => {}".format(e))
-
-
-	# ---------------------------------------------------------------------------
-	# Layer "Path" String
-	# ---------------------------------------------------------------------------
-
-	def get_path(self, layer):
-		path=self.nickname
-		if not self.tuning_temp:
-			path += "/Temperament"
-		else:
-			chan_name=self.get_chan_name(layer.get_midi_chan())
-			if chan_name:
-				path=path+'/'+chan_name
-		return path
-
-#******************************************************************************
+    """
+    We use the default aeolus configuration that presents 4 divisions:
+            III Upper swell division
+            II Lower swell division
+            I Great division
+            P Pedal division
+    Each division is controlled by a keyboard (manual or pedal)
+    Only the swell divisions (II & III) have swell control (swell, trem freq, trem amp)
+    There are several tuning temeraments which is configured when engine starts
+    """
+
+    # ---------------------------------------------------------------------------
+    # Manual and pedal configuration
+    # ---------------------------------------------------------------------------
+
+    divisions = [
+        "III Upper Swell",
+        "II Lower Swell",
+        "I Great",
+        "Pedal"
+    ]
+
+    # Binary flags: Bit 0: III, 1: II, 2: I, 3: Pedals
+    keyboard_config_names = {
+        0b1111: "Manual I+II+III+Pedals",
+        0b1101: "Manual I+III+Pedals",
+        0b1110: "Manual I+II+Pedals",
+        0b1100: "Manual I+Pedals",
+        0b1000: "Pedals",
+        0b0111: "Manual I+II+III",
+        0b0101: "Manual I+III",
+        0b0110: "Manual I+II",
+        0b0100: "Manual I"
+    }
+
+    # ---------------------------------------------------------------------------
+    # Tuning temperaments
+    # ---------------------------------------------------------------------------
+
+    temperament_names = {
+        5: "Equally Tempered",
+        4: "Well Tempered",
+        1: "Meantone 1/4",
+        2: "Werckmeister III",
+        3: "Kimberger III",
+        6: "Vogel/Ahrend",
+        7: "Vallotti",
+        8: "Kellner",
+        9: "Lehman",
+        10: "Pure C/F/G",
+        0: "Pythagorean"
+    }
+
+    # ---------------------------------------------------------------------------
+    # Controllers & Screens
+    # ---------------------------------------------------------------------------
+
+    swell_ctrls = [
+        ['Swell', 7, 64],
+        ['Trem Freq', 12, 42],
+        ['Trem Amp', 13, 64],
+    ]
+
+    common_ctrls = [
+        ['Azimuth', {'midi_cc': 14, 'value_min': -0.5, 'value_max': 0.5}],
+        ['Width', {'midi_cc': 15, 'value': 0.8, 'value_max': 1.0}],
+        ['Direct', {'midi_cc': 16, 'value': -9.5, 'value_min': -22.0, 'value_max': 0.0}],
+        ['Reflect', {'midi_cc': 17, 'value': -16.5, 'value_min': -22.0, 'value_max': 0.0}],
+        ['Reverb', {'midi_cc': 18, 'value': -15, 'value_min': -22.0, 'value_max': 0.0}]
+    ]
+
+    # TODO: The following controls are common to all so should ideally only be in the "main" chain
+    audio_ctrls = [
+        ['Delay', {'midi_cc': 20, 'value': 60, 'value_min': 0, 'value_max': 150}],
+        ['Rev Time', {'midi_cc': 21, 'value': 4.0, 'value_min': 2.0, 'value_max': 7.0}],
+        ['Rev Pos', {'midi_cc': 22, 'value': 0.5, 'value_min': -1.0, 'value_max': 1.0}],
+        ['Volume', {'midi_cc': 23, 'value': -15, 'value_min': -22, 'value_max': 0.0}]
+    ]
+
+    common_ctrl_screens = [
+        ["Audio (1)", ['Azimuth', 'Width', 'Direct', 'Reflect']],
+        ["Audio (2)", ['Reverb']]
+    ]
+
+    audio_ctrl_screens = [
+        ['Audio (3)', ['Delay', 'Rev Time', 'Rev Pos', 'Volume']]
+    ]
+
+    instrument = [
+        {
+            # Manual III
+            "ctrls": [
+                ['Principal 8', None, 'off', 'off|on', [0, 0]],
+                ['Gemshorn 8', None, 'off', 'off|on', [0, 1]],
+                ['Quinta-dena 8', None, 'off', 'off|on', [0, 2]],
+                ['Suabile 8', None, 'off', 'off|on', [0, 3]],
+                ['Rohrflöte 4', None, 'off', 'off|on', [0, 4]],
+                ['Dulzflöte 4', None, 'off', 'off|on', [0, 5]],
+                ['Quintflöte 2 2/3', None, 'off', 'off|on', [0, 6]],
+                ['Super-octave 2', None, 'off', 'off|on', [0, 7]],
+                ['Sifflet 1', None, 'off', 'off|on', [0, 8]],
+                ['Cymbel VI', None, 'off', 'off|on', [0, 9]],
+                ['Oboe', None, 'off', 'off|on', [0, 10]],
+                ['Tremulant', None, 'off', 'off|on', [0, 11]],
+            ] + swell_ctrls + common_ctrls,
+            "ctrl_screens": [
+                ['Stops (1)', ['Principal 8', 'Gemshorn 8', 'Quinta-dena 8', 'Suabile 8']],
+                ['Stops (2)', ['Rohrflöte 4', 'Dulzflöte 4', 'Quintflöte 2 2/3', 'Super-octave 2']],
+                ['Stops (3)', ['Sifflet 1', 'Cymbel VI', 'Oboe', 'Tremulant']],
+                ['Swell', ['Swell', 'Trem Freq', 'Trem Amp']]
+            ] + common_ctrl_screens
+        },
+        {
+            # Manual II
+            "ctrls": [
+                ['Rohrflöte 8', None, 'off', 'off|on', [1, 0]],
+                ['Harmonic Flute 4', None, 'off', 'off|on', [1, 1]],
+                ['Flauto Dolce 4', None, 'off', 'off|on', [1, 2]],
+                ['Nasard 2 2/3', None, 'off', 'off|on', [1, 3]],
+                ['Ottavina 2', None, 'off', 'off|on', [1, 4]],
+                ['Tertia 1 3/5', None, 'off', 'off|on', [1, 5]],
+                ['Sesqui-altera', None, 'off', 'off|on', [1, 6]],
+                ['Septime', None, 'off', 'off|on', [1, 7]],
+                ['None', None, 'off', 'off|on', [1, 8]],
+                ['Krumhorn', None, 'off', 'off|on', [1, 9]],
+                ['Melodia', None, 'off', 'off|on', [1, 10]],
+                ['Tremulant', None, 'off', 'off|on', [1, 11]],
+                ['II+III', None, 'off', 'off|on', [1, 12]]
+            ] + swell_ctrls + common_ctrls,
+            "ctrl_screens": [
+                ['Stops (1)', ['Rohrflöte 8', 'Harmonic Flute 4', 'Flauto Dolce 4', 'Nasard 2 2/3']],
+                ['Stops (2)', ['Ottavina 2', 'Tertia 1 3/5', 'Sesqui-altera', 'Septime']],
+                ['Stops (3)', ['Krumhorn', 'Melodia', 'Tremulant', 'II+III']],
+                ['Swell', ['Swell', 'Trem Freq', 'Trem Amp']]
+            ] + common_ctrl_screens
+        },
+        {
+            # Manual I
+            "ctrls": [
+                ['Principal 8', None, 'off', 'off|on', [2, 0]],
+                ['Principal 4', None, 'off', 'off|on', [2, 1]],
+                ['Octave 2', None, 'off', 'off|on', [2, 2]],
+                ['Octave 1', None, 'off', 'off|on', [2, 3]],
+                ['Quint 5 1/3', None, 'off', 'off|on', [2, 4]],
+                ['Quint 2 2/3', None, 'off', 'off|on', [2, 5]],
+                ['Tibia 8', None, 'off', 'off|on', [2, 6]],
+                ['Celesta 8', None, 'off', 'off|on', [2, 7]],
+                ['Flöte 8', None, 'off', 'off|on', [2, 8]],
+                ['Flöte 4', None, 'off', 'off|on', [2, 9]],
+                ['Flöte 2', None, 'off', 'off|on', [2, 10]],
+                ['Cymbel VI', None, 'off', 'off|on', [2, 11]],
+                ['Mixtur', None, 'off', 'off|on', [2, 12]],
+                ['Trumpet', None, 'off', 'off|on', [2, 13]],
+                ['I+II', None, 'off', 'off|on', [2, 14]],
+                ['I+III', None, 'off', 'off|on', [2, 15]]
+            ] + common_ctrls,
+            "ctrl_screens": [
+                ['Stops (1)', ['Principal 8', 'Principal 4', 'Octave 2', 'Octave 1']],
+                ['Stops (2)', ['Quint 5 1/3', 'Quint 2 2/3', 'Tibia 8', 'Celesta 8']],
+                ['Stops (3)', ['Flöte 8', 'Flöte 4', 'Flöte 2', 'Cymbel VI']],
+                ['Stops (4)', ['Mixtur', 'Trumpet', 'I+II', 'I+III']]
+            ] + common_ctrl_screens
+        },
+        {
+            # Pedals
+            "ctrls": [
+                ['Subbass 16', None, 'off', 'off|on', [3, 0]],
+                ['Principal 16', None, 'off', 'off|on', [3, 1]],
+                ['Principal 8', None, 'off', 'off|on', [3, 2]],
+                ['Principal 4', None, 'off', 'off|on', [3, 3]],
+                ['Octave 2', None, 'off', 'off|on', [3, 4]],
+                ['Octave 1', None, 'off', 'off|on', [3, 5]],
+                ['Quint 5 1/3', None, 'off', 'off|on', [3, 6]],
+                ['Quint 2 2/3', None, 'off', 'off|on', [3, 7]],
+                ['Mixtur', None, 'off', 'off|on', [3, 8]],
+                ['Fagott 16', None, 'off', 'off|on', [3, 9]],
+                ['Trombone 16', None, 'off', 'off|on', [3, 10]],
+                ['Bombarde 32', None, 'off', 'off|on', [3, 11]],
+                ['Trumpet', None, 'off', 'off|on', [3, 12]],
+                ['P+I', None, 'off', 'off|on', [3, 13]],
+                ['P+II', None, 'off', 'off|on', [3, 14]],
+                ['P+III', None, 'off', 'off|on', [3, 15]]
+            ] + common_ctrls,
+            "ctrl_screens": [
+                ['Stops (1)', ['Subbass 16', 'Principal 16', 'Principal 8', 'Principal 4']],
+                ['Stops (2)', ['Octave 2', 'Octave 1', 'Quint 5 1/3', 'Quint 2 2/3']],
+                ['Stops (3)', ['Mixtur', 'Fagott 16', 'Trombone 16', 'Bombarde 32']],
+                ['Stops (4)', ['Trumpet', 'P+I', 'P+II', 'P+III']]
+            ] + common_ctrl_screens
+        }
+    ]
+
+    _ctrls = []
+    _ctrl_screens = []
+
+    # ----------------------------------------------------------------------------
+    # Config variables
+    # ----------------------------------------------------------------------------
+
+    # TODO: Use paths from global config
+    stops_fpath = "/zynthian/zynthian-data/aeolus/stops"
+    user_presets_fpath = "/zynthian/zynthian-my-data/presets/aeolus.json"
+    default_presets_fpath = "/zynthian/zynthian-data/presets/aeolus.json"
+
+    stop_cc_num = 98
+
+    # ----------------------------------------------------------------------------
+    # Initialization
+    # ----------------------------------------------------------------------------
+
+    def __init__(self, state_manager=None):
+        super().__init__(state_manager)
+        self.config_remote_display()
+        self.name = "Aeolus"
+        self.nickname = "AE"
+        self.jackname = "aeolus"
+        self.osc_target_port = ServerPort["aeolus_osc"]
+
+        self.options['replace'] = False
+        self.ready = True
+
+        self.keyboard_config = None
+        self.temperament = None
+        self.restart_flag = False
+        self.get_current_config()
+        self.load_presets()
+
+    def wait_for_ready(self, timeout=10):
+        """Wait for aeolus to be ready
+        """
+
+        self.proc_get_output()
+        self.ready = True
+
+    def osc_wait_for_ready(self, timeout=10):
+        """Wait for aeolus to be ready
+
+        timeout : Max seconds to wait (Default: 10) or None to wait indefinitely
+        Blocks until ready or timeout
+        Set self.ready to False before calling action that will trigger ready signal
+        """
+
+        td = 0.25
+        logging.debug("Waiting aeolus for ready ...")
+        if timeout is None:
+            while not self.ready:
+                sleep(td)
+            return
+        while timeout > 0:
+            if self.ready:
+                logging.debug("Aeolus is ready!")
+                return
+            timeout -= td
+            sleep(td)
+        logging.error("Aeolus not ready!!")
+
+    def start(self):
+        self.state_manager.start_busy("start_aeolus")
+        chain_manager = self.state_manager.chain_manager
+        midi_chan = self.processors[0].midi_chan
+        proc_i = 0
+        for i in range(3, -1, -1):
+            if (1 << i) & self.keyboard_config:
+                if proc_i >= len(self.processors):
+                    # First chain is already added
+                    proc_id = chain_manager.get_available_processor_id()
+                    processor = zynthian_processor("AE", chain_manager.engine_info["AE"], proc_id)
+                    chain_id = chain_manager.add_chain(None, midi_chan + proc_i)
+                    chain = chain_manager.get_chain(chain_id)
+                    chain.insert_processor(processor)
+                    chain_manager.processors[proc_id] = processor
+                    self.add_processor(processor)
+                processor = self.processors[proc_i]
+                chain_id = processor.chain_id
+                try:
+                    processor.division
+                except:
+                    processor.division = i
+                chain = chain_manager.get_chain(chain_id)
+                if proc_i:
+                    chain.audio_out = []
+                    chain.mixer_chan = None
+                processor.refresh_controllers()
+                proc_i += 1
+
+        # Disable mixer strip for extra manuals
+        for i, processor in enumerate(self.processors):
+            if i > 0:
+                chain_manager.get_chain(processor.chain_id).mixer_chan = None
+
+        # Select first chain so that preset selection is on "Grand manual"
+        chain_manager.set_active_chain_by_id(self.processors[0].chain_id)
+
+        self.get_current_config()
+        # self.command = ["aeolus", f"-o {self.osc_target_port}", f"-O localhost:{self.osc_server_port}", f"-S {self.stops_fpath}"]
+        self.command = f"aeolus -o {self.osc_target_port} -O localhost:{self.osc_server_port} -S {self.stops_fpath}"
+        if not self.config_remote_display():
+            # self.command.append("-t")
+            self.command += " -t"
+        self.command_prompt = "\nReady"
+        self.ready = False
+        self.osc_init()
+        # self.proc = Popen(self.command, stdout=DEVNULL, stderr=DEVNULL, env=self.command_env)
+        self.proc = pexpect.spawn(self.command, timeout=self.proc_timeout, env=self.command_env, cwd=self.command_cwd)
+        self.proc.delaybeforesend = 0
+        self.wait_for_ready()
+        self.set_tuning()
+        self.set_midi_chan()
+
+        # Need to call autoconnect because engine starts later than chain/processor autorouting
+        zynautoconnect.request_midi_connect(True)
+        zynautoconnect.request_audio_connect(True)
+        self.state_manager.end_busy("start_aeolus")
+
+    def stop(self):
+        if self.proc:
+            try:
+                logging.info("Stoping Engine " + self.name)
+                self.osc_server.send(self.osc_target, '/exit')
+                sleep(0.2)
+                if self.proc.isalive():
+                    self.proc.terminate(True)
+                # try:
+                # self.proc.wait(0.2)
+                # except:
+                # self.proc.terminate()
+                # try:
+                # self.proc.wait(0.2)
+                # except:
+                # self.proc.kill()
+                self.proc = None
+            except Exception as err:
+                logging.error(
+                    "Can't stop engine {} => {}".format(self.name, err))
+        self.osc_end()
+        self.restart_flag = False
+
+    def get_current_config(self):
+        # Get current config ...
+        with open(f"{self.stops_fpath}/Aeolus/definition", 'r') as cfg_file:
+            config_lines = cfg_file.readlines()
+        for line in config_lines:
+            if line.startswith("/tuning"):
+                parts = line[8:].split(' ')
+                try:
+                    self.current_tuning_freq = float(parts[0])
+                except Exception as e:
+                    self.current_tuning_freq = None
+                try:
+                    self.current_temperament = int(parts[1])
+                except Exception as e:
+                    self.current_temperament = None
+
+    def set_tuning(self):
+        """Write fine tuning to config
+
+        Returns : True if changed
+        """
+
+        if self.current_tuning_freq == self.state_manager.fine_tuning_freq and self.current_temperament == self.temperament:
+            return False
+        self.current_tuning_freq = self.state_manager.fine_tuning_freq
+        self.current_temperament = self.temperament
+        self.ready = False
+        self.osc_server.send(self.osc_target, "/retune",
+                             ("f", self.current_tuning_freq),
+                             ("i", self.current_temperament))
+        self.wait_for_ready()
+        self.osc_server.send(self.osc_target, "/save")
+        return True
+
+    def get_path(self, processor):
+        path = self.name
+        if self.keyboard_config is None:
+            path += "/Divisions"
+        elif self.temperament is None:
+            path += "/Temperament"
+        else:
+            path = f"{self.get_name(processor)}/{self.temperament_names[self.temperament]}"
+        return path
+
+    # ---------------------------------------------------------------------------
+    # Processor Management
+    # ---------------------------------------------------------------------------
+
+    def add_processor(self, processor):
+        self.processors.append(processor)
+        processor.jackname = self.jackname
+        processor.engine = self
+        processor.bank_info = ("General", 0, "General")
+
+    # ---------------------------------------------------------------------------
+    # MIDI Channel Management
+    # ---------------------------------------------------------------------------
+
+    def set_midi_chan(self, processor=None):
+        """Update the MIDI channels that aeolus listens to
+
+        processor : Processor (not used - always updates all)
+
+        MIDI configuration is set by sending osc command to /store_midi_config with 17 integer values
+        First value defines the MIDI preset configuration to store (0..7)
+        The next 16 values define each MIDI channel configuration as bitwise flags:
+                0x1000: Enable keyboards - bits 0..1 define which keyboard:
+                        0x1000: Keyboard III
+                        0x1001: Keyboard II
+                        0x1002: Keyboard I
+                        0x1003: Pedals
+                0x2000: Enable divisions - bit 2 defines which division:
+                        0x2000: Division III
+                        0x2010: Division II
+                0x4000: Enable control
+        Note: There are other bit combinations that produce other results but this looks like software bug
+        """
+
+        if self.osc_server is None:
+            return
+        midi_config = []
+        for chan in range(16):
+            val = 0
+            for processor in self.processors:
+                if processor.midi_chan == chan:
+                    val = 0x5000 | processor.division
+                    if processor.division < 2:
+                        # Keyboards II & III are swell manuals
+                        val |= 0x2000 + (processor.division << 4)
+                    break
+            midi_config.append(("i", val))
+
+        # We only care about first MIDI config preset
+        self.osc_server.send(
+            self.osc_target, "/store_midi_config", ("i", 0), *midi_config)
+        # Don't save - we configure MIDI for this session only
+
+    # ----------------------------------------------------------------------------
+    # Bank Managament
+    # ----------------------------------------------------------------------------
+
+    def get_bank_list(self, processor=None):
+        """Get list of bank_info structures
+
+        bank_info is list: [bank uri, bank index, bank title]
+        Before engine is fully configured, returns setup lists: keyboard layouts, temperaments
+        """
+
+        res = []
+        current_sel = 0
+        if self.keyboard_config is None:
+            for i, title in self.keyboard_config_names.items():
+                res.append((title, i, title))
+        elif self.temperament is None:
+            i = 0
+            for value, title in self.temperament_names.items():
+                res.append((title, value, title))
+                if value == self.current_temperament:
+                    current_sel = i
+                i += 1
+        elif processor.preset_info is None:
+            res = [("General", 0, "General")]
+        else:
+            res = [("General", 0, "General"), (processor.division, None, f"Local {processor.division}")]
+        if res:
+            processor.bank_info = res[current_sel]
+        return res
+
+    def set_bank(self, processor, bank_info):
+        """Select a bank
+
+        processor : Instance of engine (processor)
+        bank_info : Bank info structure [uri, index, name]
+        Returns - True if bank selected, None if more bank selection steps required or False on failure
+        Before engine configured accepts keyboard layout or temperament
+        """
+
+        if self.keyboard_config is None:
+            self.keyboard_config = bank_info[1]
+            return None
+        elif self.temperament is None:
+            self.temperament = bank_info[1]
+
+        if self.restart_flag:
+            self.stop()
+        if not self.proc:
+            self.start()
+            return None
+
+        self.state_manager.zynmidi.set_midi_bank_lsb(
+            processor.get_midi_chan(), bank_info[1])
+        return True
+
+    # ----------------------------------------------------------------------------
+    # Preset Managament
+    # ----------------------------------------------------------------------------
+
+    def get_preset_list(self, bank_info):
+        res = []
+        for index, preset_name in enumerate(self.presets):
+            res.append([preset_name, bank_info[0], preset_name, index])
+        return res
+
+    def all_stops_off(self, processor=None):
+        if processor == None:
+            processors = self.processors
+        else:
+            processors = [processor]
+        for l in processors:
+            for zctrl in l.controllers_dict.values():
+                zctrl.set_value(0, True)
+
+    def set_preset(self, processor, preset_info, preload=False):
+        preset = self.presets[preset_info[2]]
+
+        # Update Controller Values
+        for l in self.processors:
+            if preset_info[1] == "General" or l == processor:
+                for zctrl in l.controllers_dict.values():
+                    try:
+                        value = preset[str(l.division)][zctrl.symbol]
+                        zctrl.set_value(value, True)
+                    except:
+                        zctrl.set_value(zctrl.value, True)
+
+                if not preload:
+                    l.preset_name = preset_info[2]
+                    l.preset_info = copy.deepcopy(preset_info)
+                    l.preset_index = preset_info[3]
+                    l.preset_bank_index = l.bank_index
+                l.preload_index = l.preset_index
+                l.preload_name = l.preset_name
+                l.preload_info = l.preset_info
+
+        return True
+
+    def save_all_presets(self):
+        with open(f"{self.user_presets_fpath}", "w") as file:
+            json.dump(self.presets, file)
+
+    def save_preset(self, bank_info, preset_name):
+        state = {}
+        for processor in self.processors:
+            division = str(processor.division)
+            state[division] = {}
+            for symbol in processor.controllers_dict:
+                state[division][symbol] = processor.controllers_dict[symbol].value
+        self.presets[preset_name] = state
+        self.save_all_presets()
+        return preset_name
+
+    def delete_preset(self, bank_info, preset_info):
+        try:
+            self.presets.pop(preset_info[2])
+        except:
+            return
+        self.save_all_presets()
+        return len(self.presets)
+
+    def rename_preset(self, bank_info, preset_info, new_name):
+        try:
+            self.presets[new_name] = self.presets.pop(preset_info[2])
+            self.save_all_presets()
+        except:
+            pass
+
+    def preset_exists(self, bank_info, preset_name):
+        return preset_name in self.presets
+
+    def is_preset_user(self, preset_info):
+        # TODO: Do we want some factory defaults?
+        return True
+
+    # ----------------------------------------------------------------------------
+    # Controllers Managament
+    # ----------------------------------------------------------------------------
+
+    def get_controllers_dict(self, processor):
+        self._ctrls = self.instrument[processor.division]['ctrls']
+        self._ctrl_screens = self.instrument[processor.division]['ctrl_screens']
+        if processor == self.processors[0]:
+            self._ctrls += self.audio_ctrls
+            self._ctrl_screens += self.audio_ctrl_screens
+        return super().get_controllers_dict(processor)
+
+    def send_controller_value(self, zctrl):
+        #logging.debug(f"Aeolus Controller ({zctrl.symbol} => {zctrl.value}")
+        for c in self.swell_ctrls + self.common_ctrls + self.audio_ctrls:
+            if zctrl.symbol == c[0]:
+                if zctrl.midi_cc:
+                    try:
+                        lib_zyncore.zmop_send_ccontrol_change(zctrl.processor.chain.zmop_index,
+                                                              zctrl.processor.midi_chan,
+                                                              zctrl.midi_cc,
+                                                              zctrl.get_ctrl_midi_val())
+                    except Exception as e:
+                        logging.error(f"Can't send controller '{zctrl.symbol}' with CC{zctrl.midi_cc} to zmop {zctrl.processor.chain.zmop_index} => {e}")
+                else:
+                    logging.error(f"Can't send controller '{zctrl.symbol}' => No CC number!")
+                #self.state_manager.zynmidi.set_midi_control(zctrl.processor.midi_chan, zctrl.midi_cc, zctrl.value)
+                #raise Exception("MIDI handler")
+                return
+        try:
+            if zctrl.value:
+                mm = "10"
+            else:
+                mm = "01"
+            v1 = "01{0}0{1:03b}".format(mm, zctrl.graph_path[0])
+            v2 = "000{0:05b}".format(zctrl.graph_path[1])
+            self.state_manager.zynmidi.set_midi_control(zctrl.processor.midi_chan, self.stop_cc_num, int(v1, 2))
+            self.state_manager.zynmidi.set_midi_control(zctrl.processor.midi_chan, self.stop_cc_num, int(v2, 2))
+            #logging.debug(f"Aeolus Stop ({val}) => mm={mm}, group={zctrl.graph_path[0]}, button={zctrl.graph_path[1]})")
+        except Exception as e:
+            logging.error(f"Can't send stop => {e}")
+    # --------------------------------------------------------------------------
+    # Special
+    # --------------------------------------------------------------------------
+
+    def load_presets(self):
+        # Get user presets
+        if file_exists(self.user_presets_fpath):
+            filename = self.user_presets_fpath
+        else:
+            filename = self.default_presets_fpath
+        try:
+            with open(filename, "r") as file:
+                self.presets = json.load(file)
+            # Fix legacy presets
+            for name, data in self.presets.items():
+                if type(data) is list:
+                    self.presets.pop(name)
+                    self.presets[name] = {}
+                    for i in range(len(data)):
+                        self.presets[name][str(i)] = data[i]
+        except:
+            self.presets = {}
+
+    # ---------------------------------------------------------------------------
+    # Extended Config
+    # ---------------------------------------------------------------------------
+
+    def get_extended_config(self):
+        """Get engine specific configuration
+
+        Returns : Configuration as dictionary
+        """
+
+        engine_state = {
+            "keyboard": self.keyboard_config,
+            "temperament": self.temperament,
+            "divisions": []
+        }
+        for processor in self.processors:
+            engine_state["divisions"].append(processor.division)
+        return engine_state
+
+    def set_extended_config(self, engine_state):
+        """Set engine specific configuration
+
+        engine_state : Configuration as dictionary
+        """
+
+        if "temperament" in engine_state:
+            self.temperament = engine_state['temperament']
+        elif "tuning_temp" in engine_state:
+            # Legacy config
+            # TODO: Retune if necessary
+            self.temperament = engine_state['tuning_temp']
+
+        current_keyboard = self.keyboard_config
+        try:
+            self.keyboard_config = engine_state['keyboard']
+        except:
+            # Legacy default is 4 keyboards
+            if self.keyboard_config != 15:
+                self.restart_flag = True
+            self.keyboard_config = 15
+        if current_keyboard != self.keyboard_config:
+            self.restart_flag = True
+
+        for i, processor in enumerate(self.processors):
+            try:
+                processor.division = engine_state["divisions"][i]
+            except:
+                processor.division = list(self.instrument)[i]
+
+    def get_name(self, processor=None):
+        try:
+            return f"{self.name} {self.divisions[processor.division]}"
+        except:
+            return self.name
+
+    # ----------------------------------------------------------------------------
+    # OSC Managament
+    # ----------------------------------------------------------------------------
+
+    def cb_osc_all(self, path, args, types, src):
+        if self.osc_server is None:
+            return
+
+        # logging.debug("Rx OSC => {} {}".format(path, args))
+        if path == '/ready':
+            self.ready = True
+
+# ******************************************************************************

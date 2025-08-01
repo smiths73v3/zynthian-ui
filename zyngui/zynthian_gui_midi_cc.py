@@ -1,14 +1,13 @@
-#!/usr/bin/python3
 # -*- coding: utf-8 -*-
-#******************************************************************************
+# ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian GUI
-# 
-# Zynthian GUI Midi-CC Selector Class
-# 
-# Copyright (C) 2015-2020 Fernando Moyano <jofemodo@zynthian.org>
 #
-#******************************************************************************
-# 
+# Zynthian GUI Midi-CC Selector Class
+#
+# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
+#
+# ******************************************************************************
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
 # published by the Free Software Foundation; either version 2 of
@@ -20,91 +19,75 @@
 # GNU General Public License for more details.
 #
 # For a full copy of the GNU General Public License see the LICENSE.txt file.
-# 
-#******************************************************************************
+#
+# ******************************************************************************
 
-import sys
-import tkinter
+import ctypes
 import logging
-from ctypes import c_ubyte
 
 # Zynthian specific modules
-from zyncoder import *
-from . import zynthian_gui_config
-from . import zynthian_gui_selector
+from zyncoder.zyncore import lib_zyncore
+from zyngui.zynthian_gui_selector import zynthian_gui_selector
 
-#------------------------------------------------------------------------------
-# Zynthian MIDI Channel Selection GUI Class
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# Zynthian CC number selection GUI Class
+# ------------------------------------------------------------------------------
+
 
 class zynthian_gui_midi_cc(zynthian_gui_selector):
 
-	def __init__(self):
-		self.chan_from = None
-		self.chan_to = None
-		self.cc = [0] * 16
-		super().__init__('CC', True)
+    def __init__(self):
+        self.chain = None
+        self.zmop_index = None
+        self.cc_route = None
+        super().__init__('CC', True)
 
+    def set_chain(self, chain):
+        if chain.zmop_index is not None and chain.zmop_index >= 0:
+            self.chain = chain
+            self.zmop_index = chain.zmop_index
+        else:
+            self.chain = None
+            self.zmop_index = None
 
-	def config(self, chan_from, chan_to):
-		self.chan_from = chan_from
-		self.chan_to = chan_to
-		self.cc = zyncoder.lib_zyncoder.get_midi_filter_clone_cc(chan_from, chan_to).tolist()
+    def build_layout(self):
+        if self.chain:
+            return super().build_layout()
+        else:
+            return False
 
+    def fill_list(self):
+        self.list_data = []
 
-	@staticmethod
-	def set_clone_cc(chan_from, chan_to, cc):
-		cc_array = (c_ubyte*128)()
+        self.cc_route = (ctypes.c_uint8 * 128)()
+        lib_zyncore.zmop_get_cc_route(self.zmop_index, self.cc_route)
 
-		if len(cc)==128:
-			for i in range(0, 128):
-				cc_array[i] = cc[i]
-		else:
-			for i in range(0, 128):
-				if i in cc:
-					cc_array[i] = 1
-				else:
-					cc_array[i] = 0
+        for ccnum, enabled in enumerate(self.cc_route):
+            if enabled:
+                self.list_data.append(
+                    (str(ccnum), ccnum, "\u2612 CC {}".format(str(ccnum).zfill(2))))
+            else:
+                self.list_data.append(
+                    (str(ccnum), ccnum, "\u2610 CC {}".format(str(ccnum).zfill(2))))
+        super().fill_list()
 
-		zyncoder.lib_zyncoder.set_midi_filter_clone_cc(chan_from, chan_to, cc_array)
+    def select_action(self, i, t='S'):
+        ccnum = self.list_data[i][1]
+        if self.cc_route[ccnum]:
+            self.cc_route[ccnum] = 0
+            bullet = "\u2610"
+        else:
+            self.cc_route[ccnum] = 1
+            bullet = "\u2612"
+        cctext = f"{bullet} CC {str(ccnum).zfill(2)}"
+        self.list_data[i] = (str(ccnum), ccnum, cctext)
+        self.listbox.delete(i)
+        self.listbox.insert(i, cctext)
+        self.select(i)
+        # Set CC route state in zyncore
+        lib_zyncore.zmop_set_cc_route(self.zmop_index, self.cc_route)
 
+    def set_select_path(self):
+        self.select_path.set("Routed CCs")
 
-	def fill_list(self):
-		self.list_data=[]
-		for i, ccnum in enumerate(self.cc):
-			if ccnum:
-				self.list_data.append((str(i),i,"[x] CC {}".format(str(i).zfill(2))))
-			else:
-				self.list_data.append((str(i),i,"[  ] CC {}".format(str(i).zfill(2))))
-		super().fill_list()
-
-
-	def select_action(self, i, t='S'):
-		cc_num=self.list_data[i][1]
-
-		if self.cc[cc_num]:
-			self.cc[cc_num] = 0
-		else:
-			self.cc[cc_num] = 1
-			
-		self.set_clone_cc(self.chan_from, self.chan_to, self.cc)
-		
-		self.config(self.chan_from, self.chan_to)
-		self.update_list()
-
-		logging.info("MIDI CC {} CLONE CH#{}=>CH#{}: {}".format(cc_num, self.chan_from, self.chan_to, self.cc[cc_num]))
-
-
-	def back_action(self):
-		self.zyngui.show_modal('midi_chan')
-		return ''
-
-
-	def set_select_path(self):
-		try:
-			self.select_path.set("Clone {} => {} / CC...".format(self.chan_from+1, self.chan_to+1))
-		except:
-			self.select_path.set("Clone CC...")
-
-
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------

@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-#******************************************************************************
+# ******************************************************************************
 # ZYNTHIAN PROJECT: Zynthian Engine (zynthian_engine_puredata)
 #
 # zynthian_engine implementation for PureData
 #
-# Copyright (C) 2015-2018 Fernando Moyano <jofemodo@zynthian.org>
+# Copyright (C) 2015-2024 Fernando Moyano <jofemodo@zynthian.org>
 #
-#******************************************************************************
+# ******************************************************************************
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as
@@ -20,281 +20,376 @@
 #
 # For a full copy of the GNU General Public License see the LICENSE.txt file.
 #
-#******************************************************************************
+# ******************************************************************************
 
 import os
 import shutil
 import logging
-import subprocess
 import oyaml as yaml
 from time import sleep
-from collections import OrderedDict
-from os.path import isfile,isdir,join
+from os.path import isfile, join
+from subprocess import check_output, STDOUT
 
+import zynautoconnect
 from . import zynthian_engine
 from . import zynthian_controller
+from zyncoder.zyncore import lib_zyncore
 
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # Puredata Engine Class
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+
 
 class zynthian_engine_puredata(zynthian_engine):
 
-	# ---------------------------------------------------------------------------
-	# Controllers & Screens
-	# ---------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Controllers & Screens
+    # ---------------------------------------------------------------------------
 
-	_ctrls=[
-		['volume',7,96],
-		['modulation',1,0],
-		['ctrl 2',2,0],
-		['ctrl 3',3,0]
-	]
+    default_organelle_zctrl_config = {
+        'Knobs': {
+            'knob1': {
+                'midi_cc': 74,
+                'value': 63
+            },
+            'knob2': {
+                'midi_cc': 71,
+                'value': 63
+            },
+            'knob3': {
+                'midi_cc': 76,
+                'value': 63
+            },
+            'knob4': {
+                'midi_cc': 77,
+                'value': 63
+            }
+        },
+        'Master': {
+            'volume': {
+                'midi_cc': 7,
+                'value': 90
+            }
+        }
+    }
 
-	_ctrl_screens=[
-		['main',['volume','modulation','ctrl 2','ctrl 3']]
-	]
+    _ctrls = [
+    ]
 
-	#----------------------------------------------------------------------------
-	# Config variables
-	#----------------------------------------------------------------------------
+    _ctrl_screens = [
+    ]
 
-	startup_patch = zynthian_engine.data_dir + "/presets/puredata/zynthian_startup.pd"
+    # ----------------------------------------------------------------------------
+    # Config variables
+    # ----------------------------------------------------------------------------
 
-	bank_dirs = [
-		('EX', zynthian_engine.ex_data_dir + "/presets/puredata"),
-		('MY', zynthian_engine.my_data_dir + "/presets/puredata"),
-		('_', zynthian_engine.data_dir + "/presets/puredata")
-	]
+    startup_patch = zynthian_engine.data_dir + "/presets/puredata/zynthian_startup.pd"
 
-	#----------------------------------------------------------------------------
-	# Initialization
-	#----------------------------------------------------------------------------
+    preset_fexts = ["pd"]
+    root_bank_dirs = [
+        ('User', zynthian_engine.my_data_dir + "/presets/puredata"),
+        ('System', zynthian_engine.data_dir + "/presets/puredata")
+    ]
 
-	def __init__(self, zyngui=None):
-		super().__init__(zyngui)
+    # ----------------------------------------------------------------------------
+    # Initialization
+    # ----------------------------------------------------------------------------
 
-		self.type = "Special"
-		self.name = "PureData"
-		self.nickname = "PD"
-		#self.jackname = "pure_data_0"
-		self.jackname = "pure_data"
+    def __init__(self, state_manager=None):
+        super().__init__(state_manager)
 
-		self.options['midi_route'] = True
+        self.type = "Special"
+        self.name = "PureData"
+        self.nickname = "PD"
+        self.jackname = self.state_manager.chain_manager.get_next_jackname(self.name)
+        self.jackname_midi = ""
 
-		self.preset = ""
-		self.preset_config = None
+        # Initialize custom GUI path as None - will be set conditionally when loading presets
+        self.custom_gui_fpath = None
 
-		if self.config_remote_display():
-			self.base_command="pd -jack -jackname \"{}\" -rt -alsamidi -mididev 1 -open \"{}\"".format(self.jackname, self.startup_patch)
-		else:
-			self.base_command="pd -nogui -jack  -jackname \"{}\" -rt -alsamidi -mididev 1 -open \"{}\"".format(self.jackname, self.startup_patch)
+        self.preset = ""
+        self.preset_config = None
+        self.zctrl_config = None
 
-		self.reset()
+        if self.config_remote_display():
+            self.base_command = f"pd -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1 -open \"{self.startup_patch}\""
+        else:
+            self.base_command = f"pd -nogui -jack -nojackconnect -jackname \"{self.jackname}\" -rt -alsamidi -mididev 1 -open \"{self.startup_patch}\""
 
-	# ---------------------------------------------------------------------------
-	# Layer Management
-	# ---------------------------------------------------------------------------
+        self.reset()
 
-	# ---------------------------------------------------------------------------
-	# MIDI Channel Management
-	# ---------------------------------------------------------------------------
+    def get_jackname(self):
+        return self.jackname_midi
 
-	#----------------------------------------------------------------------------
-	# Bank Managament
-	#----------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    # Processor Management
+    # ---------------------------------------------------------------------------
 
-	def get_bank_list(self, layer=None):
-		return self.get_dirlist(self.bank_dirs)
+    # ---------------------------------------------------------------------------
+    # MIDI Channel Management
+    # ---------------------------------------------------------------------------
 
+    # ----------------------------------------------------------------------------
+    # Bank Managament
+    # ----------------------------------------------------------------------------
 
-	def set_bank(self, layer, bank):
-		return True
+    def get_bank_list(self, processor=None):
+        return self.get_bank_dirlist(recursion=2)
 
-	#----------------------------------------------------------------------------
-	# Preset Managament
-	#----------------------------------------------------------------------------
+    def set_bank(self, processor, bank):
+        return True
 
-	def get_preset_list(self, bank):
-		return self.get_dirlist(bank[0])
+    # ----------------------------------------------------------------------------
+    # Preset Managament
+    # ----------------------------------------------------------------------------
 
+    def get_preset_list(self, bank):
+        return self.get_dirlist(bank[0])
 
-	def set_preset(self, layer, preset, preload=False):
-		self.load_preset_config(preset)
-		self.command=self.base_command+ " " + self.get_preset_filepath(preset)
-		self.preset=preset[0]
-		self.stop()
-		self.start()
-		self.refresh_all()
-		sleep(0.5)
-		self.zyngui.zynautoconnect_midi(True)
-		self.zyngui.zynautoconnect_audio(False)
-		layer.send_ctrl_midi_cc()
-		return True
+    def set_preset(self, processor, preset, preload=False):
+        self.load_preset_config(preset)
+    
+        # Set custom GUI path based on two conditions:
+        # 1. Organelle is in the preset path, OR
+        # 2. Preset config has an 'use_organelle_widget' flag set to True
+        preset_path = preset[0]
 
+        # Use Organelle widget for Organelle patches or when flag is set
+        if "organelle" in preset_path.lower() or self.preset_config and self.preset_config.get('use_organelle_widget'):
+            self.custom_gui_fpath = self.ui_dir + "/zyngui/zynthian_widget_organelle.py"
+            if not self.zctrl_config:
+                self.zctrl_config = self.default_organelle_zctrl_config
 
-	def load_preset_config(self, preset):
-		config_fpath = preset[0] + "/zynconfig.yml"
-		try:
-			with open(config_fpath,"r") as fh:
-				yml = fh.read()
-				logging.info("Loading preset config file %s => \n%s" % (config_fpath,yml))
-				self.preset_config = yaml.load(yml, Loader=yaml.SafeLoader)
-				return True
-		except Exception as e:
-			logging.error("Can't load preset config file '%s': %s" % (config_fpath,e))
-			return False
+        elif self.preset_config and self.preset_config.get('use_euclidseq_widget', False):
+            # Use EuclidSeq widget when flag is set
+            self.custom_gui_fpath = "/zynthian/zynthian-ui/zyngui/zynthian_widget_euclidseq.py"
 
+        else:
+            # Don't use custom widget for other pd patches
+            self.custom_gui_fpath = None
+    
+        self.command = self.base_command + " " + self.get_preset_filepath(preset)
+        self.preset = preset[0]
+        self.stop()
+        amidi_ports = self.get_amidi_clients()
+        self.start()
+        for symbol in processor.controllers_dict:
+            self.state_manager.chain_manager.remove_midi_learn(processor, symbol)
+        processor.refresh_controllers()
+        sleep(2.0)
+        amidi_ports = list(set(self.get_amidi_clients()) - set(amidi_ports))
+        if len(amidi_ports) > 0:
+            self.jackname_midi = f"Pure Data \\[{amidi_ports[0]}\\]"
+            logging.debug(f"MIDI jackname => \"{self.jackname_midi}\"")
+        else:
+            self.jackname_midi = f"Pure Data"
+            logging.error(f"Can't get MIDI jackname!")
 
-	def get_preset_filepath(self, preset):
-		if self.preset_config:
-			preset_fpath = preset[0] + "/" + self.preset_config['main_file']
-			if isfile(preset_fpath):
-				return preset_fpath
+        # Need to all autoconnect because restart of process
+        try:
+            self.state_manager.chain_manager.chains[processor.chain_id].rebuild_graph()
+        except:
+            pass
+        zynautoconnect.request_audio_connect(True)
+        zynautoconnect.request_midi_connect(True)
+        processor.send_ctrl_midi_cc()
+        return True
 
-		preset_fpath = preset[0] + "/main.pd"
-		if isfile(preset_fpath):
-			return preset_fpath
-		
-		preset_fpath = preset[0] + "/" + os.path.basename(preset[0]) + ".pd"
-		if isfile(preset_fpath):
-			return preset_fpath
-		
-		preset_fpath = join(preset[0],os.listdir(preset[0])[0])
-		return preset_fpath
+    def load_preset_config(self, preset):
+        config_fpath = preset[0] + "/zynconfig.yml"
+        try:
+            with open(config_fpath, "r") as fh:
+                yml = fh.read()
+                logging.info(f"Loading preset config file {config_fpath} => \n{yml}")
+                self.preset_config = yaml.load(yml, Loader=yaml.SafeLoader)
+                self.zctrl_config = {}
+                if self.preset_config:
+                    for ctrl_group, ctrl_dict in self.preset_config.items():
+                        if isinstance(ctrl_dict, dict):
+                            self.zctrl_config[ctrl_group] = ctrl_dict
+                    return True
+                else:
+                    logging.error(f"Preset config file '{config_fpath}' is empty.")
+                    return False
+        except Exception as e:
+            logging.error(f"Can't load preset config file '{config_fpath}': {e}")
+            return False
 
+    def get_preset_filepath(self, preset):
+        if self.preset_config:
+            preset_fpath = preset[0] + "/" + self.preset_config['main_file']
+            if isfile(preset_fpath):
+                return preset_fpath
 
-	def cmp_presets(self, preset1, preset2):
-		return True
+        preset_fpath = preset[0] + "/main.pd"
+        if isfile(preset_fpath):
+            return preset_fpath
 
-	#----------------------------------------------------------------------------
-	# Controllers Managament
-	#----------------------------------------------------------------------------
+        preset_fpath = preset[0] + "/" + os.path.basename(preset[0]) + ".pd"
+        if isfile(preset_fpath):
+            return preset_fpath
 
-	def get_controllers_dict(self, layer):
-		try:
-			ctrl_items=self.preset_config['midi_controllers'].items()
-		except:
-			return super().get_controllers_dict(layer)
-		c=1
-		ctrl_set=[]
-		zctrls=OrderedDict()
-		self._ctrl_screens=[]
-		logging.debug("Generating Controller Config ...")
-		try:
-			for name, options in ctrl_items:
-				try:
-					if isinstance(options,int):
-						options={ 'midi_cc': options }
-					if 'midi_chan' not in options:
-						options['midi_chan']=layer.midi_chan
-					midi_cc=options['midi_cc']
-					logging.debug("CTRL %s: %s" % (midi_cc, name))
-					title=str.replace(name, '_', ' ')
-					zctrls[name]=zynthian_controller(self,name,title,options)
-					ctrl_set.append(name)
-					if len(ctrl_set)>=4:
-						logging.debug("ADDING CONTROLLER SCREEN #"+str(c))
-						self._ctrl_screens.append(['Controllers#'+str(c),ctrl_set])
-						ctrl_set=[]
-						c=c+1
-				except Exception as err:
-					logging.error("Generating Controller Screens: %s" % err)
-			if len(ctrl_set)>=1:
-				logging.debug("ADDING CONTROLLER SCREEN #"+str(c))
-				self._ctrl_screens.append(['Controllers#'+str(c),ctrl_set])
-		except Exception as err:
-			logging.error("Generating Controller List: %s" % err)
-		return zctrls
+        preset_fpath = join(preset[0], os.listdir(preset[0])[0])
+        return preset_fpath
 
-	#--------------------------------------------------------------------------
-	# Special
-	#--------------------------------------------------------------------------
+    def cmp_presets(self, preset1, preset2):
+        try:
+            if preset1[0] == preset2[0] and preset1[2] == preset2[2]:
+                return True
+            else:
+                return False
+        except:
+            return False
 
-	# ---------------------------------------------------------------------------
-	# API methods
-	# ---------------------------------------------------------------------------
+    # ----------------------------------------------------------------------------
+    # Controllers Managament
+    # ----------------------------------------------------------------------------
 
-	@classmethod
-	def zynapi_get_banks(cls):
-		banks=[]
-		for b in cls.get_dirlist(cls.bank_dirs, False):
-			banks.append({
-				'text': b[2],
-				'name': b[4],
-				'fullpath': b[0],
-				'raw': b,
-				'readonly': False
-			})
-		return banks
+    def get_controllers_dict(self, processor):
+        zctrls = {}
+        self._ctrl_screens = []
+        if self.zctrl_config:
+            for ctrl_group, ctrl_dict in self.zctrl_config.items():
+                logging.debug(f"Preset Config '{ctrl_group}' ...")
 
+                c = 1
+                ctrl_set = []
+                if ctrl_group == 'midi_controllers':
+                    ctrl_group = 'Controllers'
+                logging.debug(f"Generating Controller Screens for '{ctrl_group}' => {ctrl_dict}")
+                try:
+                    for name, options in ctrl_dict.items():
+                        try:
+                            if len(ctrl_set) >= 4:
+                                screen_title = f"{ctrl_group}#{c}"
+                                logging.debug(f"Adding Controller Screen {screen_title}")
+                                self._ctrl_screens.append([screen_title, ctrl_set])
+                                ctrl_set = []
+                                c += 1
+                            if isinstance(options, int):
+                                options = {'midi_cc': options}
+                            if 'midi_chan' not in options:
+                                options['midi_chan'] = processor.midi_chan
+                            logging.debug(f"CTRL {name} => {options}")
+                            options['name'] = str.replace(name, '_', ' ')
+                            options['processor'] = processor
+                            zctrls[name] = zynthian_controller(self, name, options)
+                            ctrl_set.append(name)
+                        except Exception as err:
+                            logging.error(f"Generating Controller Screens: {err}")
+                    if len(ctrl_set) >= 1:
+                        if c > 1:
+                            screen_title = f"{ctrl_group}#{c}"
+                        else:
+                            screen_title = ctrl_group
+                        logging.debug(f"Adding Controller Screen {screen_title}")
+                        self._ctrl_screens.append([screen_title, ctrl_set])
+                except Exception as err:
+                    logging.error(err)
 
-	@classmethod
-	def zynapi_get_presets(cls, bank):
-		presets=[]
-		for p in cls.get_dirlist(bank['fullpath']):
-			presets.append({
-				'text': p[4],
-				'name': p[2],
-				'fullpath': p[0],
-				'raw': p,
-				'readonly': False
-			})
-		return presets
+        if len(zctrls) == 0:
+            zctrls = super().get_controllers_dict(processor)
+        else:
+            processor.controllers_dict = zctrls
 
+        return zctrls
 
-	@classmethod
-	def zynapi_new_bank(cls, bank_name):
-		os.mkdir(zynthian_engine.my_data_dir + "/presets/puredata/" + bank_name)
+    # --------------------------------------------------------------------------
+    # Special
+    # --------------------------------------------------------------------------
 
+    @staticmethod
+    def get_amidi_clients():
+        res = []
+        try:
+            with open("/proc/asound/seq/clients", "r") as f:
+                for line in f.readlines():
+                    if line.startswith("Client") and "\"Pure Data\" [User Legacy]" in line:
+                        try:
+                            res.append(int(line[7:10]))
+                        except Exception as e:
+                            logging.error(f"Can't parse ALSA MIDI client port for {line} => {e}")
+            #logging.debug(f"ALSA MIDI CLIENTS => {res}")
+        except Exception as e:
+            logging.error(f"Can't get ALSA MIDI client list => {e}")
+        return res
 
-	@classmethod
-	def zynapi_rename_bank(cls, bank_path, new_bank_name):
-		head, tail = os.path.split(bank_path)
-		new_bank_path = head + "/" + new_bank_name
-		os.rename(bank_path, new_bank_path)
+    # ---------------------------------------------------------------------------
+    # API methods
+    # ---------------------------------------------------------------------------
 
+    @classmethod
+    def zynapi_get_banks(cls):
+        banks = []
+        for b in cls.get_bank_dirlist(recursion=2, exclude_empty=False):
+            banks.append({
+                'text': b[2],
+                'name': b[4],
+                'fullpath': b[0],
+                'raw': b,
+                'readonly': False
+            })
+        return banks
 
-	@classmethod
-	def zynapi_remove_bank(cls, bank_path):
-		shutil.rmtree(bank_path)
+    @classmethod
+    def zynapi_get_presets(cls, bank):
+        presets = []
+        for p in cls.get_dirlist(bank['fullpath']):
+            presets.append({
+                'text': p[4],
+                'name': p[2],
+                'fullpath': p[0],
+                'raw': p,
+                'readonly': False
+            })
+        return presets
 
+    @classmethod
+    def zynapi_new_bank(cls, bank_name):
+        os.mkdir(zynthian_engine.my_data_dir + "/presets/puredata/" + bank_name)
 
-	@classmethod
-	def zynapi_rename_preset(cls, preset_path, new_preset_name):
-		head, tail = os.path.split(preset_path)
-		new_preset_path = head + "/" + new_preset_name
-		os.rename(preset_path, new_preset_path)
+    @classmethod
+    def zynapi_rename_bank(cls, bank_path, new_bank_name):
+        head, tail = os.path.split(bank_path)
+        new_bank_path = head + "/" + new_bank_name
+        os.rename(bank_path, new_bank_path)
 
+    @classmethod
+    def zynapi_remove_bank(cls, bank_path):
+        shutil.rmtree(bank_path)
 
-	@classmethod
-	def zynapi_remove_preset(cls, preset_path):
-		shutil.rmtree(preset_path)
+    @classmethod
+    def zynapi_rename_preset(cls, preset_path, new_preset_name):
+        head, tail = os.path.split(preset_path)
+        new_preset_path = head + "/" + new_preset_name
+        os.rename(preset_path, new_preset_path)
 
+    @classmethod
+    def zynapi_remove_preset(cls, preset_path):
+        shutil.rmtree(preset_path)
 
-	@classmethod
-	def zynapi_download(cls, fullpath):
-		return fullpath
+    @classmethod
+    def zynapi_download(cls, fullpath):
+        return fullpath
 
+    @classmethod
+    def zynapi_install(cls, dpath, bank_path):
+        if not bank_path:
+            raise Exception("You must select a destiny bank folder!")
+        if os.path.isdir(dpath):
+            shutil.move(dpath, bank_path)
+            # TODO Test if it's a PD bundle
+        else:
+            fname, ext = os.path.splitext(dpath)
+            if ext == '.pd':
+                bank_path += "/" + fname
+                os.mkdir(bank_path)
+                shutil.move(dpath, bank_path)
+            else:
+                raise Exception("File doesn't look like a PD patch!")
 
-	@classmethod
-	def zynapi_install(cls, dpath, bank_path):
-		if os.path.isdir(dpath):
-			shutil.move(dpath, bank_path)
-			#TODO Test if it's a PD bundle
-		else:
-			fname, ext = os.path.splitext(dpath)
-			if ext=='.pd':
-				bank_path += "/" + fname
-				os.mkdir(bank_path)
-				shutil.move(dpath, bank_path)
-			else:
-				raise Exception("File doesn't look like a PD patch!")
+    @classmethod
+    def zynapi_get_formats(cls):
+        return "pd,zip,tgz,tar.gz,tar.bz2"
 
-
-	@classmethod
-	def zynapi_get_formats(cls):
-		return "pd,zip,tgz,tar.gz,tar.bz2"
-
-
-#******************************************************************************
+# ******************************************************************************
