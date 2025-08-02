@@ -1303,8 +1303,10 @@ class PadMatrixHandler(ModeHandlerBase):
     def _action_set_pattern_template(self, pattern):
         self._pattern_template = pattern
 
-    def _action_apply_pattern_template(self, dst_pattern):
+    def _action_apply_pattern_template(self, dst_pattern, callback=None):
         self._libseq.copyPattern(self._pattern_template, dst_pattern)
+        if callback is not None and callable(callback):
+            callback()
 
 
 # --------------------------------------------------------------------------
@@ -1453,11 +1455,16 @@ class StepSeqState:
         self._seqs = {}
         self._chains = {}
 
+        # Public properties
+        self.pattern_template = None
+
     def load(self, state):
         state = deepcopy(state)
 
         # Convert JSON stringfied key ints as real ints, and note-pad's dicts to NotePad
         self._chains = state.get("chains", {})
+        self.pattern_template = state.get("pattern_template", None)
+
         for c in self._chains.values():
             src_pages = c.get("pages", [])
             dst_pages = []
@@ -1469,7 +1476,11 @@ class StepSeqState:
             self._seqs[int(seq)] = value
 
     def save(self):
-        return {"seqs": self._seqs, "chains": self._chains}
+        return {
+            "seqs": self._seqs,
+            "chains": self._chains,
+            "pattern_template": self.pattern_template,
+        }
 
     def get_chain_by_id(self, chain_id):
         chain_id = str(chain_id) if chain_id is not None else "default"
@@ -1658,7 +1669,6 @@ class StepSeqHandler(ModeHandlerBase):
         self._selected_seq = None
         self._selected_pattern = None
         self._selected_pattern_idx = 0
-        self._pattern_template = None
         self._selected_note = None
         self._pattern_clock_offset = 0
         self._used_pads = 32
@@ -1695,6 +1705,10 @@ class StepSeqHandler(ModeHandlerBase):
             return
         self._saved_state.load(state)
 
+        if self._saved_state.pattern_template is not None:
+            self._request_action(
+                "mixpad", "set-pattern-template", self._saved_state.pattern_template)
+
     def get_state(self):
         return {"stepseq": self._saved_state.save()}
 
@@ -1726,7 +1740,7 @@ class StepSeqHandler(ModeHandlerBase):
         if self._is_arranger_mode:
             self._leds.led_blink(BTN_SOFT_KEY_SELECT)
 
-        if self._selected_pattern == self._pattern_template:
+        if self._selected_pattern == self._saved_state.pattern_template:
             self._leds.led_blink(BTN_SOFT_KEY_REC_ARM)
 
     def _refresh_note_pads(self):
@@ -1833,9 +1847,9 @@ class StepSeqHandler(ModeHandlerBase):
 
             elif note == BTN_SOFT_KEY_REC_ARM:
                 new_template = self._selected_pattern
-                if new_template == self._pattern_template:
+                if new_template == self._saved_state.pattern_template:
                     new_template = None
-                self._pattern_template = new_template
+                self._saved_state.pattern_template = new_template
                 self._request_action(
                     "mixpad", "set-pattern-template", new_template)
 
@@ -2405,9 +2419,10 @@ class StepSeqHandler(ModeHandlerBase):
                     logging.error(" could not add a new pattern!")
                     return
                 self._sequence_patterns.append(pattern)
-                if self._pattern_template is not None and not roll_pattern:
+                if self._saved_state.pattern_template is not None and not roll_pattern:
                     self._request_action(
-                        "mixpad", "apply-pattern-template", pattern)
+                        "mixpad", "apply-pattern-template", pattern,
+                        callback=partial(self.refresh, only_steps=True))
 
             self._change_to_pattern_index(
                 self._selected_pattern_idx,
