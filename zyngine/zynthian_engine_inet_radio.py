@@ -463,6 +463,16 @@ class zynthian_engine_inet_radio(zynthian_engine):
                         "BBC Radio Sports Extra (UK Only)"
                     ],
                     [
+                        "https://as-hls-uk.live.cf.md.bbci.co.uk/pool_24041977/live/uk/bbc_radio_five_sports_extra_2/bbc_radio_five_sports_extra_2.isml/bbc_radio_five_sports_extra_2-audio%3d320000.norewind.m3u8",
+                        0,
+                        "BBC Radio Sports Extra 2 (UK Only)"
+                    ],
+                    [
+                        "https://as-hls-uk.live.cf.md.bbci.co.uk/pool_02012018/live/uk/bbc_radio_five_sports_extra_3/bbc_radio_five_sports_extra_3.isml/bbc_radio_five_sports_extra_3-audio%3d320000.norewind.m3u8",
+                        0,
+                        "BBC Radio Sports Extra 3 (UK Only)"
+                    ],
+                    [
                         "http://lsn.lv/bbcradio.m3u8?station=bbc_asian_network&bitrate=96000",
                         0,
                         "BBC Asian Network"
