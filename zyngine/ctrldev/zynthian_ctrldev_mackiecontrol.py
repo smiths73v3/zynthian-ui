@@ -44,7 +44,7 @@ def load_yaml_config(path, file):
 	if not os.path.isfile(file):
 		logging.info(f"Yaml config file '{file}' not found, copying default file")
 		Path(path).mkdir(parents=True, exist_ok=True)
-		config_source = f'{os.environ["ZYNTHIAN_SYS_DIR"]}/config/ctrldev-profiles/mackiectrl/mackiecontrol.yaml'
+		config_source = f'{os.environ["ZYNTHIAN_SYS_DIR"]}/config/ctrldev/mackiectrl/mackiecontrol.yaml'
 		shutil.copy(config_source, f'{path}', )
 		while not os.path.isfile(file):
 			sleep(0.1)
@@ -68,7 +68,7 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 	rec_mode = 0
 	shift = False
 
-	mackie_config_path = f"{os.environ['ZYNTHIAN_MY_DATA_DIR']}/files/ctrldev-profiles/mackiectrl"
+	mackie_config_path = f"{os.environ['ZYNTHIAN_MY_DATA_DIR']}/files/ctrldev/mackiectrl"
 	mackie_config_file = f"{mackie_config_path}/mackiecontrol.yaml"
 	my_settings = load_yaml_config(mackie_config_path, mackie_config_file)
 
