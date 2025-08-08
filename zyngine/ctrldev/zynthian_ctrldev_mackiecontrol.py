@@ -44,7 +44,7 @@ def load_yaml_config(path, file):
 	if not os.path.isfile(file):
 		logging.info(f"Yaml config file '{file}' not found, copying default file")
 		Path(path).mkdir(parents=True, exist_ok=True)
-		config_source = f'{os.environ["ZYNTHIAN_SYS_DIR"]}/config/ctrldev/mackiectrl/mackiecontrol.yaml'
+		config_source = f'{os.environ["ZYNTHIAN_CONFIG_DIR"]}/ctrldev/mackiectrl/mackiecontrol.yaml'
 		shutil.copy(config_source, f'{path}', )
 		while not os.path.isfile(file):
 			sleep(0.1)
