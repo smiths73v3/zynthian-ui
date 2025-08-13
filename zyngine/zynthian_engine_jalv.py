@@ -397,7 +397,6 @@ class zynthian_engine_jalv(zynthian_engine):
         parts = line.split("=")
         if len(parts) == 2:
             symparts = parts[0].split("#", maxsplit=1)
-            #logging.debug(f"#CTR> {symparts[1]} ({symparts[0]}) = {val}")
             try:
                 zctrl = self.lv2_zctrl_dict[symparts[1]]
                 if zctrl.is_path:
@@ -408,7 +407,11 @@ class zynthian_engine_jalv(zynthian_engine):
                     except Exception as e:
                         logging.warning(f"Wrong controller value when parsing jalv output => {line}")
                         return
-                zctrl.set_value(val, False)
+                #logging.debug(f"#CTR> {symparts[1]} ({symparts[0]}) = {val}")
+                if zctrl.get_ignore_engine_fb():
+                    logging.debug(f"Ignoring feedback value for {zctrl.symbol} from {self.name} => {val}")
+                else:
+                    zctrl.set_value(val, False)
                 if zctrl.graph_path is None:
                     try:
                         zctrl.graph_path = int(symparts[0])
@@ -566,7 +569,7 @@ class zynthian_engine_jalv(zynthian_engine):
                 logging.error(e)
 
     # ----------------------------------------------------------------------------
-    # Preset Managament
+    # Preset Management
     # ----------------------------------------------------------------------------
 
     def get_preset_list(self, bank, processor=None):

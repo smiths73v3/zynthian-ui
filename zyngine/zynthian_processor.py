@@ -337,6 +337,7 @@ class zynthian_processor:
         self.preset_name = None
         self.preset_info = None
 
+
     def set_preset(self, preset_index, set_engine=True, force_set_engine=True):
         """Set the processor's engine preset
 
@@ -782,16 +783,31 @@ class zynthian_processor:
         except:
             pass
 
+        # Set preset
         if "preset_info" in state:
             try:
                 res = self.set_preset(state["preset_info"], force_set_engine=False)
             except:
+                res = False
                 logging.exception(traceback.format_exc())
         else:
             res = False
 
         # Set controller values
         if "controllers" in state:
+            # Flag controllers to avoid collisions from preset feedback values
+            # It should be do it before setting the preset, but i need to know if preset has been changed,
+            # so it's done after, but ASAP, to avoid tallies from setting preset arrive before
+            if res:
+                for symbol, ctrl_state in state["controllers"].items():
+                    if "value" in ctrl_state:
+                        try:
+                            self.controllers_dict[symbol].set_ignore_engine_fb(2.0)
+                            logging.debug(f"Ignoring next engine FB for {symbol}")
+                        except Exception as e:
+                            logging.warning(f"Invalid controller for processor {self.get_basepath()}: {e}")
+
+            # Set controller values
             for symbol, ctrl_state in state["controllers"].items():
                 try:
                     zctrl = self.controllers_dict[symbol]
