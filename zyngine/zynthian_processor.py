@@ -46,7 +46,7 @@ class zynthian_processor:
     # Initialization
     # ------------------------------------------------------------------------
 
-    def __init__(self, eng_code, eng_info, id=None, midi_autolearn=True):
+    def __init__(self, eng_code, eng_info, id=None):
         """ Create an instance of a processor
 
         A processor represents a block within a chain.
@@ -72,6 +72,7 @@ class zynthian_processor:
         self.bank_index = 0
         self.bank_name = None
         self.bank_info = None
+        self.bank_subdir_info = None
         self.bank_msb = 0
         # system, user, external => [offset, n]
         self.bank_msb_info = [[0, 0], [0, 0], [0, 0]]
@@ -92,7 +93,7 @@ class zynthian_processor:
         self.ctrl_screens_dict = {}
         self.current_screen_index = -1
         self.auto_save_bank = False
-        self.midi_autolearn = midi_autolearn  # When true, auto-learn MIDI-CC based controllers
+        self.midi_autolearn = True  # When true, auto-learn MIDI-CC based controllers
 
     def get_jackname(self, engine=False):
         """ Get the jackname for the processor's engine
@@ -139,6 +140,16 @@ class zynthian_processor:
         """Get ID of the chain to which the processor belongs, if any"""
 
         return self.chain_id
+
+    # ---------------------------------------------------------------------------
+    # MIDI autolearn CC controllers
+    # ---------------------------------------------------------------------------
+
+    def set_midi_autolearn(self, midi_autolearn):
+        self.midi_autolearn = midi_autolearn
+
+    def get_midi_autolearn(self):
+        return self.midi_autolearn
 
     # ---------------------------------------------------------------------------
     # MIDI Channel Management
@@ -237,6 +248,8 @@ class zynthian_processor:
 
             if set_engine and set_engine_needed:
                 return self.engine.set_bank(self, self.bank_info)
+            else:
+                return True
 
         return False
 
@@ -391,6 +404,8 @@ class zynthian_processor:
         force_set_engine : True to force setting engine's preset???
         TODO:Optimize search!!
         """
+        if preset_name[0] == '❤':
+            preset_name = preset_name[1:]
         for i in range(len(self.preset_list)):
             name_i = self.preset_list[i][2]
             try:
@@ -682,7 +697,7 @@ class zynthian_processor:
             self.bank_msb = bank_msb
 
     def midi_bank_lsb(self, bank_lsb):
-        """Handle MIDI bank MSB message
+        """Handle MIDI bank LSB message
 
         bank_lsb : Bank LSB
         """
@@ -706,6 +721,7 @@ class zynthian_processor:
         state = {
             "processor_type": self.engine.nickname,
             "bank_info": self.bank_info,
+            "bank_subdir_info": self.bank_subdir_info,
             "preset_info": self.preset_info,
             "show_fav_presets": self.show_fav_presets,  # TODO: GUI
             "controllers": {},
@@ -722,6 +738,8 @@ class zynthian_processor:
         state : Processor state
         """
 
+        if "bank_subdir_info" in state and state["bank_subdir_info"]:
+            self.bank_subdir_info = state["bank_subdir_info"]
         try:
             self.get_bank_list()
         except:

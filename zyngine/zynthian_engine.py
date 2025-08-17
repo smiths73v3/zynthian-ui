@@ -275,9 +275,15 @@ class zynthian_engine(zynthian_basic_engine):
         for ext in fexts:
             rules.append(fnmatch.translate("*." + ext))
         rerule = re.compile("(" + "|".join(rules) + ")", re.IGNORECASE)
-        for item in glob.iglob(os.path.join(path, "**"), recursive=True):
-            if rerule.match(item):
-                return True
+        # TODO: Support levels of recrsions instead boolean
+        if recursion:
+            for item in glob.iglob(os.path.join(path, "**"), recursive=True):
+                if rerule.match(item):
+                    return True
+        else:
+            for item in glob.iglob(os.path.join(path, "*"), recursive=False):
+                if rerule.match(item):
+                    return True
         return False
 
     @staticmethod
@@ -287,9 +293,15 @@ class zynthian_engine(zynthian_basic_engine):
             rules.append(fnmatch.translate("*." + ext))
         rerule = re.compile("(" + "|".join(rules) + ")", re.IGNORECASE)
         res = []
-        for item in glob.iglob(os.path.join(path, "**"), recursive=True):
-            if rerule.match(item):
-                res.append(item)
+        # TODO: Support levels of recrsions instead boolean
+        if recursion:
+            for item in glob.iglob(os.path.join(path, "**"), recursive=True):
+                if rerule.match(item):
+                    res.append(item)
+        else:
+            for item in glob.iglob(os.path.join(path, "*"), recursive=False):
+                if rerule.match(item):
+                    res.append(item)
         return sorted(res, key=str.casefold)
 
     @classmethod
@@ -424,7 +436,7 @@ class zynthian_engine(zynthian_basic_engine):
             walk[1].sort()
             for dir in walk[1]:
                 dpath = walk[0] + "/" + dir
-                if (not exclude_empty or internal_include_empty) or cls.find_some_preset_file(dpath, fexts, recursion):
+                if (not exclude_empty or internal_include_empty) or cls.find_some_preset_file(dpath, fexts, recursion + 1):
                     title = dir_marker + dir
                     sres.append([dpath, None, title, None, dir])
 
@@ -639,18 +651,18 @@ class zynthian_engine(zynthian_basic_engine):
     # + Default implementation uses a static controller definition array
     def get_controllers_dict(self, processor):
         if self._ctrls is not None:
-            # Remove controls that are no longer used
+            # Generate list of symbols
+            symbols = []
+            for ctrl in self._ctrls:
+                symbols.append(ctrl[0])
+            # Reset existing controllers or remove controllers no longer used
             for symbol in list(processor.controllers_dict):
-                d = True
-                for i in self._ctrls:
-                    if symbol == i[0]:
-                        d = False
-                        break
-                if d:
-                    del processor.controllers_dict[symbol]
+                zctrl = processor.controllers_dict[symbol]
+                if symbol in symbols:
+                    zctrl.reset(self, symbol)
                 else:
-                    processor.controllers_dict[symbol].reset(self, symbol)
-
+                    self.state_manager.chain_manager.remove_midi_learn_from_zctrl(zctrl, chain=True, abs=True, zynstep=True)
+                    del processor.controllers_dict[symbol]
             # Regenerate / update controller dictionary
             for ctrl in self._ctrls:
                 options = self.get_ctrl_options(ctrl, processor)

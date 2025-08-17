@@ -1489,8 +1489,9 @@ class zynthian_gui:
                 logging.warning("Can't set control screen processor! ")
 
         if self.current_screen == 'bank':
-            # self.replace_screen('preset')
-            self.close_screen()
+            if not self.screens['bank'].browse_root():
+                # self.replace_screen('preset')
+                self.close_screen()
         else:
             curproc = self.get_current_processor()
             if curproc:
@@ -2151,8 +2152,8 @@ class zynthian_gui:
         if self.current_screen == 'pattern_editor' and self.state_manager.zynseq.libseq.isMidiRecord():
             self.screens['pattern_editor'].midi_note_off(note)
 
-    def cb_show_file_selector(self, cb_func, fexts=None, dirnames=None, path=None):
-        self.screens["file_selector"].config(cb_func, fexts=fexts, dirnames=dirnames, path=path)
+    def cb_show_file_selector(self, cb_func, fexts=None, dirnames=None, path=None, preload=False):
+        self.screens["file_selector"].config(cb_func, fexts=fexts, dirnames=dirnames, path=path, preload=preload)
         self.show_screen("file_selector")
 
     def cb_set_active_chain(self, active_chain):
