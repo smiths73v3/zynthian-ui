@@ -547,7 +547,7 @@ class zynthian_engine_jalv(zynthian_engine):
     # Preset Managament
     # ----------------------------------------------------------------------------
 
-    def get_preset_list(self, bank):
+    def get_preset_list(self, bank, processor=None):
         preset_list = []
         try:
             for info in self.preset_info[bank[2]]['presets']:
