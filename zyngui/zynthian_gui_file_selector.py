@@ -87,6 +87,12 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
                 return True
         return False
 
+    def get_relative_path(self, path):
+        for row in self.root_dirs:
+            if len(path) > len(row[1]) and path.startswith(row[1]):
+                return row[0] + path[len(row[1]):]
+        return ""
+
     def is_root_dir(self, path):
         for row in self.root_dirs:
             if path == row[1]:
@@ -120,7 +126,7 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
         for dirname in dirnames:
             self.root_dirs.append((f"System {dirname}", zynthian_engine.data_dir + "/files/" + dirname))
         if "wav" in self.fexts:
-            self.root_dirs.append(("System Audio", zynthian_engine.my_data_dir + "/audio"))
+            self.root_dirs.append(("User Audio", zynthian_engine.my_data_dir + "/audio"))
         if self.dirpath and not self.is_confined_to_root_dirs(self.dirpath):
             dpbname = os.path.basename(self.dirpath)
             self.root_dirs.append((f"Current ({dpbname})", self.dirpath))
@@ -202,8 +208,9 @@ class zynthian_gui_file_selector(zynthian_gui_selector_info):
 
     def set_select_path(self):
         if self.dirpath:
-            parts = os.path.split(self.dirpath)
-            self.select_path.set(f"File Selector> {parts[1]}")
+            #path = os.path.split(self.dirpath)[1]
+            path = self.get_relative_path(self.dirpath)
+            self.select_path.set(f"File Selector > {path}")
         else:
             self.select_path.set("File Selector")
 
