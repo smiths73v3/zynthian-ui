@@ -1241,6 +1241,8 @@ class LooperHandler(
 
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
+        if (shifted_override and note == 7):
+            return
         return self.note_event(EV_NOTE_ON, note)
 
     def note_off(self, note, shifted_override=None):

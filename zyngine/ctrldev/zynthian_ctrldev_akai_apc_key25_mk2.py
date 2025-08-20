@@ -281,10 +281,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
                     elif BTN_SOFT_KEY_SOLO <= note <= BTN_SOFT_KEY_END:
                         self._padmatrix_handler.enable_seqman(False)
 
-            if self._current_handler == self._looper_handler:
-                if self._is_shifted and note == 7:
-                    return
-
             # Padmatrix related events
             if self._current_handler == self._mixer_handler:
                 if BTN_PAD_START <= note <= BTN_PAD_END:
