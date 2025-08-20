@@ -1241,17 +1241,17 @@ class LooperHandler(
 
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
+        return self.note_event(EV_NOTE_ON, note)
+
+    def note_off(self, note, shifted_override=None):
+        return self.note_event(EV_NOTE_OFF, note)
 
     def on_shift_changed(self, val):
         self.dispatch(deviceAction("shifted", val))
 
-    def midi_event(self, event):
-        evtype = (event[0] >> 4) & 0x0F
-        button = event[1] & 0x7F
-        if (
-            evtype in [EV_NOTE_OFF, EV_NOTE_ON]
-        ) and BUTTONS.BTN_PAD_START <= button <= BUTTONS.BTN_PAD_END:
-            return self.pad_event(event)
+    def note_event(self, evtype, button):
+        if BUTTONS.BTN_PAD_START <= button <= BUTTONS.BTN_PAD_END:
+            return self.pad_event(evtype, button)
         if BUTTONS.BTN_KNOB_CTRL_VOLUME <= button <= BUTTONS.BTN_KNOB_CTRL_DEVICE:
             return self.handle_mode_buttons(button, evtype)
         if (
@@ -1314,15 +1314,10 @@ class LooperHandler(
             self.increase(delta, fun, track, loopnum)
         pass
 
-    def note_off(self, note, shifted_override=None):
-        pass
-
-    def pad_event(self, event):
+    def pad_event(self, evtype, pad):
         submode = getDeviceSetting("submode", self.state)
         # if submode == self.MODE_PAN:
         #     return
-        evtype = (event[0] >> 4) & 0x0F
-        pad = event[1] & 0x7F
         row = padRow(pad)
         numpad = pad % COLS
         loopoffset = getLoopoffset(self.state)

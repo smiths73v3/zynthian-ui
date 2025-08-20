@@ -284,8 +284,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
             if self._current_handler == self._looper_handler:
                 if self._is_shifted and note == 7:
                     return
-                self._looper_handler.midi_event(ev)
-                return
 
             # Padmatrix related events
             if self._current_handler == self._mixer_handler:
@@ -338,10 +336,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
             if note == BTN_SHIFT:
                 return self._on_shift_changed(False)
 
-            if self._current_handler == self._looper_handler:
-               self._looper_handler.midi_event(ev)
-               return
-
             # Padmatrix related events
             if self._current_handler == self._mixer_handler:
                 if note == BTN_RECORD:
@@ -355,7 +349,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
             return self._current_handler.note_off(note, self._is_shifted)
 
         elif evtype == EV_CC:
-
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
             return self._current_handler.cc_change(ccnum, ccval)
