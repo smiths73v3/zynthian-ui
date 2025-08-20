@@ -1057,7 +1057,7 @@ class LooperHandler(
 
     SL_SESSION_PATH = "/zynthian/zynthian-my-data/presets/sooperlooper/"
 
-    def __init__(self, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None):
+    def __init__(self, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None, parent=None):
         """Initialize the controller with required parameters"""
         logging.debug(
             "\n================================================================="
@@ -1078,6 +1078,7 @@ class LooperHandler(
         logging.debug(
             "=================================================================\n"
         )
+        self.parent = parent
         self.state = {}
         self.loopcount = 0
         self._knobs_ease = KnobSpeedControl()
@@ -1246,6 +1247,8 @@ class LooperHandler(
         return self.note_event(EV_NOTE_ON, note)
 
     def note_off(self, note, shifted_override=None):
+        if (shifted_override and note == 7):
+            return
         return self.note_event(EV_NOTE_OFF, note)
 
     def on_shift_changed(self, val):
