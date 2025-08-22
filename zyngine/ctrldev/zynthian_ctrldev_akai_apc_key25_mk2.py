@@ -185,6 +185,7 @@ def load_handlers(directory):
 # --------------------------------------------------------------------------
 class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
 
+    driver_name = 'AKAI APC Key25 MK2'
     dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
     extraHandlerClasses = {
         # "LooperHandler": 7
