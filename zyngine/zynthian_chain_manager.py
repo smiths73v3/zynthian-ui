@@ -1241,10 +1241,19 @@ class zynthian_chain_manager:
         symbol : Control symbol
         """
 
-        if not proc or symbol not in proc.controllers_dict:
+        try:
+            zctrl = proc.controllers_dict[symbol]
+        except:
             return
-        zctrl = proc.controllers_dict[symbol]
-        logging.debug(f"(symbol={symbol} => zctrl={zctrl.symbol})")
+        self.remove_midi_learn_from_zctrl(zctrl)
+
+    def remove_midi_learn_from_zctrl(self, zctrl):
+        """Remove a midi learn configuration for a given zctrl
+
+        zctrl : Controller object
+        """
+
+        logging.debug(f"(proccessor={zctrl.processor.id}, symbol={zctrl.symbol})")
         for key in list(self.absolute_midi_cc_binding):
             zctrls = self.absolute_midi_cc_binding[key]
             try:
@@ -1269,13 +1278,6 @@ class zynthian_chain_manager:
                 pass
             if not zctrls:
                 self.chain_midi_cc_binding.pop(key)
-
-        """
-        if proc.eng_code == "MD":
-            # Remove native MIDI learn
-            proc.engine.midi_unlearn(zctrl)
-        return
-        """
 
     def get_midi_learn_from_zctrl(self, zctrl):
         for key, zctrls in self.absolute_midi_cc_binding.items():
