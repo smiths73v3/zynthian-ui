@@ -1150,7 +1150,6 @@ class looper_handler(
         super().set_active(active)
         self._leds.all_off()
         self.last_notes = [];
-        print(f"Active {active}")
         if active:
             self.render()
             self.reconnect()
