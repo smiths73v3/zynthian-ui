@@ -464,7 +464,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
 
     def cond_fn(track, y):
         # Check for device pan
-        if submode == LooperHandler.MODE_PAN:
+        if submode == looper_handler.MODE_PAN:
             channels = track.get("channel_count")
             if channels is None:
                 return lambda x: BRIGHTS.LED_OFF
@@ -487,7 +487,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
             )
 
         # Check for device levels
-        if submode == LooperHandler.MODE_LEVEL1:
+        if submode == looper_handler.MODE_LEVEL1:
             if y == 0:
                 return lambda x: padBrightnessForLevel(
                     COLS, state.get("glob", {}).get("wet", 0),"wet"
@@ -496,7 +496,7 @@ def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
             return lambda x: padBrightnessForLevel(COLS, track.get("wet", 0), "wet")(x)
 
         # Check for track levels
-        if submode == LooperHandler.MODE_LEVEL2:
+        if submode == looper_handler.MODE_LEVEL2:
             tracknum = getGlob("selected_loop_num", state)
             theTrack = (
                 state.get("glob")
@@ -546,7 +546,7 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
 
     def cond_fn(track, y):
         # Check for device pan
-        if submode == LooperHandler.MODE_PAN:
+        if submode == looper_handler.MODE_PAN:
             channels = track.get("channel_count")
             track_state = track.get("state", SL_STATE_UNKNOWN)
             if channels is None:
@@ -569,7 +569,7 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
             return lambda x: SL_STATES[track_state]["color"]
 
         # Check for wet for loops in view
-        if submode == LooperHandler.MODE_LEVEL1:
+        if submode == looper_handler.MODE_LEVEL1:
             state_value = track.get("state", SL_STATE_UNKNOWN)
             if y == 0:
                 return lambda x: COLORS.COLOR_BLUE_DARK
@@ -580,7 +580,7 @@ def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
             return lambda x: COLORS.COLOR_BLUE
 
         # Check for selected loop levels
-        if submode == LooperHandler.MODE_LEVEL2:
+        if submode == looper_handler.MODE_LEVEL2:
 
             def track_level_fn(track, i):
                 return lambda xpad: LEVEL_COLORS[xpad]  # Example implementation
@@ -785,12 +785,12 @@ def getLoopoffset(state):
 
 def doLevelsOfSelectedMode(state):
     submode = getDeviceSetting("submode", state)
-    return submode == LooperHandler.MODE_LEVEL2
+    return submode == looper_handler.MODE_LEVEL2
 
 
 def doSyncMode(state):
     submode = getDeviceSetting("submode", state)
-    return submode == LooperHandler.MODE_SYNC
+    return submode == looper_handler.MODE_SYNC
 
 
 # Reduce function
@@ -804,8 +804,8 @@ def on_update_track(action, state):
 # Create the FULL MIDI LED LAYOUT
 def createAllPads(state):
     loopoffset = getLoopoffset(state)
-    submode = getDeviceSetting("submode", state) or LooperHandler.MODE_DEFAULT
-    set_syncs = submode == LooperHandler.MODE_SYNC
+    submode = getDeviceSetting("submode", state) or looper_handler.MODE_DEFAULT
+    set_syncs = submode == looper_handler.MODE_SYNC
 
     def ctrl_btn(btn):
         if btn == BUTTONS.BTN_KNOB_CTRL_VOLUME:
@@ -813,16 +813,16 @@ def createAllPads(state):
                 0x90,
                 btn,
                 1
-                if submode == LooperHandler.MODE_LEVEL1
+                if submode == looper_handler.MODE_LEVEL1
                 else 2
-                if submode == LooperHandler.MODE_LEVEL2
+                if submode == looper_handler.MODE_LEVEL2
                 else 0,
             ]
         if btn == BUTTONS.BTN_KNOB_CTRL_PAN:
             return [
                 0x90,
                 btn,
-                1 if submode == LooperHandler.MODE_PAN
+                1 if submode == looper_handler.MODE_PAN
                 else 0,
             ]  # @check Used to have to convert this to num
         if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
@@ -832,9 +832,9 @@ def createAllPads(state):
                 0x90,
                 btn,
                 1
-                if submode == LooperHandler.MODE_SESSION_SAVE
+                if submode == looper_handler.MODE_SESSION_SAVE
                 else 2
-                if submode == LooperHandler.MODE_SESSION_LOAD
+                if submode == looper_handler.MODE_SESSION_LOAD
                 else 0,
             ]
         return []
@@ -843,10 +843,10 @@ def createAllPads(state):
         lambda acc, btn: acc + ctrl_btn(btn), range(0x40, 0x48), []
     )
 
-    if submode in [LooperHandler.MODE_SESSION_LOAD, LooperHandler.MODE_SESSION_SAVE]:
+    if submode in [looper_handler.MODE_SESSION_LOAD, looper_handler.MODE_SESSION_SAVE]:
         color = (
             COLORS.COLOR_DARK_GREEN
-            if submode == LooperHandler.MODE_SESSION_LOAD
+            if submode == looper_handler.MODE_SESSION_LOAD
             else COLORS.COLOR_ORANGE
         )
         sessions = getDeviceSetting("sessions", state) or []
@@ -879,7 +879,7 @@ def createAllPads(state):
             [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
             for i, pad in enumerate(rowPads(0))
         ]
-        if submode in [LooperHandler.MODE_DEFAULT]
+        if submode in [looper_handler.MODE_DEFAULT]
         else []
     )
     toprow = list(chain.from_iterable(toprow))
@@ -895,7 +895,7 @@ def createAllPads(state):
     pads = matrix + overlay(soft_keys, ctrl_keys)
     if len(pads):
         # Don't show it because we wanna track the crazy pan behaviour
-        if submode != LooperHandler.MODE_PAN and getDeviceSetting("shifted", state):
+        if submode != looper_handler.MODE_PAN and getDeviceSetting("shifted", state):
             firstLoop = 2 - loopoffset
             if firstLoop > 9 and firstLoop < 100:
                 return overlay(
@@ -925,7 +925,7 @@ def createAllPads(state):
                     # pads[i+1] = SL_STATES[TRACK_COMMANDS[pad % COLS]]["color"]
             return pads        
 
-        elif submode == LooperHandler.MODE_DEFAULT:
+        elif submode == looper_handler.MODE_DEFAULT:
             for i in range(len(pads) - 2, 0, -3):
                 pad = pads[i]
                 if (pad > 31) and (pad < 37):
@@ -988,7 +988,7 @@ class ButtonAutoLatch:
 
 
 # zynthian_ctrldev_akai_apc_key25_mk2_sl
-class LooperHandler(
+class looper_handler(
     ModeHandlerBase  # zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
 ):
     """Looper Handler for Zynthian Controller Device: Akai APC Key 25"""
@@ -1383,6 +1383,7 @@ class LooperHandler(
             self.activateSubmode(next)
         return
 
+    # @todo: only on note on
     def select_loop_for_button(self, button):
         row = button - 0x52
         track = (
@@ -1671,7 +1672,7 @@ class SubModeDefault(ModeHandlerBase):
     MODENAME = "default"
 
     def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1826,7 +1827,7 @@ class SubModeLevels1(ModeHandlerBase):
     MODENAME = "levels1"
 
     def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1884,7 +1885,7 @@ class SubModeLevels2(ModeHandlerBase):
     MODENAME = "levels2"
 
     def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -1946,7 +1947,7 @@ class SubModePan(ModeHandlerBase):
     MODENAME = "pan"
 
     def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -2079,7 +2080,7 @@ class SubModeDefaultWithGroups(SubModeDefault, SubModeGroups):
 
     MODENAME = "groups"
 
-    def __init__( self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None):
+    def __init__( self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None):
         SubModeDefault.__init__(self, parent, state_manager, leds, idev_in, idev_out)
         
     def set_active(self, active):
@@ -2188,7 +2189,7 @@ class SubModeSessionsSave(ModeHandlerBase):
     MODENAME = "sessionsave"
 
     def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent
@@ -2244,7 +2245,7 @@ class SubModeSessionsLoad(ModeHandlerBase):
     MODENAME = "sessionload"
 
     def __init__(
-        self, parent: LooperHandler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
+        self, parent: looper_handler, state_manager, leds: FeedbackLEDs, idev_in=None, idev_out=None
     ):
         super().__init__(state_manager)
         self.parent = parent

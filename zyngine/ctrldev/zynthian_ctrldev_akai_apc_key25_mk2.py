@@ -174,11 +174,12 @@ def load_handlers(directory):
         if filename.endswith('_handler.py') and (filename != '__init__.py'):
             module_name = filename[:-3]  # Remove the .py extension
             module = importlib.import_module(f'zyngine.ctrldev.akai_apc_key25.{module_name}')
-            for attr in dir(module):
-                if attr.endswith('Handler') and (not attr.startswith('__')):
-                    cls = getattr(module, attr)
-                    if isinstance(cls, type):  # Check if it's a class
-                        handlers[attr] = cls
+            try:
+                cls = getattr(module, module_name)
+                if isinstance(cls, type):  # Check if it's a class
+                    handlers[module_name] = cls
+            except:
+                pass
     return handlers
 # --------------------------------------------------------------------------
 # 'Akai APC Key 25 mk2' device controller class
@@ -188,7 +189,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
     driver_name = 'AKAI APC Key25 MK2'
     dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
     extraHandlerClasses = {
-        # "LooperHandler": 7
+        # "looper_handler": 7
     }
     
     @classmethod
