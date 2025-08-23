@@ -1439,7 +1439,10 @@ class looper_handler(
         self.dispatch(deviceAction("sessions", onlyfiles))
 
     def request_feedback(self, address, path, *args):
-        self.osc_server.send(self.osc_target, address, *args, self.osc_server_url, path)
+        try:
+            self.osc_server.send(self.osc_target, address, *args, self.osc_server_url, path)
+        except:
+            pass
 
     def just_send(self, address, *args):
         self.osc_server.send(self.osc_target, address, *args)
