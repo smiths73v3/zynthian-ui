@@ -168,11 +168,11 @@ FN_REMOVE_PATTERN = 0x0F
 FN_SELECT_PATTERN = 0x10
 FN_CLEAR_PATTERN = 0x11
 
-def load_handlers(directory):
+def load_handlers(directory, extra_handler_classes):
     handlers = {}
     for filename in os.listdir(directory):
-        if filename.endswith('_handler.py') and (filename != '__init__.py'):
-            module_name = filename[:-3]  # Remove the .py extension
+        module_name = filename[:-3]  # Remove the .py extension
+        if module_name in extra_handler_classes:
             module = importlib.import_module(f'zyngine.ctrldev.akai_apc_key25.{module_name}')
             try:
                 cls = getattr(module, module_name)
@@ -204,12 +204,10 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
         self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
         self._stepseq_handler = StepSeqHandler(state_manager, self._leds, idev_in)
         handlers_path = f"/zynthian/zynthian-ui/zyngine/ctrldev/akai_apc_key25"
-        handlers = load_handlers(handlers_path)
+        handlers = load_handlers(handlers_path, self.extraHandlerClasses)
         for name, handler_class in handlers.items():
-            for handler_name, key in self.extraHandlerClasses.items():
-                if name == handler_name:
-                    print(f"Loading handler: {name}")
-                    self._extra_handlers[name] = handler_class(state_manager, self._leds, idev_in, idev_out, self)
+            print(f"Loading handler: {name}")
+            self._extra_handlers[name] = handler_class(state_manager, self._leds, idev_in, idev_out, self)
         self._current_handler = self._mixer_handler
         self._is_shifted = False
 
@@ -293,10 +291,9 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
                 else:
                     for name, key in self.extraHandlerClasses.items():
                         if note == key:
-                            for handler_name, handler in self._extra_handlers.items():
-                                if name == handler_name:
-                                    self._current_handler = handler
-                                    break
+                            handler = self._extra_handlers.get(name)
+                            if handler:
+                                self._current_handler = handler
                             break
 
                 if old_handler != self._current_handler:
