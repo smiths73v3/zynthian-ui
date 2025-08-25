@@ -23,8 +23,6 @@
 #
 # ******************************************************************************
 
-import importlib
-import os
 import jack
 import time
 import signal
@@ -43,6 +41,7 @@ from zyngine.zynthian_engine_audioplayer import zynthian_engine_audioplayer
 from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad
 from zyngine.ctrldev.zynthian_ctrldev_base_extended import RunTimer, KnobSpeedControl, ButtonTimer, CONST
 from zyngine.ctrldev.zynthian_ctrldev_base_ui import ModeHandlerBase
+
 
 # FIXME: these defines should be taken from where they are defined (zynseq.h)
 MAX_STUTTER_COUNT = 32
@@ -168,46 +167,25 @@ FN_REMOVE_PATTERN = 0x0F
 FN_SELECT_PATTERN = 0x10
 FN_CLEAR_PATTERN = 0x11
 
-def load_handlers(directory, extra_handler_classes):
-    handlers = {}
-    for filename in os.listdir(directory):
-        module_name = filename[:-3]  # Remove the .py extension
-        if module_name in extra_handler_classes:
-            module = importlib.import_module(f'zyngine.ctrldev.akai_apc_key25.{module_name}')
-            try:
-                cls = getattr(module, module_name)
-                if isinstance(cls, type):  # Check if it's a class
-                    handlers[module_name] = cls
-            except:
-                pass
-    return handlers
+
 # --------------------------------------------------------------------------
 # 'Akai APC Key 25 mk2' device controller class
 # --------------------------------------------------------------------------
 class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
 
-    driver_name = 'AKAI APC Key25 MK2'
     dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
-    extraHandlerClasses = {
-        # "looper_handler": 7
-    }
-    
+    driver_name = 'AKAI APC Key25 MK2'
+
     @classmethod
     def get_autoload_flag(cls):
         return True
 
     def __init__(self, state_manager, idev_in, idev_out=None):
         self._leds = FeedbackLEDs(idev_out)
-        self._extra_handlers = {}
         self._device_handler = DeviceHandler(state_manager, self._leds)
         self._mixer_handler = MixerHandler(state_manager, self._leds)
         self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
         self._stepseq_handler = StepSeqHandler(state_manager, self._leds, idev_in)
-        handlers_path = f"/zynthian/zynthian-ui/zyngine/ctrldev/akai_apc_key25"
-        handlers = load_handlers(handlers_path, self.extraHandlerClasses)
-        for name, handler_class in handlers.items():
-            print(f"Loading handler: {name}")
-            self._extra_handlers[name] = handler_class(state_manager, self._leds, idev_in, idev_out, self)
         self._current_handler = self._mixer_handler
         self._is_shifted = False
 
@@ -288,13 +266,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
                     self._padmatrix_handler.refresh()
                 elif note == BTN_KNOB_CTRL_SEND:
                     self._current_handler = self._stepseq_handler
-                else:
-                    for name, key in self.extraHandlerClasses.items():
-                        if note == key:
-                            handler = self._extra_handlers.get(name)
-                            if handler:
-                                self._current_handler = handler
-                            break
 
                 if old_handler != self._current_handler:
                     old_handler.set_active(False)
