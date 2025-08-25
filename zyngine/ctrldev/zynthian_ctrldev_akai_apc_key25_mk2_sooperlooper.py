@@ -28,8 +28,8 @@ import logging
 import time
 import random
 import functools
-from os import listdir
-from os.path import isfile, join
+from os import listdir, mkdir
+from os.path import isdir, isfile, join
 from dataclasses import dataclass, field
 from threading import Timer
 from typing import Dict, Any, Callable, List
@@ -1590,6 +1590,8 @@ class looper_handler(
 
     def get_sessions(self):
         mypath = self.SL_SESSION_PATH
+        if (not isdir(mypath)):
+            mkdir(mypath)
         onlyfiles = [
             f
             for f in listdir(mypath)
