@@ -600,9 +600,13 @@ class zynthian_state_manager:
                             logging.error(e)
 
                     else:
-                        self.status_overtemp = True
-                        self.status_undervoltage = True
-
+                        # Default pass sensors for x86_64 platforms until we get hwmon support
+                        if os.environ.get('ZYNTHIAN_KIT_VERSION') == "x86_64":
+                            self.status_overtemp = False
+                            self.status_undervoltage = False
+                        else:
+                            self.status_overtemp = True
+                            self.status_undervoltage = True
                 else:
                     status_counter += 1
 
