@@ -60,6 +60,26 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
         if len(self.list_data) > 0:
             super().show()
 
+    def browse_root(self):
+        if self.processor and self.processor.preset_subdir_info:
+            self.index = self.processor.preset_subdir_info[1]
+            self.processor.preset_subdir_info = None
+            self.set_select_path()
+            self.update_list()
+            self.select_listbox(self.index)
+            return True
+        return False
+
+    def browse_back(self):
+        if self.processor and self.processor.preset_subdir_info:
+            self.index = self.processor.preset_subdir_info[1]
+            self.processor.preset_subdir_info = self.processor.preset_subdir_info[3]
+            self.set_select_path()
+            self.update_list()
+            self.select_listbox(self.index)
+            return True
+        return False
+
     def autoselect(self):
         """ If no presets => show control screen
             For certain engines => load lonely preset
@@ -79,14 +99,19 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
             self.loading_canvas.grid(rowspan=1)
             self.zyngui.state_manager.start_busy("set preset")
             # Set preset
-            self.zyngui.get_current_processor().set_preset(i)
+            result = self.zyngui.get_current_processor().set_preset(i)
             self.zyngui.state_manager.end_busy("set preset")
-            self.zyngui.purge_screen_history("bank")
             # Stop animation and restore icon canvas
             self.loading_canvas.grid_remove()
             self.icon_canvas.grid()
-            # Close
-            self.zyngui.replace_screen("control")
+            # If result is None (still browsing) => refresh preset list
+            if result is None:
+                self.set_select_path()
+                self.update_list()
+            # If success or already loaded => open control screen
+            else:
+                self.zyngui.purge_screen_history("bank")
+                self.zyngui.replace_screen("control")
 
     def show_preset_options(self):
         options = {}

@@ -23,6 +23,7 @@
 # ******************************************************************************
 
 import os
+import copy
 import shutil
 import logging
 from glob import glob
@@ -56,7 +57,10 @@ class zynthian_engine_audioplayer(zynthian_engine):
 
     preset_fexts = zynaudioplayer.get_supported_codecs()
     root_bank_dirs = [
-        ('Internal', zynthian_engine.my_data_dir + "/audio")
+        ('User Audio', zynthian_engine.my_data_dir + "/audio"),
+        ('User Samples', zynthian_engine.my_data_dir + "/files/Samples"),
+        #('System Audio', zynthian_engine.data_dir + "/audio"),
+        ('System Samples', zynthian_engine.data_dir + "/files/Samples")
     ]
 
     logging.info(f"Supported Audio Codecs: {preset_fexts}")
@@ -148,10 +152,20 @@ class zynthian_engine_audioplayer(zynthian_engine):
     # ---------------------------------------------------------------------------
 
     def get_bank_list(self, processor=None):
-        return self.get_bank_dirlist(recursion=1, internal_include_empty=True)
+        return self.get_dir_file_list(self.preset_fexts, self.root_bank_dirs, recursion=1, exclude_empty=True,
+                                      internal_include_empty=False, dirs_only=False)
+
+        #return self.get_bank_dirlist(recursion=1, internal_include_empty=True)
 
     def set_bank(self, processor, bank):
-        return True
+        if os.path.isdir(bank[0]):
+            return True
+        elif os.path.isfile(bank[0]):
+            processor.bank_index = 0
+            processor.bank_name = None
+            processor.bank_info = None
+            processor.set_preset(bank)
+            return True
 
     def create_user_bank(self, bank_name):
         base_path = self.root_bank_dirs[0][1]
@@ -166,42 +180,64 @@ class zynthian_engine_audioplayer(zynthian_engine):
 
     def delete_user_bank(self, bank):
         if self.is_preset_user(bank):
-            shutil.rmtree(bank[0])
+            if os.path.isdir(bank[0]):
+                shutil.rmtree(bank[0])
+            else:
+                os.remove(bank[0])
 
     # ---------------------------------------------------------------------------
     # Preset Management
     # ---------------------------------------------------------------------------
 
-    def get_preset_list(self, bank):
-        presets = []
-        """
-		presets = [[None, 0, "Presets", None, None]]
-		presets += self.get_filelist(bank[0], "zap")
-		if len(presets) == 1:
-			presets = []
-		presets += [[None, 0, "Audio Files", None, None]]
-		"""
-        file_presets = []
-        for ext in self.preset_fexts:
-            file_presets += self.get_filelist(bank[0], ext)
-        for preset in file_presets:
-            fparts = os.path.splitext(preset[4])
-            duration = zynaudioplayer.get_file_duration(preset[0])
-            fduration = f"{int(duration/60):02d}:{round(duration)%60:02d}"
-            preset[2] += f"{fparts[1]} ({fduration})"
-            preset.append([f"Format: {fparts[1][1:].upper()}\nLength: {fduration}", "file_audio.png"])
-        presets += file_presets
+    def get_preset_list(self, bank, processor=None):
+        #presets = [[None, 0, "Presets", None, None]]
+        #presets += self.get_filelist(bank[0], "zap")
+        #if len(presets) == 1:
+        #	presets = []
+        #presets += [[None, 0, "Audio Files", None, None]]
+
+        #file_presets = []
+        #for ext in self.preset_fexts:
+        #    file_presets += self.get_filelist(bank[0], ext)
+
+        if processor and processor.preset_subdir_info:
+            dpath = processor.preset_subdir_info[0]
+        else:
+            dpath = bank[0]
+
+        presets = self.get_filelist(dpath, self.preset_fexts, include_dirs=True, exclude_empty_dirs=True)
+
+        for preset in presets:
+            if not os.path.isdir(preset[0]):
+                fparts = os.path.splitext(preset[4])
+                duration = zynaudioplayer.get_file_duration(preset[0])
+                fduration = f"{int(duration/60):02d}:{round(duration)%60:02d}"
+                preset[2] += f"{fparts[1]} ({fduration})"
+                preset.append([f"Format: {fparts[1][1:].upper()}\nLength: {fduration}", "file_audio.png"])
         return presets
 
     def preset_exists(self, bank_info, preset_name):
         if not bank_info or bank_info[0] is None:
-            bank_name = self.root_bank_dirs[0][1] + "/capture"
+            dpath = self.root_bank_dirs[0][1] + "/capture"
         else:
-            bank_name = bank_info[0]
-        path = f"{bank_name}/{preset_name}.wav"
-        return glob(path) != []
+            dpath = bank_info[0]
+        fpath = f"{dpath}/{preset_name}.wav"
+        return glob(fpath) != []
 
     def set_preset(self, processor, preset, preload=False):
+        if os.path.isdir(preset[0]):
+            if processor.preset_subdir_info:
+                back_subdir_info = processor.preset_subdir_info
+            else:
+                back_subdir_info = None
+            processor.preset_subdir_info = copy.copy(preset)
+            processor.preset_subdir_info[1] = processor.preset_index
+            processor.preset_subdir_info[3] = back_subdir_info
+            processor.preset_index = 0
+            processor.preset_name = None
+            processor.preset_info = None
+            return None
+
         if zynaudioplayer.get_filename(processor.handle) == preset[0] and \
            zynaudioplayer.get_file_duration(preset[0]) == zynaudioplayer.get_duration(processor.handle):
             return False
@@ -384,9 +420,14 @@ class zynthian_engine_audioplayer(zynthian_engine):
             latest_fpath = max(wav_fpaths, key=os.path.getctime)
             bank_fpath = os.path.dirname(latest_fpath)
             processor.get_bank_list()
-            processor.set_bank_by_id(bank_fpath)
-            processor.load_preset_list()
-            processor.set_preset_by_id(latest_fpath)
+            if processor.set_bank_by_id(bank_fpath):
+                processor.load_preset_list()
+                processor.set_preset_by_id(latest_fpath)
+            else:
+                parts = os.path.split(latest_fpath)
+                parts = os.path.splitext(parts[1])
+                title = str.replace(parts[0], '_', ' ')
+                processor.set_preset([latest_fpath, None, title, None, bank_fpath])
         self.processor = processor
 
     # ----------------------------------------------------------------------------

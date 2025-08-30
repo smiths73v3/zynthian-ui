@@ -547,7 +547,7 @@ class zynthian_engine_jalv(zynthian_engine):
     # Preset Managament
     # ----------------------------------------------------------------------------
 
-    def get_preset_list(self, bank):
+    def get_preset_list(self, bank, processor=None):
         preset_list = []
         try:
             for info in self.preset_info[bank[2]]['presets']:
@@ -796,6 +796,7 @@ class zynthian_engine_jalv(zynthian_engine):
                         'is_logarithmic': False,
                         'is_path': True,
                         'path_file_types': info['path_file_types'],
+                        'path_preload': info['path_preload'],
                         'not_on_gui': info['not_on_gui'],
                         'display_priority': display_priority
                     })

@@ -802,7 +802,8 @@ class zynthian_chain_manager:
             self.state_manager.start_busy("add_processor", "Adding Processor", f"adding {eng_code} to chain {chain_id}")
 
         logging.debug(f"Adding processor '{eng_code}' with ID '{proc_id}'")
-        processor = zynthian_processor(eng_code, self.engine_info[eng_code], proc_id, midi_autolearn)
+        processor = zynthian_processor(eng_code, self.engine_info[eng_code], proc_id)
+        processor.set_midi_autolearn(midi_autolearn)
         chain = self.chains[chain_id]
         # Add proc early to allow engines to add more as required, e.g. Aeolus
         self.processors[proc_id] = processor
@@ -840,7 +841,7 @@ class zynthian_chain_manager:
         return None
 
     def nudge_processor(self, chain_id, processor, up):
-        if (chain_id not in self.chains):
+        if chain_id not in self.chains:
             return False
         chain = self.chains[chain_id]
         if not chain.nudge_processor(processor, up):
@@ -1240,10 +1241,19 @@ class zynthian_chain_manager:
         symbol : Control symbol
         """
 
-        if not proc or symbol not in proc.controllers_dict:
+        try:
+            zctrl = proc.controllers_dict[symbol]
+        except:
             return
-        zctrl = proc.controllers_dict[symbol]
-        logging.debug(f"(symbol={symbol} => zctrl={zctrl.symbol})")
+        self.remove_midi_learn_from_zctrl(zctrl)
+
+    def remove_midi_learn_from_zctrl(self, zctrl):
+        """Remove a midi learn configuration for a given zctrl
+
+        zctrl : Controller object
+        """
+
+        logging.debug(f"(proccessor={zctrl.processor.id}, symbol={zctrl.symbol})")
         for key in list(self.absolute_midi_cc_binding):
             zctrls = self.absolute_midi_cc_binding[key]
             try:
@@ -1268,13 +1278,6 @@ class zynthian_chain_manager:
                 pass
             if not zctrls:
                 self.chain_midi_cc_binding.pop(key)
-
-        """
-        if proc.eng_code == "MD":
-            # Remove native MIDI learn
-            proc.engine.midi_unlearn(zctrl)
-        return
-        """
 
     def get_midi_learn_from_zctrl(self, zctrl):
         for key, zctrls in self.absolute_midi_cc_binding.items():

@@ -1096,10 +1096,15 @@ class zynthian_state_manager:
             converter = zynthian_legacy_snapshot(self)
             state = converter.convert_state(snapshot)
 
+            if load_sequences and "zynseq_riff_b64" in state:
+                b64_bytes = state["zynseq_riff_b64"].encode("utf-8")
+                binary_riff_data = base64.decodebytes(b64_bytes)
+                self.zynseq.restore_riff_data(binary_riff_data)
+                self.zynseq.update_tempo()
+
             if load_chains:
                 # Mute output to avoid unwanted noises
-                self.zynmixer.set_mute(
-                    self.zynmixer.MAX_NUM_CHANNELS - 1, True)
+                self.zynmixer.set_mute(self.zynmixer.MAX_NUM_CHANNELS - 1, True)
 
                 zynautoconnect.pause()
                 if "chains" in state:
@@ -1213,10 +1218,9 @@ class zynthian_state_manager:
                 if "midi_profile_state" in state:
                     self.set_midi_profile_state(state["midi_profile_state"])
 
-            if load_sequences and "zynseq_riff_b64" in state:
-                b64_bytes = state["zynseq_riff_b64"].encode("utf-8")
-                binary_riff_data = base64.decodebytes(b64_bytes)
-                self.zynseq.restore_riff_data(binary_riff_data)
+                # After loading initial state, enable midi autolearn in all processors
+                for proc in self.chain_manager.processors.values():
+                    proc.set_midi_autolearn(True)
 
             if fpath == self.last_snapshot_fpath and "last_state_fpath" in state:
                 self.last_snapshot_fpath = state["last_snapshot_fpath"]
@@ -1615,6 +1619,7 @@ class zynthian_state_manager:
                 "bank_info": processor.bank_info,
                 "bank_subdir_info": processor.bank_subdir_info,
                 "preset_info": processor.preset_info,
+                "preset_subdir_info": processor.preset_subdir_info,
                 "controllers": {}
             }
             # Add controllers
@@ -2155,23 +2160,26 @@ class zynthian_state_manager:
     # Global MIDI Player
     # ---------------------------------------------------------------------------
 
-    def get_new_midi_record_fpath(self):
+    def get_new_capture_fpath(self, ext="mid"):
         exdirs = zynthian_gui_config.get_external_storage_dirs(ex_data_dir)
+        path = None
+        filename = None
         if exdirs:
-            path = exdirs[0]
-        else:
+            for path in exdirs:
+                if not self.check_mount_readonly(path):
+                    filename = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+                    break
+        if not filename:
             path = capture_dir_sdc
-        filename = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+            filename = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
         if self.last_snapshot_fpath and len(self.last_snapshot_fpath) > 4:
             filename += "_" + os.path.basename(self.last_snapshot_fpath[:-4])
+        filename = filename.replace("/", ";").replace(">", ";").replace(" ; ", ";")
+        return f"{path}/{filename}.{ext}"
 
-        filename = filename.replace(
-            "/", ";").replace(">", ";").replace(" ; ", ";")
-        # Append index to file to make unique
-        index = 1
-        while "{}.{:03d}.mid".format(filename, index) in os.listdir(path):
-            index += 1
-        return "{}/{}.{:03d}.mid".format(path, filename, index)
+    def check_mount_readonly(self, path):
+        stat = os.statvfs(path)
+        return bool(stat.f_flag & os.ST_RDONLY)
 
     def start_midi_record(self):
         if not libsmf.isRecording():
@@ -2188,7 +2196,7 @@ class zynthian_state_manager:
             logging.info("STOPPING MIDI RECORDING ...")
             libsmf.stopRecording()
 
-            fpath = self.get_new_midi_record_fpath()
+            fpath = self.get_new_capture_fpath("mid")
             if zynsmf.save(self.smf_recorder, fpath):
                 self.sync = True
                 self.last_midi_file = fpath

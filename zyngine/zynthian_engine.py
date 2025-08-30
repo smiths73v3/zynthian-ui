@@ -275,9 +275,15 @@ class zynthian_engine(zynthian_basic_engine):
         for ext in fexts:
             rules.append(fnmatch.translate("*." + ext))
         rerule = re.compile("(" + "|".join(rules) + ")", re.IGNORECASE)
-        for item in glob.iglob(os.path.join(path, "**"), recursive=True):
-            if rerule.match(item):
-                return True
+        # TODO: Support levels of recrsions instead boolean
+        if recursion:
+            for item in glob.iglob(os.path.join(path, "**"), recursive=True):
+                if rerule.match(item):
+                    return True
+        else:
+            for item in glob.iglob(os.path.join(path, "*"), recursive=False):
+                if rerule.match(item):
+                    return True
         return False
 
     @staticmethod
@@ -287,9 +293,15 @@ class zynthian_engine(zynthian_basic_engine):
             rules.append(fnmatch.translate("*." + ext))
         rerule = re.compile("(" + "|".join(rules) + ")", re.IGNORECASE)
         res = []
-        for item in glob.iglob(os.path.join(path, "**"), recursive=True):
-            if rerule.match(item):
-                res.append(item)
+        # TODO: Support levels of recrsions instead boolean
+        if recursion:
+            for item in glob.iglob(os.path.join(path, "**"), recursive=True):
+                if rerule.match(item):
+                    res.append(item)
+        else:
+            for item in glob.iglob(os.path.join(path, "*"), recursive=False):
+                if rerule.match(item):
+                    res.append(item)
         return sorted(res, key=str.casefold)
 
     @classmethod
@@ -371,51 +383,26 @@ class zynthian_engine(zynthian_basic_engine):
     # Get dir & file list
     @classmethod
     def get_dir_file_list(cls, fexts, root_dirs, recursion=1, exclude_empty=True, internal_include_empty=False, dirs_only=False):
-        res = []
-
         if not dirs_only:
             dir_marker = "> "
         else:
             dir_marker = ""
 
-        # External storage banks
+        # Don't overwrite original root_dirs variable!
+        root_dirs = copy.copy(root_dirs)
+        # Add source marker (SD)
+        for i, rd in enumerate(root_dirs):
+            root_dirs[i] = ("SD> " + rd[0], rd[1])
+        # Add external storage to root_dirs
         for exd in zynthian_gui_config.get_external_storage_dirs(cls.ex_data_dir):
             if not os.path.isdir(exd):
                 continue
-            sres = []
-            # Add root directory in external storage
-            if not exclude_empty or cls.find_some_preset_file(exd, fexts, 0):
-                sres.append([exd, None, "/", None, "/"])
-            # Walk directories inside root
-            walk = next(os.walk(exd))
-            walk[1].sort()
-            for root_dir in walk[1]:
-                root_path = walk[0] + "/" + root_dir
-                if not exclude_empty or cls.find_some_preset_file(root_path, fexts, recursion + 1):
-                    walk = next(os.walk(root_path))
-                    walk[1].sort()
-                    count = 0
-                    for dir in walk[1]:
-                        dpath = walk[0] + "/" + dir
-                        if not exclude_empty or cls.find_some_preset_file(dpath, fexts, recursion):
-                            title = dir_marker + root_dir + "/" + dir
-                            sres.append([dpath, None, title, None, dir])
-                            count += 1
-                    # If there is no banks inside, the root is the bank
-                    if count == 0:
-                        title = dir_marker + root_dir
-                        sres.append([root_path, None, title, None, root_dir])
+            if not exclude_empty or cls.find_some_preset_file(exd, fexts, recursion + 1):
+                title = f"USB> {os.path.basename(exd)}"
+                root_dirs.insert(0, (title, exd))
 
-            # Add files in root dir
-            if not dirs_only:
-                sres += cls.get_filelist(exd, fexts)
-
-            # Add root's header and items
-            if len(sres):
-                res.append([None, None, f"USB> {os.path.basename(exd)}", None, None])
-                res += sres
-
-        # Internal storage
+        # Generate list
+        res = []
         for root_dir in root_dirs:
             if not os.path.isdir(root_dir[1]):
                 continue
@@ -433,7 +420,7 @@ class zynthian_engine(zynthian_basic_engine):
                 sres += cls.get_filelist(root_dir[1], fexts)
 
             if len(sres):
-                res.append([None, None, "SD> " + root_dir[0], None, None])
+                res.append([None, None, root_dir[0], None, None])
                 res += sres
 
         return res
@@ -496,15 +483,14 @@ class zynthian_engine(zynthian_basic_engine):
         return self.get_bank_dirlist()
 
     def set_bank(self, processor, bank):
-        self.state_manager.zynmidi.set_midi_bank_msb(
-            processor.get_midi_chan(), bank[1])
+        self.state_manager.zynmidi.set_midi_bank_msb(processor.get_midi_chan(), bank[1])
         return True
 
     # ---------------------------------------------------------------------------
     # Preset Management
     # ---------------------------------------------------------------------------
 
-    def get_preset_list(self, bank):
+    def get_preset_list(self, bank, processor=None):
         logging.info('Getting Preset List for %s: NOT IMPLEMENTED!', self.name)
 
     def set_preset(self, processor, preset, preload=False):
@@ -639,18 +625,18 @@ class zynthian_engine(zynthian_basic_engine):
     # + Default implementation uses a static controller definition array
     def get_controllers_dict(self, processor):
         if self._ctrls is not None:
-            # Remove controls that are no longer used
+            # Generate list of symbols
+            symbols = []
+            for ctrl in self._ctrls:
+                symbols.append(ctrl[0])
+            # Reset existing controllers or remove controllers no longer used
             for symbol in list(processor.controllers_dict):
-                d = True
-                for i in self._ctrls:
-                    if symbol == i[0]:
-                        d = False
-                        break
-                if d:
-                    del processor.controllers_dict[symbol]
+                zctrl = processor.controllers_dict[symbol]
+                if symbol in symbols:
+                    zctrl.reset(self, symbol)
                 else:
-                    processor.controllers_dict[symbol].reset(self, symbol)
-
+                    self.state_manager.chain_manager.remove_midi_learn_from_zctrl(zctrl)
+                    del processor.controllers_dict[symbol]
             # Regenerate / update controller dictionary
             for ctrl in self._ctrls:
                 options = self.get_ctrl_options(ctrl, processor)
