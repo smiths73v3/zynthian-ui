@@ -445,7 +445,8 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
                 // Note off event
                 else if ((nCommand == MIDI_NOTE_ON && midiEvent.buffer[2] == 0) || nCommand == MIDI_NOTE_OFF) {
                     if (startEvents[midiEvent.buffer[1]].start != -1) {
-                        double dDur = double(g_pSequence->getPlayPosition()) - startEvents[midiEvent.buffer[1]].start * getClocksPerStep();
+                        double dDur = double(g_pSequence->getPlayPosition()) -
+                        	(startEvents[midiEvent.buffer[1]].start + startEvents[midiEvent.buffer[1]].offset) * getClocksPerStep();
                         if (dDur < 1.0)
                             dDur = pPattern->getLength() + dDur;
                         pPattern->addNote(startEvents[midiEvent.buffer[1]].start, midiEvent.buffer[1], startEvents[midiEvent.buffer[1]].velocity,
