@@ -169,233 +169,6 @@ FN_CLEAR_PATTERN = 0x11
 
 
 # --------------------------------------------------------------------------
-# 'Akai APC Key 25 mk2' device controller class
-# --------------------------------------------------------------------------
-class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
-
-    dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
-    driver_name = 'AKAI APC Key25 MK2'
-
-    @classmethod
-    def get_autoload_flag(cls):
-        return True
-
-    def __init__(self, state_manager, idev_in, idev_out=None):
-        self._leds = FeedbackLEDs(idev_out)
-        self._device_handler = DeviceHandler(state_manager, self._leds)
-        self._mixer_handler = MixerHandler(state_manager, self._leds)
-        self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
-        self._stepseq_handler = StepSeqHandler(state_manager, self._leds, idev_in)
-        self._current_handler = self._mixer_handler
-        self._is_shifted = False
-
-        self._signals = [
-            (zynsigman.S_GUI,
-                zynsigman.SS_GUI_SHOW_SCREEN,
-                self._on_gui_show_screen),
-
-            (zynsigman.S_AUDIO_PLAYER,
-                zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE,
-                lambda handle, state:
-                    self._on_media_change_state(state, f"audio-{handle}", "player")),
-
-            (zynsigman.S_AUDIO_RECORDER,
-                state_manager.audio_recorder.SS_AUDIO_RECORDER_STATE,
-                partial(self._on_media_change_state, media="audio", kind="recorder")),
-
-            (zynsigman.S_STATE_MAN,
-                state_manager.SS_MIDI_PLAYER_STATE,
-                partial(self._on_media_change_state, media="midi", kind="player")),
-
-            (zynsigman.S_STATE_MAN,
-                state_manager.SS_MIDI_RECORDER_STATE,
-                partial(self._on_media_change_state, media="midi", kind="recorder")),
-        ]
-
-        # NOTE: init will call refresh(), so _current_hanlder must be ready!
-        super().__init__(state_manager, idev_in, idev_out)
-
-    def init(self):
-        super().init()
-        for signal, subsignal, callback in self._signals:
-            zynsigman.register(signal, subsignal, callback)
-
-    def end(self):
-        for signal, subsignal, callback in self._signals:
-            zynsigman.unregister(signal, subsignal, callback)
-        super().end()
-
-    def refresh(self):
-        # PadMatrix is handled in volume/pan modes (when mixer handler is active)
-        self._current_handler.refresh()
-        if self._current_handler == self._mixer_handler:
-            self._padmatrix_handler.refresh()
-
-    def midi_event(self, ev):
-        if self._on_midi_event(ev):
-            while True:
-                action = self._current_handler.pop_action_request()
-                if not action:
-                    return True
-
-                # NOTE: Add other receivers as needed
-                receiver, action, args, kwargs = action
-                if receiver == "stepseq":
-                    self._stepseq_handler.run_action(action, args, kwargs)
-                elif receiver == "mixpad":
-                    self._padmatrix_handler.run_action(action, args, kwargs)
-        return False
-
-    def _on_midi_event(self, ev):
-        evtype = (ev[0] >> 4) & 0x0F
-
-        if evtype == EV_NOTE_ON:
-            note = ev[1] & 0x7F
-            vel = ev[2] & 0x7F
-
-            if note == BTN_SHIFT:
-                return self._on_shift_changed(True)
-
-            if self._is_shifted:
-                old_handler = self._current_handler
-                # Change global mode here
-                if note == BTN_KNOB_CTRL_DEVICE:
-                    self._current_handler = self._device_handler
-                elif note in [BTN_KNOB_CTRL_PAN, BTN_KNOB_CTRL_VOLUME]:
-                    self._current_handler = self._mixer_handler
-                    self._padmatrix_handler.refresh()
-                elif note == BTN_KNOB_CTRL_SEND:
-                    self._current_handler = self._stepseq_handler
-
-                if old_handler != self._current_handler:
-                    old_handler.set_active(False)
-                    self._current_handler.set_active(True)
-
-                # Change sub-modes here
-                if self._current_handler == self._mixer_handler:
-                    if note == BTN_SOFT_KEY_CLIP_STOP:
-                        self._padmatrix_handler.enable_seqman(True)
-                    elif BTN_SOFT_KEY_SOLO <= note <= BTN_SOFT_KEY_END:
-                        self._padmatrix_handler.enable_seqman(False)
-
-            # Padmatrix related events
-            if self._current_handler == self._mixer_handler:
-                if BTN_PAD_START <= note <= BTN_PAD_END:
-
-                    # Launch StepSeq directly from SHIFT + PAD
-                    if self._is_shifted:
-                        seq = self._padmatrix_handler.get_sequence_from_pad(
-                            note)
-                        if seq is None:
-                            return False
-                        if self._current_handler != self._stepseq_handler:
-                            self._current_handler.set_active(False)
-                        self._current_handler = self._stepseq_handler
-                        self._current_handler.set_sequence(seq)
-                        self._current_handler.set_active(True)
-                        self._current_handler.refresh(
-                            shifted_override=self._is_shifted)
-                        return True
-
-                    return self._padmatrix_handler.pad_press(note)
-
-                # FIXME: move these events to padmatrix handler itself
-                elif note == BTN_RECORD and not self._is_shifted:
-                    return self._padmatrix_handler.on_record_changed(True)
-                elif note == BTN_PLAY:
-                    if not self._is_shifted:
-                        return self._padmatrix_handler.on_toggle_play()
-                    self._padmatrix_handler.note_on(
-                        note, vel, self._is_shifted)
-                elif (BTN_SOFT_KEY_START <= note <= BTN_SOFT_KEY_END
-                      and not self._is_shifted):
-                    row = note - BTN_SOFT_KEY_START
-                    return self._padmatrix_handler.on_toggle_play_row(row)
-                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
-                    track = note - BTN_TRACK_1
-                    self._padmatrix_handler.on_track_changed(track, True)
-                    self._current_handler.note_on(note, vel, self._is_shifted)
-                    self._padmatrix_handler.refresh()
-                    return True
-                elif note == BTN_STOP_ALL_CLIPS:
-                    self._padmatrix_handler.note_on(
-                        note, vel, self._is_shifted)
-
-            return self._current_handler.note_on(note, vel, self._is_shifted)
-
-        elif evtype == EV_NOTE_OFF:
-            note = ev[1] & 0x7F
-
-            if note == BTN_SHIFT:
-                return self._on_shift_changed(False)
-
-            # Padmatrix related events
-            if self._current_handler == self._mixer_handler:
-                if note == BTN_RECORD:
-                    return self._padmatrix_handler.on_record_changed(False)
-                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
-                    track = note - BTN_TRACK_1
-                    self._padmatrix_handler.on_track_changed(track, False)
-                elif note == BTN_STOP_ALL_CLIPS:
-                    self._padmatrix_handler.note_off(note, self._is_shifted)
-
-            return self._current_handler.note_off(note, self._is_shifted)
-
-        elif evtype == EV_CC:
-            ccnum = ev[1] & 0x7F
-            ccval = ev[2] & 0x7F
-            return self._current_handler.cc_change(ccnum, ccval)
-
-        elif ev[0] == EV_SYSEX:
-            logging.info(f" received SysEx => {ev}")
-            return True
-
-    def light_off(self):
-        self._leds.all_off()
-
-    def update_mixer_strip(self, chan, symbol, value):
-        if self._current_handler == self._mixer_handler:
-            self._current_handler.update_strip(chan, symbol, value)
-
-    def update_mixer_active_chain(self, active_chain):
-        refresh = self._current_handler == self._mixer_handler
-        self._mixer_handler.set_active_chain(active_chain, refresh)
-
-    def update_seq_state(self, *args, **kwargs):
-        if self._current_handler == self._mixer_handler:
-            self._padmatrix_handler.update_seq_state(*args, **kwargs)
-        elif self._current_handler == self._stepseq_handler:
-            self._current_handler.update_seq_state(*args, **kwargs)
-
-    def get_state(self):
-        state = {}
-        state.update(self._stepseq_handler.get_state())
-        return state
-
-    def set_state(self, state):
-        self._stepseq_handler.set_state(state)
-
-    def _on_shift_changed(self, state):
-        self._is_shifted = state
-        self._current_handler.on_shift_changed(state)
-        if self._current_handler == self._mixer_handler:
-            self._padmatrix_handler.on_shift_changed(state)
-        return True
-
-    def _on_gui_show_screen(self, screen):
-        self._device_handler.on_screen_change(screen)
-        self._padmatrix_handler.on_screen_change(screen)
-        self._stepseq_handler.on_screen_change(screen)
-        if self._current_handler == self._device_handler:
-            self._current_handler.refresh()
-
-    def _on_media_change_state(self, state, media, kind):
-        self._current_handler.on_media_change(media, kind, state)
-        if self._current_handler == self._device_handler:
-            self._current_handler.refresh()
-
-
-# --------------------------------------------------------------------------
 # Feedback LEDs controller
 # --------------------------------------------------------------------------
 class FeedbackLEDs:
@@ -2777,3 +2550,231 @@ class StutterDurationControl(BaseControl):
 
     def _set_note_property(self, note, value):
         note.stutter_duration = value
+
+
+# --------------------------------------------------------------------------
+# 'Akai APC Key 25 mk2' device controller class
+# --------------------------------------------------------------------------
+class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
+
+    dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
+    driver_name = 'AKAI APC Key25 MK2'
+
+    @classmethod
+    def get_autoload_flag(cls):
+        return True
+
+    def __init__(self, state_manager, idev_in, idev_out=None):
+        self._leds = FeedbackLEDs(idev_out)
+        self._device_handler = DeviceHandler(state_manager, self._leds)
+        self._mixer_handler = MixerHandler(state_manager, self._leds)
+        self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
+        self._stepseq_handler = StepSeqHandler(state_manager, self._leds, idev_in)
+        self._current_handler = self._mixer_handler
+        self._is_shifted = False
+
+        self._signals = [
+            (zynsigman.S_GUI,
+                zynsigman.SS_GUI_SHOW_SCREEN,
+                self._on_gui_show_screen),
+
+            (zynsigman.S_AUDIO_PLAYER,
+                zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE,
+                lambda handle, state:
+                    self._on_media_change_state(state, f"audio-{handle}", "player")),
+
+            (zynsigman.S_AUDIO_RECORDER,
+                state_manager.audio_recorder.SS_AUDIO_RECORDER_STATE,
+                partial(self._on_media_change_state, media="audio", kind="recorder")),
+
+            (zynsigman.S_STATE_MAN,
+                state_manager.SS_MIDI_PLAYER_STATE,
+                partial(self._on_media_change_state, media="midi", kind="player")),
+
+            (zynsigman.S_STATE_MAN,
+                state_manager.SS_MIDI_RECORDER_STATE,
+                partial(self._on_media_change_state, media="midi", kind="recorder")),
+        ]
+
+        # NOTE: init will call refresh(), so _current_hanlder must be ready!
+        super().__init__(state_manager, idev_in, idev_out)
+
+    def init(self):
+        super().init()
+        for signal, subsignal, callback in self._signals:
+            zynsigman.register(signal, subsignal, callback)
+
+    def end(self):
+        for signal, subsignal, callback in self._signals:
+            zynsigman.unregister(signal, subsignal, callback)
+        super().end()
+
+    def refresh(self):
+        # PadMatrix is handled in volume/pan modes (when mixer handler is active)
+        self._current_handler.refresh()
+        if self._current_handler == self._mixer_handler:
+            self._padmatrix_handler.refresh()
+
+    def midi_event(self, ev):
+        if self._on_midi_event(ev):
+            while True:
+                action = self._current_handler.pop_action_request()
+                if not action:
+                    return True
+
+                # NOTE: Add other receivers as needed
+                receiver, action, args, kwargs = action
+                if receiver == "stepseq":
+                    self._stepseq_handler.run_action(action, args, kwargs)
+                elif receiver == "mixpad":
+                    self._padmatrix_handler.run_action(action, args, kwargs)
+        return False
+
+    def _on_midi_event(self, ev):
+        evtype = (ev[0] >> 4) & 0x0F
+
+        if evtype == EV_NOTE_ON:
+            note = ev[1] & 0x7F
+            vel = ev[2] & 0x7F
+
+            if note == BTN_SHIFT:
+                return self._on_shift_changed(True)
+
+            if self._is_shifted:
+                old_handler = self._current_handler
+                # Change global mode here
+                if note == BTN_KNOB_CTRL_DEVICE:
+                    self._current_handler = self._device_handler
+                elif note in [BTN_KNOB_CTRL_PAN, BTN_KNOB_CTRL_VOLUME]:
+                    self._current_handler = self._mixer_handler
+                    self._padmatrix_handler.refresh()
+                elif note == BTN_KNOB_CTRL_SEND:
+                    self._current_handler = self._stepseq_handler
+
+                if old_handler != self._current_handler:
+                    old_handler.set_active(False)
+                    self._current_handler.set_active(True)
+
+                # Change sub-modes here
+                if self._current_handler == self._mixer_handler:
+                    if note == BTN_SOFT_KEY_CLIP_STOP:
+                        self._padmatrix_handler.enable_seqman(True)
+                    elif BTN_SOFT_KEY_SOLO <= note <= BTN_SOFT_KEY_END:
+                        self._padmatrix_handler.enable_seqman(False)
+
+            # Padmatrix related events
+            if self._current_handler == self._mixer_handler:
+                if BTN_PAD_START <= note <= BTN_PAD_END:
+
+                    # Launch StepSeq directly from SHIFT + PAD
+                    if self._is_shifted:
+                        seq = self._padmatrix_handler.get_sequence_from_pad(
+                            note)
+                        if seq is None:
+                            return False
+                        if self._current_handler != self._stepseq_handler:
+                            self._current_handler.set_active(False)
+                        self._current_handler = self._stepseq_handler
+                        self._current_handler.set_sequence(seq)
+                        self._current_handler.set_active(True)
+                        self._current_handler.refresh(
+                            shifted_override=self._is_shifted)
+                        return True
+
+                    return self._padmatrix_handler.pad_press(note)
+
+                # FIXME: move these events to padmatrix handler itself
+                elif note == BTN_RECORD and not self._is_shifted:
+                    return self._padmatrix_handler.on_record_changed(True)
+                elif note == BTN_PLAY:
+                    if not self._is_shifted:
+                        return self._padmatrix_handler.on_toggle_play()
+                    self._padmatrix_handler.note_on(
+                        note, vel, self._is_shifted)
+                elif (BTN_SOFT_KEY_START <= note <= BTN_SOFT_KEY_END
+                      and not self._is_shifted):
+                    row = note - BTN_SOFT_KEY_START
+                    return self._padmatrix_handler.on_toggle_play_row(row)
+                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
+                    track = note - BTN_TRACK_1
+                    self._padmatrix_handler.on_track_changed(track, True)
+                    self._current_handler.note_on(note, vel, self._is_shifted)
+                    self._padmatrix_handler.refresh()
+                    return True
+                elif note == BTN_STOP_ALL_CLIPS:
+                    self._padmatrix_handler.note_on(
+                        note, vel, self._is_shifted)
+
+            return self._current_handler.note_on(note, vel, self._is_shifted)
+
+        elif evtype == EV_NOTE_OFF:
+            note = ev[1] & 0x7F
+
+            if note == BTN_SHIFT:
+                return self._on_shift_changed(False)
+
+            # Padmatrix related events
+            if self._current_handler == self._mixer_handler:
+                if note == BTN_RECORD:
+                    return self._padmatrix_handler.on_record_changed(False)
+                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
+                    track = note - BTN_TRACK_1
+                    self._padmatrix_handler.on_track_changed(track, False)
+                elif note == BTN_STOP_ALL_CLIPS:
+                    self._padmatrix_handler.note_off(note, self._is_shifted)
+
+            return self._current_handler.note_off(note, self._is_shifted)
+
+        elif evtype == EV_CC:
+            ccnum = ev[1] & 0x7F
+            ccval = ev[2] & 0x7F
+            return self._current_handler.cc_change(ccnum, ccval)
+
+        elif ev[0] == EV_SYSEX:
+            logging.info(f" received SysEx => {ev}")
+            return True
+
+    def light_off(self):
+        self._leds.all_off()
+
+    def update_mixer_strip(self, chan, symbol, value):
+        if self._current_handler == self._mixer_handler:
+            self._current_handler.update_strip(chan, symbol, value)
+
+    def update_mixer_active_chain(self, active_chain):
+        refresh = self._current_handler == self._mixer_handler
+        self._mixer_handler.set_active_chain(active_chain, refresh)
+
+    def update_seq_state(self, *args, **kwargs):
+        if self._current_handler == self._mixer_handler:
+            self._padmatrix_handler.update_seq_state(*args, **kwargs)
+        elif self._current_handler == self._stepseq_handler:
+            self._current_handler.update_seq_state(*args, **kwargs)
+
+    def get_state(self):
+        state = {}
+        state.update(self._stepseq_handler.get_state())
+        return state
+
+    def set_state(self, state):
+        self._stepseq_handler.set_state(state)
+
+    def _on_shift_changed(self, state):
+        self._is_shifted = state
+        self._current_handler.on_shift_changed(state)
+        if self._current_handler == self._mixer_handler:
+            self._padmatrix_handler.on_shift_changed(state)
+        return True
+
+    def _on_gui_show_screen(self, screen):
+        self._device_handler.on_screen_change(screen)
+        self._padmatrix_handler.on_screen_change(screen)
+        self._stepseq_handler.on_screen_change(screen)
+        if self._current_handler == self._device_handler:
+            self._current_handler.refresh()
+
+    def _on_media_change_state(self, state, media, kind):
+        self._current_handler.on_media_change(media, kind, state)
+        if self._current_handler == self._device_handler:
+            self._current_handler.refresh()
+
