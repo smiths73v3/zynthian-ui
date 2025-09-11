@@ -112,7 +112,7 @@ KNOB_6 = KNOB_SELECT = 0x35
 KNOB_7 = 0x36
 KNOB_8 = 0x37
 
-# APC Key25 LED colors and modes
+# APC Key25 MK2 LED colors and modes
 COLOR_RED = 0x05
 COLOR_GREEN = 0x15
 COLOR_BLUE = 0x25
@@ -131,6 +131,47 @@ COLOR_YELLOW = 0x0D
 COLOR_LIME = 0x4B
 COLOR_LIME_DARK = 0x11
 COLOR_GREEN_YELLOW = 0x4A
+
+class COLORS:
+    COLOR_BLACK = 0x00
+    COLOR_DARK_GREY = 0x01
+    COLOR_RED = 0x05
+    COLOR_GREEN = COLOR_STATE_1 = 0x15
+    COLOR_BLUE = COLOR_STATE_0 = 0x25
+    COLOR_AQUA = 0x21
+    COLOR_BLUE_DARK = COLOR_ALT_OFF = 0x2D
+    COLOR_BLUE_LIGHT = 0x24
+    COLOR_WHITE = COLOR_FN = 0x03
+    COLOR_EGYPT = 0x6C
+    COLOR_ORANGE = COLOR_STATE_2 = 0x09
+    COLOR_ORANGE_LIGHT = 0x08
+    COLOR_AMBER = 0x54
+    COLOR_RUSSET = 0x3D
+    COLOR_PURPLE = COLOR_ALT_ON = 0x51
+    COLOR_PINK = 0x39
+    COLOR_PINK_LIGHT = 0x52
+    COLOR_PINK_WARM = 0x38
+    COLOR_YELLOW = 0x0D
+    COLOR_LIME = COLOR_PLAYING = 0x4B
+    COLOR_LIME_DARK = 0x11
+    COLOR_DARK_GREEN = 0x41
+    COLOR_GREEN_YELLOW = 0x4A
+    COLOR_BROWNISH_RED = 0x0A
+    COLOR_BROWN_LIGHT = 0x7E
+    SOFT_OFF = 0x00
+    SOFT_ON = 0x01
+    SOFT_BLINK = 0x02
+
+# mk2: midi channel,
+# mk1: midi channel stays 0, always on, blink is color + 1
+    # 0=off,
+    # 1=green,
+    # 2=green blink,
+    # 3=red,
+    # 4=red blink,
+    # 5=yellow,
+    # 6=yellow blink,
+    # 7-127=green
 
 LED_BRIGHT_10 = 0x00
 LED_BRIGHT_25 = 0x01
@@ -235,9 +276,10 @@ class FeedbackLEDs:
 # Handle GUI (device mode)
 # --------------------------------------------------------------------------
 class DeviceHandler(ModeHandlerBase):
-    def __init__(self, state_manager, leds: FeedbackLEDs):
+    def __init__(self, state_manager, leds: FeedbackLEDs, colors: COLORS):
         super().__init__(state_manager)
         self._leds = leds
+        self._colors = colors
         self._knobs_ease = KnobSpeedControl()
         self._is_alt_active = False
         self._is_playing = set()
@@ -278,27 +320,27 @@ class DeviceHandler(ModeHandlerBase):
 
         # Lit up fixed buttons
         for btn in [BTN_PAD_UP, BTN_PAD_DOWN, BTN_PAD_LEFT, BTN_PAD_RIGHT]:
-            self._leds.led_on(btn, COLOR_YELLOW, LED_BRIGHT_100)
-        self._leds.led_on(BTN_SEL_YES, COLOR_GREEN, LED_BRIGHT_100)
-        self._leds.led_on(BTN_BACK_NO, COLOR_RED, LED_BRIGHT_100)
+            self._leds.led_on(btn, self._colors.COLOR_YELLOW, LED_BRIGHT_100)
+        self._leds.led_on(BTN_SEL_YES, self._colors.COLOR_GREEN, LED_BRIGHT_100)
+        self._leds.led_on(BTN_BACK_NO, self._colors.COLOR_RED, LED_BRIGHT_100)
 
         # Lit up alt-related buttons
-        alt_color = COLOR_BLUE_DARK if not self._is_alt_active else COLOR_PURPLE
-        fn_color = COLOR_WHITE if not self._is_alt_active else COLOR_PURPLE
+        alt_color = self._colors.COLOR_ALT_OFF if not self._is_alt_active else self._colors.COLOR_ALT_ON
+        fn_color = self._colors.COLOR_FN if not self._is_alt_active else self._colors.COLOR_ALT_ON
         for btn in [BTN_F1, BTN_F2, BTN_F3, BTN_F4]:
             self._leds.led_on(btn, fn_color, LED_BRIGHT_100)
         self._leds.led_on(BTN_ALT, alt_color, LED_BRIGHT_100)
 
         # Lit up state-full control buttons
         for btn, state in self._btn_states.items():
-            color = [COLOR_GREEN, COLOR_ORANGE, COLOR_BLUE][state]
+            color = [self._colors.COLOR_STATE_1, self._colors.COLOR_STATE_2, self._colors.COLOR_STATE_0][state]
             self._leds.led_on(btn, color, LED_BRIGHT_100)
 
         # Lit up play/record buttons
         if self._is_playing:
-            self._leds.led_on(BTN_PAD_PLAY, COLOR_LIME, LED_BLINKING_8)
+            self._leds.led_on(BTN_PAD_PLAY, self._colors.COLOR_PLAYING, LED_BLINKING_8)
         if self._is_recording:
-            self._leds.led_on(BTN_PAD_RECORD, COLOR_RED, LED_BLINKING_8)
+            self._leds.led_on(BTN_PAD_RECORD, self._colors.COLOR_RED, LED_BLINKING_8)
 
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
@@ -1426,6 +1468,12 @@ class StepSeqHandler(ModeHandlerBase):
         COLOR_PINK,
     ]
 
+    BRIGHT_FIRSTBEAT = LED_BRIGHT_10
+    COLOR_FIRSTBEAT = COLOR_WHITE
+    COLOR_BEAT = COLOR_WHITE
+    COLOR_VELOCITY = COLOR_CLEAR = COLOR_SELECTED = COLOR_RED
+    COLOR_COPY = COLOR_LIME
+
     def __init__(self, state_manager, leds: FeedbackLEDs, dev_idx):
         super().__init__(state_manager)
         self._leds = leds
@@ -1557,7 +1605,7 @@ class StepSeqHandler(ModeHandlerBase):
         spb = self._libseq.getStepsPerBeat()
         for idx in range(0, self._used_pads, spb):
             pad = self._pads[idx]
-            pads[pad] = (COLOR_WHITE, LED_BRIGHT_10)
+            pads[pad] = (self.COLOR_FIRSTBEAT, self.BRIGHT_FIRSTBEAT)
 
         # Red + velocity for each non-empty step
         for pad, color, mode in self._get_step_colors():
@@ -1875,7 +1923,7 @@ class StepSeqHandler(ModeHandlerBase):
         velocity = self._libseq.getNoteVelocity(step, note) + delta
         velocity = min(127, max(10, velocity))
         self._libseq.setNoteVelocity(step, note, velocity)
-        self._leds.led_on(self._pads[step], COLOR_RED, int((velocity * 6) / 127))
+        self._leds.led_on(self._pads[step], self.COLOR_VELOCITY, int((velocity * 6) / 127))
         self._play_step(step)
 
     def _update_step_stutter_count(self, step, delta):
@@ -1957,7 +2005,7 @@ class StepSeqHandler(ModeHandlerBase):
                 src_idx = next(
                     pad for pad in self._pressed_pads if pad != dst_idx)
                 if self._copy_pattern(src_idx, dst_idx):
-                    self._leds.led_on(note, COLOR_LIME,
+                    self._leds.led_on(note, self.COLOR_COPY,
                         LED_BLINKING_16, overlay=True)
                 self._leds.delayed("remove_overlay", 1000, note)
             elif self._note_pads_function == FN_SELECT_PATTERN:
@@ -1972,7 +2020,7 @@ class StepSeqHandler(ModeHandlerBase):
             elif self._note_pads_function == FN_CLEAR_PATTERN:
                 self._clear_pattern(dst_idx)
                 self._leds.led_on(
-                    note, COLOR_RED, LED_BLINKING_16, overlay=True)
+                    note, self.COLOR_CLEAR, LED_BLINKING_16, overlay=True)
                 self._leds.delayed("remove_overlay", 1000, note)
             elif self._note_pads_function == FN_REMOVE_NOTE:
                 self._remove_note_pad(note)
@@ -2107,7 +2155,7 @@ class StepSeqHandler(ModeHandlerBase):
             return
         if self._cursor < self._used_pads:
             pad = self._pads[self._cursor]
-            self._leds.led_on(pad, COLOR_WHITE, LED_BRIGHT_50, overlay=True)
+            self._leds.led_on(pad, self.COLOR_BEAT, LED_BRIGHT_50, overlay=True)
 
     def _enable_midi_listening(self, active=True):
         func = zynsigman.register if active else zynsigman.unregister
@@ -2266,12 +2314,12 @@ class StepSeqHandler(ModeHandlerBase):
     def _show_patterns_bar(self, overlay=True):
         for i in range(8):
             pad = BTN_PAD_START + i
-            color = COLOR_WHITE
+            color = self.COLOR_BEAT
             mode = LED_BRIGHT_10
             if i < len(self._sequence_patterns):
                 mode = LED_BRIGHT_100
                 if i == self._selected_pattern_idx:
-                    color = COLOR_RED
+                    color = self.COLOR_SELECTED
             self._leds.led_on(pad, color, mode, overlay=overlay)
 
     def _get_step_colors(self):
@@ -2295,7 +2343,7 @@ class StepSeqHandler(ModeHandlerBase):
                 mode = (self._libseq.getNoteVelocity(step, note) * 6) // 127
             pad = self._pads[step]
             retval.append(
-                (pad, COLOR_AMBER if is_old_note else COLOR_RED, mode))
+                (pad, self.COLOR_BEAT if is_old_note else self.COLOR_SELECTED, mode))
             if duration <= 1:
                 duration = None
                 continue
@@ -2560,16 +2608,23 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
     dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
     driver_name = 'AKAI APC Key25 MK2'
 
+    COLOR_SET = COLORS
+    FeedbackLEDs = FeedbackLEDs
+    MixerHandler = MixerHandler
+    DeviceHandler = DeviceHandler
+    PadMatrixHandler = PadMatrixHandler
+    StepSeqHandler = StepSeqHandler
+
     @classmethod
     def get_autoload_flag(cls):
         return True
 
     def __init__(self, state_manager, idev_in, idev_out=None):
-        self._leds = FeedbackLEDs(idev_out)
-        self._device_handler = DeviceHandler(state_manager, self._leds)
-        self._mixer_handler = MixerHandler(state_manager, self._leds)
-        self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
-        self._stepseq_handler = StepSeqHandler(state_manager, self._leds, idev_in)
+        self._leds = self.FeedbackLEDs(idev_out)
+        self._device_handler = self.DeviceHandler(state_manager, self._leds, self.COLOR_SET)
+        self._mixer_handler = self.MixerHandler(state_manager, self._leds)
+        self._padmatrix_handler = self.PadMatrixHandler(state_manager, self._leds)
+        self._stepseq_handler = self.StepSeqHandler(state_manager, self._leds, idev_in)
         self._current_handler = self._mixer_handler
         self._is_shifted = False
 
