@@ -340,15 +340,13 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
 
             # Adjust tempo
             if ccnum == KNOB_1:
-                return
                 self._show_screen_briefly(
                     screen="tempo", cuia="TEMPO", timeout=1500)
-                delta *= 0.1 if self._is_shifted else 1
-                self._zynseq.set_tempo(self._zynseq.get_tempo() + delta)
+                val = 13.2 + ((ccval / 127) * (420 - 13.2))
+                self._zynseq.set_tempo(val)
 
             # Update sequence's chain volume
             elif ccnum == KNOB_2:
-                return
                 self._show_screen_briefly(
                     screen="audio_mixer", cuia="SCREEN_AUDIO_MIXER", timeout=1500)
                 chain_id = self._get_chain_id_by_sequence(
@@ -357,5 +355,5 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                 if chain is not None:
                     mixer_chan = chain.mixer_chan
                     level = max(
-                        0, min(100, self._zynmixer.get_level(mixer_chan) * 100 + delta))
+                        0, min(100, ccval / 1.27))
                     self._zynmixer.set_level(mixer_chan, level / 100)
