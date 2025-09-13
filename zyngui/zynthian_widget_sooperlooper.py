@@ -23,12 +23,17 @@
 #
 # ******************************************************************************
 
-import liblo
 import tkinter
 import logging
 from turtle import pos
 from threading import Timer
 from functools import partial
+
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
 
 from zyngine.zynthian_engine import zynthian_engine
 from zyngine.zynthian_engine_sooperlooper import *

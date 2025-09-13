@@ -20,9 +20,14 @@
 # ******************************************************************************
 
 import math
-import liblo
 import logging
 import tkinter as tk
+
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
 
 # Zynthian specific modules
 from zyngine import zynthian_controller
