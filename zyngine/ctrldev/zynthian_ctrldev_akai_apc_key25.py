@@ -7,6 +7,7 @@ KNOB_7,\
 KNOB_8, \
 MAX_STUTTER_DURATION, \
 MAX_STUTTER_COUNT, \
+LED_BRIGHT_10, \
 LED_BRIGHT_100, \
 EV_NOTE_OFF, \
 EV_NOTE_ON, \
@@ -198,6 +199,7 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                 0x01,
                 0x03,
             ]
+            BRIGHT_OFF = LED_BRIGHT_10
 
     class StepSeqHandler(zynthian_ctrldev_akai_apc_key25_mk2.StepSeqHandler):
 

@@ -722,6 +722,7 @@ class PadMatrixHandler(ModeHandlerBase):
         0x6C,   # #D86A1C, Light Maroon
         0x56,   # #72FF15, Light Green
     ]
+    BRIGHT_OFF = LED_BRIGHT_25
 
     def __init__(self, state_manager, leds: FeedbackLEDs):
         super().__init__(state_manager)
@@ -897,7 +898,7 @@ class PadMatrixHandler(ModeHandlerBase):
 
         # If seqman is enabled, update according to it's function
         if self._seqman_func is not None:
-            led_mode = LED_BRIGHT_25 if is_empty else LED_BRIGHT_100
+            led_mode = self.BRIGHT_OFF if is_empty else LED_BRIGHT_100
             if (self._seqman_func in (FN_COPY_SEQUENCE, FN_MOVE_SEQUENCE)
                     and self._seqman_src_seq is not None):
                 src_scene, src_seq = self._seqman_src_seq
@@ -914,7 +915,7 @@ class PadMatrixHandler(ModeHandlerBase):
             elif state in (zynseq.SEQ_STOPPING, zynseq.SEQ_STARTING):
                 led_mode = LED_PULSING_2
             else:
-                led_mode = LED_BRIGHT_25 if is_empty else LED_BRIGHT_100
+                led_mode = self.BRIGHT_OFF if is_empty else LED_BRIGHT_100
                 self._playing_seqs.discard(seq)
 
         self._leds.led_on(btn, color, led_mode)
