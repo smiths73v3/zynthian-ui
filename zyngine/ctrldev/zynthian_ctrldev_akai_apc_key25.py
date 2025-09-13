@@ -10,7 +10,8 @@ MAX_STUTTER_COUNT, \
 LED_BRIGHT_100, \
 EV_NOTE_OFF, \
 EV_NOTE_ON, \
-EV_CC
+EV_CC, \
+BTN_PAD_END
 
 
 
@@ -122,7 +123,7 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
             mk1_brightness_100 = 0x00
             if brightness > 0x06:
                 color += 1
-            if brightness > 0x00:
+            if led > BTN_PAD_END or brightness > 0x00:
                 lib_zyncore.dev_send_note_on(self._idev, mk1_brightness_100, led, color)
             else:
                 self.led_off(led, overlay)
