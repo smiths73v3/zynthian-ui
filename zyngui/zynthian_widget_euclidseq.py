@@ -19,7 +19,12 @@
 # For a full copy of the GNU General Public License see the LICENSE.txt file.
 # ******************************************************************************
 
-import liblo
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
+
 import tkinter as tk
 from tkinter import font as tkFont
 import sys

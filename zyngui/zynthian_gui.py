@@ -24,7 +24,6 @@
 # ******************************************************************************
 
 import os
-import liblo
 import ffmpeg
 import logging
 import traceback
@@ -35,6 +34,12 @@ from pathlib import Path
 from time import monotonic
 from datetime import datetime
 from threading import Thread, Lock, Event
+
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
 
 # Zynthian specific modules
 import zynconf

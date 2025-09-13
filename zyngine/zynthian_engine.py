@@ -27,11 +27,16 @@ import re
 import json
 import glob
 import copy
-import liblo
 import logging
 import pexpect
 import fnmatch
 from time import sleep
+
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
 
 import zynautoconnect
 from . import zynthian_controller
