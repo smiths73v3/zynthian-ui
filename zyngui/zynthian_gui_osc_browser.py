@@ -24,8 +24,13 @@
 # ******************************************************************************
 
 import sys
-import liblo
 import logging
+
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
 
 # Zynthian specific modules
 from zyngui import zynthian_gui_config

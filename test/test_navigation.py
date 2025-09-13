@@ -28,7 +28,12 @@
 #
 # ******************************************************************************
 
-import liblo
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
+
 import pexpect
 import zynconf
 
