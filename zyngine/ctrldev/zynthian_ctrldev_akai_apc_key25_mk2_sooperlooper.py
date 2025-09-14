@@ -99,7 +99,6 @@ LED_BRIGHTS = [
     BRIGHTS.LED_BRIGHT_100,
 ]
 
-
 class BUTTONS:
     BTN_SHIFT = 0x62
     BTN_STOP_ALL_CLIPS = 0x51
@@ -190,37 +189,6 @@ EV_CC = 0x0B
 PAD_ENABLE_SL = 0x07
 
 
-class zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper(zynthian_ctrldev_akai_apc_key25_mk2):
-
-    driver_name = 'AKAI APC Key25 MK2 + SL'
-
-    @classmethod
-    def get_autoload_flag(cls):
-        return False
-
-    def __init__(self, state_manager, idev_in, idev_out=None):
-        super().__init__(state_manager, idev_in, idev_out)
-        self._sooperlooper_handler = looper_handler(
-            state_manager, self._leds, idev_in, idev_out, self)
-
-    def _on_midi_event(self, ev):
-        evtype = (ev[0] >> 4) & 0x0F
-
-        if evtype == EV_NOTE_ON:
-            note = ev[1] & 0x7F
-
-            if self._is_shifted:
-                old_handler = self._current_handler
-
-                if note == PAD_ENABLE_SL:
-                    self._current_handler = self._sooperlooper_handler
-
-                if old_handler != self._current_handler:
-                    old_handler.set_active(False)
-                    self._current_handler.set_active(True)
-
-        return super()._on_midi_event(ev)
-
 
 TRACK_COMMANDS = [
     SL_STATE_RECORDING,
@@ -245,7 +213,8 @@ TRACK_LEVELS = [
 LEVEL_COLORS = [
     COLORS.COLOR_RED,
     COLORS.COLOR_RED,
-    COLORS.COLOR_LIME,COLORS.COLOR_BLUE,
+    COLORS.COLOR_LIME,
+    COLORS.COLOR_BLUE,
     COLORS.COLOR_DARK_GREY,
     COLORS.COLOR_PURPLE,
     COLORS.COLOR_WHITE,
@@ -446,8 +415,6 @@ CHARS = {
    '': ["___", "___", "___", "___", "___"],
    '-': ["___", "___", "...", "___", "___"],
 }
-matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_BRIGHT_10}
-matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
 
 def toggle_value(value, lst):
     if value in lst:
@@ -608,7 +575,6 @@ def padBrightnessForLevel(num, level, ctrl):
         else BRIGHTS.LED_BRIGHT_10
     )
 
-
 def panPads(value):
     pos = 2 * (COLS - 1) * value
     roundedpos = pos // 1
@@ -622,253 +588,6 @@ def panPads(value):
     # return unique
 
 
-def get_cell_led_mode_fn(state: Dict[str, Any]) -> Callable:
-    submode = getDeviceSetting("submode", state)
-
-    def cond_fn(track, y):
-        # Check for device pan
-        if submode == looper_handler.MODE_PAN:
-            channels = track.get("channel_count")
-            if channels is None:
-                return lambda x: BRIGHTS.LED_OFF
-            if channels == 2:
-                pads_left = panPads(track.get("pan_1", 0))
-                pads_right = panPads(track.get("pan_2", 1))
-                both = set(pads_left) & set(pads_right)
-                any_pads = set(pads_left) | set(pads_right)
-
-                return lambda x: (
-                    BRIGHTS.LED_BRIGHT_100
-                    if x in both
-                    else BRIGHTS.LED_BRIGHT_75
-                    if x in any_pads
-                    else BRIGHTS.LED_BRIGHT_25
-                )
-            pads = panPads(track.get("pan_1", 0.5))
-            return (
-                lambda x: BRIGHTS.LED_BRIGHT_100 if x in pads else BRIGHTS.LED_BRIGHT_25
-            )
-
-        # Check for device levels
-        if submode == looper_handler.MODE_LEVEL1:
-            if y == 0:
-                return lambda x: padBrightnessForLevel(
-                    COLS, state.get("glob", {}).get("wet", 0),"wet"
-
-                )(x)
-            return lambda x: padBrightnessForLevel(COLS, track.get("wet", 0), "wet")(x)
-
-        # Check for track levels
-        if submode == looper_handler.MODE_LEVEL2:
-            tracknum = getGlob("selected_loop_num", state)
-            theTrack = (
-                state.get("glob")
-                if tracknum == -1
-                else path(["tracks", tracknum], state) or {}
-            )
-            # level = theTrack[key]
-
-            def track_level_fn(track, i):
-                return lambda xpad: (
-                    padBrightnessForLevel(ROWS, theTrack.get(TRACK_LEVELS[xpad], 0), TRACK_LEVELS[xpad])(
-                        ROWS - 1 - i
-                    )
-                )
-
-            return track_level_fn(None, y)  # NO Example index
-
-        # Default case
-        state_value = track.get("state", SL_STATE_UNKNOWN)
-        if state_value == SL_STATE_UNKNOWN:
-            return lambda x: 0x80
-        pos = (
-            0
-            if track.get("loop_len", 0) == 0
-            else 8 * (track.get("loop_pos", 0) / track.get("loop_len", 1))
-        )
-
-        rounded_pos = int(pos)
-        # last = LED_BRIGHTS[
-        #     min(3, int(7 * (pos - rounded_pos)))
-        # ]  # Ensure index is within bounds
-        led_mode = SL_STATES[state_value]["ledmode"]
-
-        return lambda x: (
-            BRIGHTS.LED_BRIGHT_100
-            if led_mode == BRIGHTS.LED_BRIGHT_100 and x <= rounded_pos
-            else BRIGHTS.LED_BRIGHT_25
-            if led_mode == BRIGHTS.LED_BRIGHT_100
-            else led_mode
-        )
-
-    return cond_fn
-
-
-def get_cell_color_fn(state: Dict[str, Any]) -> Callable:
-    submode = getDeviceSetting("submode", state)
-
-    def cond_fn(track, y):
-        # Check for device pan
-        if submode == looper_handler.MODE_PAN:
-            channels = track.get("channel_count")
-            track_state = track.get("state", SL_STATE_UNKNOWN)
-            if channels is None:
-                return lambda x: SL_STATES[track_state]["color"]
-            if channels == 2:
-                pads_left = panPads(track.get("pan_1", 0))
-                pads_right = panPads(track.get("pan_2", 1))
-                both = set(pads_left) & set(pads_right)
-                # any_pads = set(pads_left) | set(pads_right)
-
-                return lambda x: (
-                    COLORS.COLOR_PURPLE
-                    if x in both
-                    else COLORS.COLOR_RED
-                    if x in pads_left
-                    else COLORS.COLOR_BLUE
-                    if x in pads_right
-                    else SL_STATES[track_state]["color"]
-                )
-            return lambda x: SL_STATES[track_state]["color"]
-
-        # Check for wet for loops in view
-        if submode == looper_handler.MODE_LEVEL1:
-            state_value = track.get("state", SL_STATE_UNKNOWN)
-            if y == 0:
-                return lambda x: COLORS.COLOR_BLUE_DARK
-            if state_value == SL_STATE_UNKNOWN:
-                return lambda x: SL_STATES[state_value]["color"]
-            if state_value == SL_STATE_OFF:
-                return lambda x: COLORS.COLOR_BLUE_LIGHT
-            return lambda x: COLORS.COLOR_BLUE
-
-        # Check for selected loop levels
-        if submode == looper_handler.MODE_LEVEL2:
-
-            def track_level_fn(track, i):
-                return lambda xpad: LEVEL_COLORS[xpad]  # Example implementation
-
-            return track_level_fn(track, 0)  # Example index
-
-        # Default case
-        state_value = track.get("state", SL_STATE_UNKNOWN)
-        statespec = SL_STATES[state_value]
-        statecolor = statespec["color"]
-        return lambda x: statecolor
-
-    return cond_fn
-
-
-def make_loopnum_overlay(char, col=0):
-    spec = CHARS.get(char)
-    if not spec:
-        return []
-
-    overlay = []
-    for rownum, charSpec in enumerate(spec):
-        startPad = rowStartPad(rownum) + col
-        for i, boolish in enumerate(charSpec):
-            pad = startPad + i
-            overlay.extend([matrixPadLedmode[boolish], pad, matrixPadColor[boolish]])
-
-    return overlay
-
-
-def matrix_function(toprow, loopoffset, tracks, storeState, set_syncs):
-    matrix = []
-    trackLedModeFn = get_cell_led_mode_fn(storeState)
-    trackColorFn = get_cell_color_fn(storeState)
-
-    for y in range(ROWS):  # Equivalent to [0, 1, 2, 3, 4]
-        tracknum = y - loopoffset
-        track = list_get(tracks, tracknum, {}) if tracknum < getGlob('loopcount', storeState) else {}
-        cellLedModeFn = trackLedModeFn(track, y)
-        cellColorFn = trackColorFn(track, y)
-
-        # state = track.get("state", SL_STATE_UNKNOWN)
-        # next_state = track.get("next_state")
-        # loop_len = track.get("loop_len")
-        # loop_pos = track.get("loop_pos")
-        # wet = track.get("wet")
-        # sync = track.get("sync")
-        # relative_sync = track.get("relative_sync")
-
-        if len(toprow) > 0 and y == 0:
-            matrix.extend(toprow)
-            # logging.debug(f"matrci with top row {matrix}")
-            continue
-        if set_syncs and y == 0:
-            padnums = range(32, 38)  # rowPads(y)
-            pads = []
-            for x, pad in enumerate(padnums):
-                pads.extend([BRIGHTS.LED_BRIGHT_50, pad, SETTINGCOLORS[x]])
-
-            track1 = tracks.get(0, {})
-            synccolor = SETTINGCOLORS[6][
-                int(min((getGlob("sync_source", storeState) or 0) + 3, 5))
-            ]
-
-            matrix.extend(
-                [
-                    BRIGHTS.LED_BRIGHT_100,
-                    38,
-                    synccolor,
-                    BRIGHTS.LED_BRIGHT_100
-                    if track1.get("quantize", 0)
-                    else BRIGHTS.LED_BRIGHT_10,
-                    39,
-                    list_get(
-                        SETTINGCOLORS[7],
-                        int(track1.get("quantize", 0)),
-                        SETTINGCOLORS[7][0],
-                    ),
-                    *pads,
-                ]
-            )
-            continue
-
-        try:
-            if set_syncs:
-                pads = [
-                    [
-                        BRIGHTS.LED_OFF
-                        if track == {}
-                        else
-                        BRIGHTS.LED_BRIGHT_100
-                        if track.get(SETTINGS[x])
-                        else BRIGHTS.LED_BRIGHT_10,
-                        pad,
-                        SETTINGCOLORS[x][int(track.get(SETTINGS[x], 0))]
-                        if isinstance(SETTINGCOLORS[x], list)
-                        else SETTINGCOLORS[x],
-                    ]
-                    for x, pad in enumerate(rowPads(y))
-                ]
-
-                matrix.extend(
-                    [
-                        BRIGHTS.LED_BRIGHT_75,
-                        30,
-                        COLORS.COLOR_BROWN_LIGHT,
-                        BRIGHTS.LED_BRIGHT_75,
-                        22,
-                        COLORS.COLOR_BROWN_LIGHT,
-                    ]
-                )
-                for pad in pads:
-                    matrix.extend(pad)
-                continue
-
-            for x, pad in enumerate(rowPads(y)):
-                cell = [cellLedModeFn(x), pad, cellColorFn(x)]
-                matrix.extend(cell)
-
-        except Exception as e:
-            logging.debug("Caught an exception:", e)
-            raise
-            return []
-
-    return matrix
 
 
 def get_soft_keys(loopoffset, storeState):
@@ -889,19 +608,6 @@ def get_soft_keys(loopoffset, storeState):
         )
 
     return soft_keys
-
-
-def get_eighths(storeState):
-    if getDeviceSetting("show8ths", storeState):
-        eighths = [
-            item
-            for pad in range(getGlob("eighth_per_cycle", storeState))
-            for item in [BRIGHTS.LED_BRIGHT_100, pad, COLORS.COLOR_BROWNISH_RED]
-        ]
-    else:
-        eighths = []
-
-    return eighths
 
 
 # ACTION HELPERS
@@ -964,139 +670,6 @@ def on_update_track(action, state):
     return assoc_path(state, ["tracks", track, ctrl], value)
 
 
-# Create the FULL MIDI LED LAYOUT
-def createAllPads(state):
-    loopoffset = getLoopoffset(state)
-    submode = getDeviceSetting("submode", state) or looper_handler.MODE_DEFAULT
-    set_syncs = submode == looper_handler.MODE_SYNC
-
-    def ctrl_btn(btn):
-        if btn == BUTTONS.BTN_KNOB_CTRL_VOLUME:
-            return [
-                0x90,
-                btn,
-                1
-                if submode == looper_handler.MODE_LEVEL1
-                else 2
-                if submode == looper_handler.MODE_LEVEL2
-                else 0,
-            ]
-        if btn == BUTTONS.BTN_KNOB_CTRL_PAN:
-            return [
-                0x90,
-                btn,
-                1 if submode == looper_handler.MODE_PAN
-                else 0,
-            ]  # @check Used to have to convert this to num
-        if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
-            return [0x90, btn, 1 if set_syncs else 0]
-        if btn == BUTTONS.BTN_KNOB_CTRL_DEVICE:
-            return [
-                0x90,
-                btn,
-                1
-                if submode == looper_handler.MODE_SESSION_SAVE
-                else 2
-                if submode == looper_handler.MODE_SESSION_LOAD
-                else 0,
-            ]
-        return []
-
-    ctrl_keys = functools.reduce(
-        lambda acc, btn: acc + ctrl_btn(btn), range(0x40, 0x48), []
-    )
-
-    if submode in [looper_handler.MODE_SESSION_LOAD, looper_handler.MODE_SESSION_SAVE]:
-        color = (
-            COLORS.COLOR_DARK_GREEN
-            if submode == looper_handler.MODE_SESSION_LOAD
-            else COLORS.COLOR_ORANGE
-        )
-        sessions = getDeviceSetting("sessions", state) or []
-        sessionnums = functools.reduce(
-            makeSessionNumberReducer(color, getDeviceSetting("sessions-last", state)),
-            sessions,
-            [],
-        )
-
-        def emptycellreducer(acc, cur):
-            return acc + [BRIGHTS.LED_BRIGHT_25, cur, color]
-
-        def emptyrowreducer(acc, cur):
-            return acc + functools.reduce(emptycellreducer, rowPads(cur), [])
-
-        emptycells = functools.reduce(emptyrowreducer, range(0, ROWS), [])
-
-        confirmpad = getDeviceSetting("confirm-save", state)
-
-        confirmation_pads = []
-        if (confirmpad is not None):
-            [no, yes] = confirmers(confirmpad, COLS)
-            confirmation_pads = [BRIGHTS.LED_BRIGHT_100, no, COLORS.COLOR_RED, BRIGHTS.LED_BRIGHT_100, yes, COLORS.COLOR_GREEN]
-
-        return overlay(confirmation_pads, sessionnums, emptycells) + ctrl_keys
-
-    tracks = state.get("tracks", {})
-    toprow = (
-        [
-            [BRIGHTS.LED_BRIGHT_90, pad, SL_STATES[TRACK_COMMANDS[i]]["color"]]
-            for i, pad in enumerate(rowPads(0))
-        ]
-        if submode in [looper_handler.MODE_DEFAULT]
-        else []
-    )
-    toprow = list(chain.from_iterable(toprow))
-    matrix = matrix_function(toprow, loopoffset, tracks, state, set_syncs)
-    # mlen = len(matrix) / 3
-    # logging.debug(f"{mlen}")
-    # return matrix
-    soft_keys = get_soft_keys(loopoffset, state)
-    eighths = get_eighths(state)
-    # logging.debug(f"softkeys{soft_keys}")
-    # logging.debug(f"ctrl_keys{ctrl_keys}")
-    # logging.debug(f"matrix{matrix}")
-    pads = matrix + overlay(soft_keys, ctrl_keys)
-    if len(pads):
-        # Don't show it because we wanna track the crazy pan behaviour
-        if submode != looper_handler.MODE_PAN and getDeviceSetting("shifted", state):
-            firstLoop = 2 - loopoffset
-            if firstLoop > 9 and firstLoop < 100:
-                return overlay(
-                    make_loopnum_overlay((firstLoop / 10) // 1, 2),
-                    make_loopnum_overlay(firstLoop % 10, 5),
-                    pads,
-                )
-            else:
-                return overlay(make_loopnum_overlay(firstLoop, 5), pads)
-        elif getDeviceSetting("showsource", state):
-            return overlay(make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 1), pads)
-        elif getDeviceSetting("group-selecting", state):
-            groupnum = getDeviceSetting("group-selected", state)
-            loops = getAny(["device", "groups", groupnum, "loops"], state) or []
-            for i in range(len(pads) - 2, 0, -3):
-                pad = pads[i]
-                if pad == BUTTONS.BTN_SOFT_KEY_SELECT:
-                    pads[i-1] = 0x90
-                    pads[i+1] = COLORS.SOFT_BLINK
-                elif pad < 32:
-                    row = padRow(pad)
-                    loopoffset = getLoopoffset(state)
-                    loopnum = -1 if row == 0 else shiftedTrack(row, loopoffset)
-                    pads[i-1] = BRIGHTS.LED_BRIGHT_100 if loopnum in loops else BRIGHTS.LED_BRIGHT_10
-                elif pad < (32 + 5):
-                    pads[i-1] = BRIGHTS.LED_PULSING_8 if groupnum == (pad % COLS) else BRIGHTS.LED_BRIGHT_50
-                    # pads[i+1] = SL_STATES[TRACK_COMMANDS[pad % COLS]]["color"]
-            return pads
-
-        elif submode == looper_handler.MODE_DEFAULT:
-            for i in range(len(pads) - 2, 0, -3):
-                pad = pads[i]
-                if (pad > 31) and (pad < 37):
-                    pads[i-1] = BRIGHTS.LED_BLINKING_4 if getDeviceSetting('group-solo', state) == pad % COLS else BRIGHTS.LED_BRIGHT_100
-            return pads
-        else:
-            return overlay(eighths, pads)
-
 @dataclass
 class EventArgs:
     pad: int = None
@@ -1107,48 +680,6 @@ class EventArgs:
     stateTrack: Dict[str, Any] = field(default_factory=dict)
     tracks: List[Dict[str, Any]] = field(default_factory=list)
     evtype: int = None
-
-class ButtonAutoLatch:
-    PT_BOLD_TIME = 0.3 * 1000
-
-    def __init__(self):
-        self._hits = {}
-
-    def performance_now(self):
-        # Implement a method  to return the current time in milliseconds
-        import time
-
-        return time.time() * 1000
-
-    def feed(self, note, evtype):
-        last = self._hits.get(note)
-        now = (
-            self.performance_now()
-        )  # Assuming you have a method to get the current time
-
-        # If note_on, return true
-        if evtype == EV_NOTE_ON:
-            if last:
-                del self._hits[note]
-                return False
-            # Turn on
-            self._hits[note] = now
-            return True
-
-        if evtype == EV_NOTE_OFF:
-            if note not in self._hits:
-                return False
-            else:
-                if now - last < self.PT_BOLD_TIME:
-                    return True
-                    # leave on
-                else:
-                    del self._hits[note]
-                    return False
-                    # turn off
-
-        raise ValueError("ButtonAutoLatch only meant for NOTE_ON and NOTE_OFF events")
-
 
 # zynthian_ctrldev_akai_apc_key25_mk2_sl
 class looper_handler(
@@ -1210,6 +741,19 @@ class looper_handler(
         MODE_SESSION_LOAD,
     ]
 
+    COLOR_LOAD = COLORS.COLOR_DARK_GREEN
+    COLOR_SAVE = COLORS.COLOR_ORANGE
+
+    matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_BRIGHT_10}
+    matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
+
+    LEVEL_COLORS = LEVEL_COLORS
+    SL_STATES = SL_STATES
+    SETTINGCOLORS = SETTINGCOLORS
+
+    COLOR_EIGHTHS = COLORS.COLOR_BROWNISH_RED
+    COLOR_EIGHTH_BTN = COLORS.COLOR_BROWN_LIGHT
+
     @classmethod
     def get_autoload_flag(cls):
         return True
@@ -1245,7 +789,6 @@ class looper_handler(
         self.state = {}
         self.loopcount = 0
         self._knobs_ease = KnobSpeedControl()
-        self._auto_latch = ButtonAutoLatch()
         self._state_manager = state_manager
         self._default_handler = SubModeDefaultWithGroups(
             self, state_manager, leds, idev_in, idev_out
@@ -1714,8 +1257,401 @@ class looper_handler(
         else:
             return state
 
+
+
+    def get_cell_led_mode_fn(self, state: Dict[str, Any]) -> Callable:
+        submode = getDeviceSetting("submode", state)
+
+        def cond_fn(track, y):
+            # Check for device pan
+            if submode == looper_handler.MODE_PAN:
+                channels = track.get("channel_count")
+                if channels is None:
+                    return lambda x: BRIGHTS.LED_OFF
+                if channels == 2:
+                    pads_left = panPads(track.get("pan_1", 0))
+                    pads_right = panPads(track.get("pan_2", 1))
+                    both = set(pads_left) & set(pads_right)
+                    any_pads = set(pads_left) | set(pads_right)
+
+                    return lambda x: (
+                        BRIGHTS.LED_BRIGHT_100
+                        if x in both
+                        else BRIGHTS.LED_BRIGHT_75
+                        if x in any_pads
+                        else BRIGHTS.LED_BRIGHT_25
+                    )
+                pads = panPads(track.get("pan_1", 0.5))
+                return (
+                    lambda x: BRIGHTS.LED_BRIGHT_100 if x in pads else BRIGHTS.LED_BRIGHT_25
+                )
+
+            # Check for device levels
+            if submode == looper_handler.MODE_LEVEL1:
+                if y == 0:
+                    return lambda x: padBrightnessForLevel(
+                        COLS, state.get("glob", {}).get("wet", 0),"wet"
+
+                    )(x)
+                return lambda x: padBrightnessForLevel(COLS, track.get("wet", 0), "wet")(x)
+
+            # Check for track levels
+            if submode == looper_handler.MODE_LEVEL2:
+                tracknum = getGlob("selected_loop_num", state)
+                theTrack = (
+                    state.get("glob")
+                    if tracknum == -1
+                    else path(["tracks", tracknum], state) or {}
+                )
+                # level = theTrack[key]
+
+                def track_level_fn(track, i):
+                    return lambda xpad: (
+                        padBrightnessForLevel(ROWS, theTrack.get(TRACK_LEVELS[xpad], 0), TRACK_LEVELS[xpad])(
+                            ROWS - 1 - i
+                        )
+                    )
+
+                return track_level_fn(None, y)  # NO Example index
+
+            # Default case
+            state_value = track.get("state", SL_STATE_UNKNOWN)
+            if state_value == SL_STATE_UNKNOWN:
+                return lambda x: 0x80
+            pos = (
+                0
+                if track.get("loop_len", 0) == 0
+                else 8 * (track.get("loop_pos", 0) / track.get("loop_len", 1))
+            )
+
+            rounded_pos = int(pos)
+            # last = LED_BRIGHTS[
+            #     min(3, int(7 * (pos - rounded_pos)))
+            # ]  # Ensure index is within bounds
+            led_mode = self.SL_STATES[state_value]["ledmode"]
+
+            return lambda x: (
+                BRIGHTS.LED_BRIGHT_100
+                if led_mode == BRIGHTS.LED_BRIGHT_100 and x <= rounded_pos
+                else BRIGHTS.LED_BRIGHT_25
+                if led_mode == BRIGHTS.LED_BRIGHT_100
+                else led_mode
+            )
+
+        return cond_fn
+
+    def get_cell_color_fn(self, state: Dict[str, Any]) -> Callable:
+        submode = getDeviceSetting("submode", state)
+
+        def cond_fn(track, y):
+            # Check for device pan
+            if submode == looper_handler.MODE_PAN:
+                channels = track.get("channel_count")
+                track_state = track.get("state", SL_STATE_UNKNOWN)
+                if channels is None:
+                    return lambda x: self.SL_STATES[track_state]["color"]
+                if channels == 2:
+                    pads_left = panPads(track.get("pan_1", 0))
+                    pads_right = panPads(track.get("pan_2", 1))
+                    both = set(pads_left) & set(pads_right)
+                    # any_pads = set(pads_left) | set(pads_right)
+
+                    return lambda x: (
+                        COLORS.COLOR_PURPLE
+                        if x in both
+                        else COLORS.COLOR_RED
+                        if x in pads_left
+                        else COLORS.COLOR_BLUE
+                        if x in pads_right
+                        else self.SL_STATES[track_state]["color"]
+                    )
+                return lambda x: self.SL_STATES[track_state]["color"]
+
+            # Check for wet for loops in view
+            if submode == looper_handler.MODE_LEVEL1:
+                state_value = track.get("state", SL_STATE_UNKNOWN)
+                if y == 0:
+                    return lambda x: COLORS.COLOR_BLUE_DARK
+                if state_value == SL_STATE_UNKNOWN:
+                    return lambda x: self.SL_STATES[state_value]["color"]
+                if state_value == SL_STATE_OFF:
+                    return lambda x: COLORS.COLOR_BLUE_LIGHT
+                return lambda x: COLORS.COLOR_BLUE
+
+            # Check for selected loop levels
+            if submode == looper_handler.MODE_LEVEL2:
+
+                def track_level_fn(track, i):
+                    return lambda xpad: self.LEVEL_COLORS[xpad]  # Example implementation
+
+                return track_level_fn(track, 0)  # Example index
+
+            # Default case
+            state_value = track.get("state", SL_STATE_UNKNOWN)
+            statespec = self.SL_STATES[state_value]
+            statecolor = statespec["color"]
+            return lambda x: statecolor
+
+        return cond_fn
+    
+    def matrix_function(self, toprow, loopoffset, tracks, storeState, set_syncs):
+        matrix = []
+        trackLedModeFn = self.get_cell_led_mode_fn(storeState)
+        trackColorFn = self.get_cell_color_fn(storeState)
+
+        for y in range(ROWS):  # Equivalent to [0, 1, 2, 3, 4]
+            tracknum = y - loopoffset
+            track = list_get(tracks, tracknum, {}) if tracknum < getGlob('loopcount', storeState) else {}
+            cellLedModeFn = trackLedModeFn(track, y)
+            cellColorFn = trackColorFn(track, y)
+
+            # state = track.get("state", SL_STATE_UNKNOWN)
+            # next_state = track.get("next_state")
+            # loop_len = track.get("loop_len")
+            # loop_pos = track.get("loop_pos")
+            # wet = track.get("wet")
+            # sync = track.get("sync")
+            # relative_sync = track.get("relative_sync")
+
+            if len(toprow) > 0 and y == 0:
+                matrix.extend(toprow)
+                # logging.debug(f"matrci with top row {matrix}")
+                continue
+            if set_syncs and y == 0:
+                padnums = range(32, 38)  # rowPads(y)
+                pads = []
+                for x, pad in enumerate(padnums):
+                    pads.extend([BRIGHTS.LED_BRIGHT_50, pad, self.SETTINGCOLORS[x]])
+
+                track1 = tracks.get(0, {})
+                synccolor = self.SETTINGCOLORS[6][
+                    int(min((getGlob("sync_source", storeState) or 0) + 3, 5))
+                ]
+
+                matrix.extend(
+                    [
+                        BRIGHTS.LED_BRIGHT_100,
+                        38,
+                        synccolor,
+                        BRIGHTS.LED_BRIGHT_100
+                        if track1.get("quantize", 0)
+                        else BRIGHTS.LED_BRIGHT_10,
+                        39,
+                        list_get(
+                            self.SETTINGCOLORS[7],
+                            int(track1.get("quantize", 0)),
+                            self.SETTINGCOLORS[7][0],
+                        ),
+                        *pads,
+                    ]
+                )
+                continue
+
+            try:
+                if set_syncs:
+                    pads = [
+                        [
+                            BRIGHTS.LED_OFF
+                            if track == {}
+                            else
+                            BRIGHTS.LED_BRIGHT_100
+                            if track.get(SETTINGS[x])
+                            else BRIGHTS.LED_BRIGHT_10,
+                            pad,
+                            self.SETTINGCOLORS[x][int(track.get(SETTINGS[x], 0))]
+                            if isinstance(self.SETTINGCOLORS[x], list)
+                            else self.SETTINGCOLORS[x],
+                        ]
+                        for x, pad in enumerate(rowPads(y))
+                    ]
+
+                    matrix.extend(
+                        [
+                            BRIGHTS.LED_BRIGHT_75,
+                            30,
+                            self.COLOR_EIGHTH_BTN,
+                            BRIGHTS.LED_BRIGHT_75,
+                            22,
+                            self.COLOR_EIGHTH_BTN,
+                        ]
+                    )
+                    for pad in pads:
+                        matrix.extend(pad)
+                    continue
+
+                for x, pad in enumerate(rowPads(y)):
+                    cell = [cellLedModeFn(x), pad, cellColorFn(x)]
+                    matrix.extend(cell)
+
+            except Exception as e:
+                logging.debug("Caught an exception:", e)
+                raise
+                return []
+
+        return matrix
+    
+    def make_loopnum_overlay(self, char, col=0):
+        spec = CHARS.get(char)
+        if not spec:
+            return []
+
+        overlay = []
+        for rownum, charSpec in enumerate(spec):
+            startPad = rowStartPad(rownum) + col
+            for i, boolish in enumerate(charSpec):
+                pad = startPad + i
+                overlay.extend([self.matrixPadLedmode[boolish], pad, self.matrixPadColor[boolish]])
+
+        return overlay
+
+
+    def get_eighths(self, storeState):
+        if getDeviceSetting("show8ths", storeState):
+            eighths = [
+                item
+                for pad in range(getGlob("eighth_per_cycle", storeState))
+                for item in [BRIGHTS.LED_BRIGHT_100, pad, self.COLOR_EIGHTHS]
+            ]
+        else:
+            eighths = []
+
+        return eighths
+
+    # Create the FULL MIDI LED LAYOUT
+    def createAllPads(self, state):
+        loopoffset = getLoopoffset(state)
+        submode = getDeviceSetting("submode", state) or looper_handler.MODE_DEFAULT
+        set_syncs = submode == looper_handler.MODE_SYNC
+
+        def ctrl_btn(btn):
+            if btn == BUTTONS.BTN_KNOB_CTRL_VOLUME:
+                return [
+                    0x90,
+                    btn,
+                    1
+                    if submode == looper_handler.MODE_LEVEL1
+                    else 2
+                    if submode == looper_handler.MODE_LEVEL2
+                    else 0,
+                ]
+            if btn == BUTTONS.BTN_KNOB_CTRL_PAN:
+                return [
+                    0x90,
+                    btn,
+                    1 if submode == looper_handler.MODE_PAN
+                    else 0,
+                ]  # @check Used to have to convert this to num
+            if btn == BUTTONS.BTN_KNOB_CTRL_SEND:
+                return [0x90, btn, 1 if set_syncs else 0]
+            if btn == BUTTONS.BTN_KNOB_CTRL_DEVICE:
+                return [
+                    0x90,
+                    btn,
+                    1
+                    if submode == looper_handler.MODE_SESSION_SAVE
+                    else 2
+                    if submode == looper_handler.MODE_SESSION_LOAD
+                    else 0,
+                ]
+            return []
+
+        ctrl_keys = functools.reduce(
+            lambda acc, btn: acc + ctrl_btn(btn), range(0x40, 0x48), []
+        )
+
+        if submode in [looper_handler.MODE_SESSION_LOAD, looper_handler.MODE_SESSION_SAVE]:
+            color = (
+                self.COLOR_LOAD
+                if submode == looper_handler.MODE_SESSION_LOAD
+                else self.COLOR_SAVE
+            )
+            sessions = getDeviceSetting("sessions", state) or []
+            sessionnums = functools.reduce(
+                makeSessionNumberReducer(color, getDeviceSetting("sessions-last", state)),
+                sessions,
+                [],
+            )
+
+            def emptycellreducer(acc, cur):
+                return acc + [BRIGHTS.LED_BRIGHT_25, cur, color]
+
+            def emptyrowreducer(acc, cur):
+                return acc + functools.reduce(emptycellreducer, rowPads(cur), [])
+
+            emptycells = functools.reduce(emptyrowreducer, range(0, ROWS), [])
+
+            confirmpad = getDeviceSetting("confirm-save", state)
+
+            confirmation_pads = []
+            if (confirmpad is not None):
+                [no, yes] = confirmers(confirmpad, COLS)
+                confirmation_pads = [BRIGHTS.LED_BRIGHT_100, no, COLORS.COLOR_RED, BRIGHTS.LED_BRIGHT_100, yes, COLORS.COLOR_GREEN]
+
+            return overlay(confirmation_pads, sessionnums, emptycells) + ctrl_keys
+
+        tracks = state.get("tracks", {})
+        toprow = (
+            [
+                [BRIGHTS.LED_BRIGHT_90, pad, self.SL_STATES[TRACK_COMMANDS[i]]["color"]]
+                for i, pad in enumerate(rowPads(0))
+            ]
+            if submode in [looper_handler.MODE_DEFAULT]
+            else []
+        )
+        toprow = list(chain.from_iterable(toprow))
+        matrix = self.matrix_function(toprow, loopoffset, tracks, state, set_syncs)
+        # mlen = len(matrix) / 3
+        # logging.debug(f"{mlen}")
+        # return matrix
+        soft_keys = get_soft_keys(loopoffset, state)
+        eighths = self.get_eighths(state)
+        # logging.debug(f"softkeys{soft_keys}")
+        # logging.debug(f"ctrl_keys{ctrl_keys}")
+        # logging.debug(f"matrix{matrix}")
+        pads = matrix + overlay(soft_keys, ctrl_keys)
+        if len(pads):
+            # Don't show it because we wanna track the crazy pan behaviour
+            if submode != looper_handler.MODE_PAN and getDeviceSetting("shifted", state):
+                firstLoop = 2 - loopoffset
+                if firstLoop > 9 and firstLoop < 100:
+                    return overlay(
+                        self.make_loopnum_overlay((firstLoop / 10) // 1, 2),
+                        self.make_loopnum_overlay(firstLoop % 10, 5),
+                        pads,
+                    )
+                else:
+                    return overlay(self.make_loopnum_overlay(firstLoop, 5), pads)
+            elif getDeviceSetting("showsource", state):
+                return overlay(self.make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 1), pads)
+            elif getDeviceSetting("group-selecting", state):
+                groupnum = getDeviceSetting("group-selected", state)
+                loops = getAny(["device", "groups", groupnum, "loops"], state) or []
+                for i in range(len(pads) - 2, 0, -3):
+                    pad = pads[i]
+                    if pad == BUTTONS.BTN_SOFT_KEY_SELECT:
+                        pads[i-1] = 0x90
+                        pads[i+1] = COLORS.SOFT_BLINK
+                    elif pad < 32:
+                        row = padRow(pad)
+                        loopoffset = getLoopoffset(state)
+                        loopnum = -1 if row == 0 else shiftedTrack(row, loopoffset)
+                        pads[i-1] = BRIGHTS.LED_BRIGHT_100 if loopnum in loops else BRIGHTS.LED_BRIGHT_10
+                    elif pad < (32 + 5):
+                        pads[i-1] = BRIGHTS.LED_PULSING_8 if groupnum == (pad % COLS) else BRIGHTS.LED_BRIGHT_50
+                        # pads[i+1] = self.SL_STATES[TRACK_COMMANDS[pad % COLS]]["color"]
+                return pads
+
+            elif submode == looper_handler.MODE_DEFAULT:
+                for i in range(len(pads) - 2, 0, -3):
+                    pad = pads[i]
+                    if (pad > 31) and (pad < 37):
+                        pads[i-1] = BRIGHTS.LED_BLINKING_4 if getDeviceSetting('group-solo', state) == pad % COLS else BRIGHTS.LED_BRIGHT_100
+                return pads
+            else:
+                return overlay(eighths, pads)
+
     def render(self):
-        pads = createAllPads(self.state)
+        pads = self.createAllPads(self.state)
         notes = split_every(3, pads)
         these = generator_difference(notes, self.last_notes)
         self.last_notes = these;
@@ -2436,3 +2372,37 @@ class SubModeSessionsLoad(ModeHandlerBase):
         # Use time.sleep to mimic setTimeout
         time.sleep(1)  # Wait for 1 second
         self.parent.request_feedback("/ping", "/pong")
+
+
+
+class zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper(zynthian_ctrldev_akai_apc_key25_mk2):
+
+    driver_name = 'AKAI APC Key25 MK2 + SL'
+    looper_handler = looper_handler
+
+    @classmethod
+    def get_autoload_flag(cls):
+        return False
+
+    def __init__(self, state_manager, idev_in, idev_out=None):
+        super().__init__(state_manager, idev_in, idev_out)
+        self._sooperlooper_handler = self.looper_handler(
+            state_manager, self._leds, idev_in, idev_out, self)
+
+    def _on_midi_event(self, ev):
+        evtype = (ev[0] >> 4) & 0x0F
+
+        if evtype == EV_NOTE_ON:
+            note = ev[1] & 0x7F
+
+            if self._is_shifted:
+                old_handler = self._current_handler
+
+                if note == PAD_ENABLE_SL:
+                    self._current_handler = self._sooperlooper_handler
+
+                if old_handler != self._current_handler:
+                    old_handler.set_active(False)
+                    self._current_handler.set_active(True)
+
+        return super()._on_midi_event(ev)
