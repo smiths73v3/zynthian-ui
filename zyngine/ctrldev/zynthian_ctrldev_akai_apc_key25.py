@@ -12,7 +12,8 @@ LED_BRIGHT_100, \
 EV_NOTE_OFF, \
 EV_NOTE_ON, \
 EV_CC, \
-BTN_PAD_END
+BTN_PAD_END, \
+LED_PULSING_8
 
 
 
@@ -135,9 +136,9 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
     class DeviceHandler(zynthian_ctrldev_akai_apc_key25_mk2.DeviceHandler):
 
         def cc_change(self, ccnum, ccval):
-            delta = self._knobs_ease.feed(ccnum, ccval, self._is_shifted)
-            if delta is None:
-                return
+            #delta = self._knobs_ease.feed(ccnum, ccval, self._is_shifted)
+            #if delta is None:
+            #    return
 
             zynpot = {
                 KNOB_LAYER: 0,
@@ -288,8 +289,8 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
             color = self.NOTE_PAGE_COLORS[self._note_page_number]
             self._leds.led_on(pad, color, int((note_spec.velocity * 6) / 127))
 
-#            if is_selected:
-#                self._leds.delayed("led_on", 1000, pad, color, LED_PULSING_8)
+            if is_selected:
+                self._leds.delayed("led_on", 1000, pad, color, LED_PULSING_8)
 
         def _update_note_pad_stutter_count(self, pad, note_spec, stutter_count):
             note_spec.stutter_count = \
