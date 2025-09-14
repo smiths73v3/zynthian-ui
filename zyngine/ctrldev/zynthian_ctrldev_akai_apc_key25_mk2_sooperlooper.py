@@ -723,6 +723,8 @@ class looper_handler(
         "input_gain",
     ]
 
+    knobs = 'rel'
+
     MODE_DEFAULT = 0
     MODE_LEVEL1 = 1
     MODE_LEVEL2 = 2
@@ -945,6 +947,17 @@ class looper_handler(
             new_value = max(0, min(1, curval + delta * 0.1))
         self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
 
+    def set(self, val, ctrl, track, loopnum):
+        curval = track.get(ctrl)
+        if curval is None:
+            return
+        # Calculate the new value, ensuring it stays within the range [0, 1]
+        if ctrl == "pitch_shift":
+            new_value = max(-12, min(12, (val / 5.3) - 12))
+        else:
+            new_value = max(0, min(1, val / 127))
+        self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
+
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
         if (shifted_override and note == 7):
@@ -975,7 +988,7 @@ class looper_handler(
         delta = self._knobs_ease.feed(
             ccnum, ccval, getDeviceSetting("shifted", self.state)
         )  # @todo: use self._is_shifted (or not at all?)
-        if delta is None:
+        if self.knobs == 'rel' and delta is None:
             return
         knobnum = ccnum - 48
         if doLevelsOfSelectedMode(self.state):
@@ -987,7 +1000,10 @@ class looper_handler(
             loopnum = getGlob("selected_loop_num", self.state)
             if loopnum == -1:
                 return
-            self.increase(delta, level, self.state["tracks"][loopnum], loopnum)
+            if self.knobs == 'rel':
+                self.increase(delta, level, self.state["tracks"][loopnum], loopnum)
+            else:
+                self.set(ccval, level, self.state["tracks"][loopnum], loopnum)
             return
         loopoffset = getLoopoffset(self.state)
         loopnum = (knobnum % KNOBS_PER_ROW) - (loopoffset - 1)
@@ -1005,7 +1021,9 @@ class looper_handler(
                 1, channel_count + 1
             ):  # Loop from 1 to channel_count inclusive
                 ctrl = f"pan_{c}"
-                if getDeviceSetting("shifted", self.state):
+                if self.knobs == 'abs':
+                    self.set(ccval, ctrl, track, loopnum)
+                elif getDeviceSetting("shifted", self.state):
                     if c == 2 and channel_count == 2:
                         self.increase(-delta, ctrl, track, loopnum)
                     else:
@@ -1021,7 +1039,10 @@ class looper_handler(
                     else:
                         self.increase(delta, ctrl, track, loopnum)
         else:
-            self.increase(delta, fun, track, loopnum)
+            if self.knobs == 'abs':
+                self.set(ccval, fun, track, loopnum)
+            else:
+                self.increase(delta, fun, track, loopnum)
         pass
 
     def pad_event(self, evtype, pad):

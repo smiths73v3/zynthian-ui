@@ -220,6 +220,7 @@ class zynthian_ctrldev_akai_apc_key25_sooperlooper(zynthian_ctrldev_akai_apc_key
         COLOR_EIGHTH_BTN = COLORS.COLOR_YELLOW
         matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_OFF}
         matrixPadColor = {".": COLORS.COLOR_YELLOW, "_": COLORS.COLOR_DARK_GREY}
+        knobs = 'abs'
 
         def render(self):
             pads = self.createAllPads(self.state)
