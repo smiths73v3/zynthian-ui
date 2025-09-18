@@ -2645,6 +2645,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
         for signal, subsignal, callback in self._signals:
             zynsigman.unregister(signal, subsignal, callback)
         super().end()
+        zynthian_ctrldev_zynpad.end(self)
 
     def refresh(self):
         # PadMatrix is handled in volume/pan modes (when mixer handler is active)
