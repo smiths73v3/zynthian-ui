@@ -432,15 +432,18 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
                     //}
                     if (offset < 0.0)
                         offset = 0;
-
                     // Quantize or not
+                    /*
                     if (pPattern->getQuantizeNotes()) {
                         if (offset > 0.5)
                             startEvents[midiEvent.buffer[1]].start++;
                         startEvents[midiEvent.buffer[1]].offset = 0;
                     } else {
-                        startEvents[midiEvent.buffer[1]].offset = offset;
+                    	startEvents[midiEvent.buffer[1]].offset = offset;
                     }
+                    */
+                    // Capture not quantized => quantization is done in real time (see track.cpp)
+                    startEvents[midiEvent.buffer[1]].offset = offset;
                 }
                 // Note off event
                 else if ((nCommand == MIDI_NOTE_ON && midiEvent.buffer[2] == 0) || nCommand == MIDI_NOTE_OFF) {
@@ -562,8 +565,8 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
             if (g_bSendMidiClock && g_nPlayingSequences) {
                 // Add a MIDI clock to the queue
                 jack_nframes_t nClockTime = g_qClockPos.front().first - nNow;
-                if (bSync)
-                    g_mSchedule.insert(std::pair<uint32_t, MIDI_MESSAGE*>(nClockTime, new MIDI_MESSAGE({MIDI_CONTINUE, 0, 0})));
+                //if (bSync)
+                //    g_mSchedule.insert(std::pair<uint32_t, MIDI_MESSAGE*>(nClockTime, new MIDI_MESSAGE({MIDI_CONTINUE, 0, 0})));
                 g_mSchedule.insert(std::pair<uint32_t, MIDI_MESSAGE*>(nClockTime, new MIDI_MESSAGE({MIDI_CLOCK, 0, 0})));
             }
             if (g_nClockSource & TRANSPORT_CLOCK_INTERNAL)

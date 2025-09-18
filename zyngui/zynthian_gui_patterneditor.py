@@ -407,6 +407,10 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
         options['Beats in pattern ({})'.format(
             self.zynseq.libseq.getBeatsInPattern())] = 'Beats in pattern'
         options['Steps/Beat ({})'.format(self.n_steps_beat)] = 'Steps per beat'
+        if self.zynseq.libseq.getQuantizeNotes():
+            options['\u2612 Quantization'] = 'Quantization'
+        else:
+            options['\u2610 Quantization'] = 'Quantization'
         options['Swing Divisor ({})'.format(
             self.zynseq.libseq.getSwingDiv())] = 'Swing Divisor'
         options['Swing Amount ({}%)'.format(
@@ -437,10 +441,6 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                 options['\u2612 Record from MIDI'] = 'Record MIDI'
             else:
                 options['\u2610 Record from MIDI'] = 'Record MIDI'
-        if self.zynseq.libseq.getQuantizeNotes():
-            options['\u2612 Quantized recording'] = 'Quantized recording'
-        else:
-            options['\u2610 Quantized recording'] = 'Quantized recording'
         options['Transpose pattern'] = 'Transpose pattern'
         options['Copy pattern'] = 'Copy pattern'
         options['Load pattern'] = 'Load pattern'
@@ -480,7 +480,8 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
         elif params == 'Steps per beat':
             self.enable_param_editor(self, 'spb', {'name': 'Steps per beat', 'ticks': STEPS_PER_BEAT,
                                      'value_default': 3, 'value': self.n_steps_beat}, self.assert_steps_per_beat)
-
+        elif params == 'Quantization':
+            self.zynseq.libseq.setQuantizeNotes(not self.zynseq.libseq.getQuantizeNotes())
         elif params == 'Swing Divisor':
             self.enable_param_editor(self, 'swing_div', {
                                      'name': 'Swing Divisor', 'value_min': 1, 'value_max': self.n_steps_beat, 'value_default': 1, 'value': self.zynseq.libseq.getSwingDiv()})
@@ -523,9 +524,6 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
 
         elif params == 'Record MIDI':
             self.toggle_midi_record()
-        elif params == 'Quantized recording':
-            self.zynseq.libseq.setQuantizeNotes(
-                not self.zynseq.libseq.getQuantizeNotes())
         elif params == 'Transpose pattern':
             self.enable_param_editor(self, 'transpose', {
                                      'name': 'Transpose', 'value_min': -1, 'value_max': 1, 'labels': ['down', 'down/up', 'up'], 'value': 0})
