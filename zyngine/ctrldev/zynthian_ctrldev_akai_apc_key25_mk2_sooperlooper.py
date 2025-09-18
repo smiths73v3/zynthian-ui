@@ -253,111 +253,133 @@ def syncSourceChar(source):
 SL_STATES = {
     SL_STATE_UNKNOWN: {
         "name": "unknown",
+        "idx": None,
         "color": COLORS.COLOR_BLACK,
         "ledmode": BRIGHTS.LED_OFF,
     },
     SL_STATE_OFF: {
         "name": "off",
+        "idx": None,
         "color": COLORS.COLOR_WHITE,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_REC_STARTING: {
         "name": "waitstart",
+        "idx": 0,
         "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_PULSING_16,
     },
     SL_STATE_RECORDING: {
         "name": "record",
+        "idx": 0,
         "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_REC_STOPPING: {
         "name": "waitstop",
+        "idx": 0,
         "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_PULSING_8,
     },
     SL_STATE_PLAYING: {
         "name": "play",
+        "idx": None,
         "color": COLORS.COLOR_GREEN,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_OVERDUBBING: {
         "name": "overdub",
+        "idx": 0,
         "color": COLORS.COLOR_PURPLE,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_MULTIPLYING: {
         "name": "multiply",
+        "idx": 1,
         "color": COLORS.COLOR_AMBER,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_INSERTING: {
         "name": "insert",
+        "idx": 2,
         "color": COLORS.COLOR_PINK_WARM,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_REPLACING: {
         "name": "replace",
+        "idx": 3,
         "color": COLORS.COLOR_PINK_LIGHT,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_SUBSTITUTING: {
         "name": "substitute",
+        "idx": 4,
         "color": COLORS.COLOR_PINK,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_DELAYING: {
         "name": "delay",
+        "idx": 3,
         "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_BRIGHT_10,
     },
     SL_STATE_MUTED: {
         "name": "mute",
+        "idx": None,
         "color": COLORS.COLOR_DARK_GREEN,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_SCRATCHING: {
         "name": "scratch",
+        "idx": None,
         "color": COLORS.COLOR_BLUE,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_PLAYING_ONCE: {
         "name": "oneshot",
+        "idx": 5,
         "color": COLORS.COLOR_LIME_DARK,
         "ledmode": BRIGHTS.LED_PULSING_8,
     },
     SL_STATE_PAUSED: {
         "name": "pause",
+        "idx": None,
         "color": COLORS.COLOR_GREEN_YELLOW,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_UNDO_ALL: {
         "name": "undo_all",
+        "idx": None,
         "color": COLORS.COLOR_DARK_GREY,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_UNDO: {
         "name": "undo_all",
+        "idx": None,
         "color": COLORS.COLOR_DARK_GREY,
         "ledmode": BRIGHTS.LED_BRIGHT_50,
     },
     SL_STATE_REDO: {
         "name": "redo",
+        "idx": None,
         "color": COLORS.COLOR_DARK_GREY,
         "ledmode": BRIGHTS.LED_BRIGHT_50,
     },
     SL_STATE_REDO_ALL: {
         "name": "redo_all",
+        "idx": None,
         "color": COLORS.COLOR_DARK_GREY,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_OFF_MUTED: {
         "name": "offmute",
+        "idx": None,
         "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },  # undocumented
     SL_STATE_TRIGGER_PLAY: {
         "name": "trigger_play",
+        "idx": 6,
         "color": COLORS.COLOR_GREEN,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
@@ -1350,9 +1372,11 @@ class looper_handler(
             #     min(3, int(7 * (pos - rounded_pos)))
             # ]  # Ensure index is within bounds
             led_mode = self.SL_STATES[state_value]["ledmode"]
-
+            idx = self.SL_STATES[state_value]["idx"]
             return lambda x: (
-                BRIGHTS.LED_BRIGHT_100
+                BRIGHTS.LED_PULSING_16
+                if x == idx
+                else BRIGHTS.LED_BRIGHT_100
                 if led_mode == BRIGHTS.LED_BRIGHT_100 and x <= rounded_pos
                 else BRIGHTS.LED_BRIGHT_25
                 if led_mode == BRIGHTS.LED_BRIGHT_100
