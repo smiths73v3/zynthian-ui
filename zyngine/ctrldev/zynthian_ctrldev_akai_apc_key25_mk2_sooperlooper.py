@@ -955,9 +955,6 @@ class looper_handler(
                 logging.debug(f"Error initializing OSC: {err}")
                 self.osc_server = None
 
-    def end(self):
-        super().end()
-
     def increase(self, delta, ctrl, track, loopnum):
         curval = track.get(ctrl)
         if curval is None:
@@ -1739,6 +1736,18 @@ class looper_handler(
         # Ensure to get initial state after a delay
         Timer(2.0, self.get_initial_state, args=(range,)).start()
 
+    def unregister_updates(self):
+        for ctrl in self.ctrls:
+            self.request_feedback(f"/sl/-1/unregister_update", "/update", ctrl)
+
+        for ctrl in self.auto_ctrls:
+            self.request_feedback(
+                f"/sl/-1/unregister_auto_update", "/update", ctrl, 100
+            )
+
+        for ctrl in self.globs:
+            self.request_feedback("/unregister_update", "/glob", ctrl)
+
     def register_selected(self, ctrls):
         for ctrl in ctrls:
             self.request_feedback(
@@ -2451,3 +2460,10 @@ class zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper(zynthian_ctrldev_akai_apc
                     self._current_handler.set_active(True)
 
         return super()._on_midi_event(ev)
+    
+    def end(self):
+        self._sooperlooper_handler.unregister_updates()
+        self._sooperlooper_handler.osc_server.stop()
+        self._sooperlooper_handler.osc_server.free()
+        super().end()
+
