@@ -375,12 +375,12 @@ SETTINGS = [
 ]
 
 SETTINGCOLORS = [
-    COLORS.COLOR_BLUE,
-    COLORS.COLOR_LIME,
-    COLORS.COLOR_GREEN,
-    COLORS.COLOR_DARK_GREEN,
-    COLORS.COLOR_PURPLE,
-    COLORS.COLOR_PINK_LIGHT,
+    COLORS.COLOR_BLUE, # sync
+    COLORS.COLOR_LIME, # rel sync
+    COLORS.COLOR_GREEN, # playback sync
+    COLORS.COLOR_DARK_GREEN, # mute quant
+    COLORS.COLOR_PURPLE, # overdub quant
+    COLORS.COLOR_PINK_LIGHT, # replace quant
     # -3 = internal,  -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
     [
         COLORS.COLOR_WHITE,
