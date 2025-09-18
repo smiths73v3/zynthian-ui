@@ -167,10 +167,10 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                 mixer_chan = chain.mixer_chan
 
             if type == "level":
-                value = (ccval * 100 ) / 128
+                value = (ccval * 100 ) / 127
                 set_value = self._zynmixer.set_level
             elif type == "balance":
-                value = ((ccval * 100 ) / 64) - 100
+                value = ((ccval * 100) / 63.5) - 100
                 set_value = self._zynmixer.set_balance
             else:
                 return False
