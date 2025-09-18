@@ -113,25 +113,6 @@ KNOB_7 = 0x36
 KNOB_8 = 0x37
 
 # APC Key25 MK2 LED colors and modes
-COLOR_RED = 0x05
-COLOR_GREEN = 0x15
-COLOR_BLUE = 0x25
-COLOR_AQUA = 0x21
-COLOR_BLUE_DARK = 0x2D
-COLOR_WHITE = 0x08
-COLOR_EGYPT = 0x6C
-COLOR_ORANGE = 0x09
-COLOR_AMBER = 0x54
-COLOR_RUSSET = 0x3D
-COLOR_PURPLE = 0x51
-COLOR_PINK = 0x39
-COLOR_PINK_LIGHT = 0x52
-COLOR_PINK_WARM = 0x38
-COLOR_YELLOW = 0x0D
-COLOR_LIME = 0x4B
-COLOR_LIME_DARK = 0x11
-COLOR_GREEN_YELLOW = 0x4A
-
 class COLORS:
     COLOR_BLACK = 0x00
     COLOR_DARK_GREY = 0x01
@@ -1463,17 +1444,17 @@ class StepSeqHandler(ModeHandlerBase):
     PAD_ROWS = 5
 
     NOTE_PAGE_COLORS = [
-        COLOR_BLUE,
-        COLOR_GREEN,
-        COLOR_ORANGE,
-        COLOR_PINK,
+        COLORS.COLOR_BLUE,
+        COLORS.COLOR_GREEN,
+        COLORS.COLOR_ORANGE,
+        COLORS.COLOR_PINK,
     ]
 
     BRIGHT_FIRSTBEAT = LED_BRIGHT_10
-    COLOR_FIRSTBEAT = COLOR_WHITE
-    COLOR_BEAT = COLOR_WHITE
-    COLOR_VELOCITY = COLOR_CLEAR = COLOR_SELECTED = COLOR_RED
-    COLOR_COPY = COLOR_LIME
+    COLOR_FIRSTBEAT = COLORS.COLOR_WHITE
+    COLOR_BEAT = COLORS.COLOR_WHITE
+    COLOR_VELOCITY = COLOR_CLEAR = COLOR_SELECTED = COLORS.COLOR_RED
+    COLOR_COPY = COLORS.COLOR_LIME
 
     def __init__(self, state_manager, leds: FeedbackLEDs, dev_idx):
         super().__init__(state_manager)
@@ -2454,7 +2435,7 @@ class BaseControl:
     PAD_ROWS = 5
     INDICATOR_LED = None
     INDICATOR_BLINK = False
-    COLOR = COLOR_PURPLE
+    COLOR = COLORS.COLOR_PURPLE
 
     STEPS = [20, 40, 60, 80, 100]
     HALF_STEPS = [10, 30, 50, 70, 90]
@@ -2535,7 +2516,7 @@ class BaseControl:
             if brightness is not None:
                 self._leds.led_on(pad, self.COLOR, brightness)
             else:
-                self._leds.led_on(pad, COLOR_PINK_WARM, LED_BRIGHT_10)
+                self._leds.led_on(pad, COLORS.COLOR_PINK_WARM, LED_BRIGHT_10)
 
     def _get_note_property(self, note):
         raise NotImplementedError(
@@ -2552,7 +2533,7 @@ class BaseControl:
 class VelocityControl(BaseControl):
     KIND = "velocity"
     INDICATOR_LED = BTN_KNOB_CTRL_VOLUME
-    COLOR = COLOR_AQUA
+    COLOR = COLORS.COLOR_AQUA
 
     STEPS = [25, 50, 76, 101, 127]
     HALF_STEPS = [12, 38, 63, 88, 114]
@@ -2570,7 +2551,7 @@ class VelocityControl(BaseControl):
 class StutterCountControl(BaseControl):
     KIND = "stutter-count"
     INDICATOR_LED = BTN_KNOB_CTRL_SEND
-    COLOR = COLOR_LIME_DARK
+    COLOR = COLORS.COLOR_LIME_DARK
 
     STEPS = [2, 4, 8, 12, 20]
     HALF_STEPS = [1, 3, 6, 10, 15]
@@ -2589,7 +2570,7 @@ class StutterDurationControl(BaseControl):
     KIND = "stutter-duration"
     INDICATOR_LED = BTN_KNOB_CTRL_SEND
     INDICATOR_BLINK = True
-    COLOR = COLOR_RUSSET
+    COLOR = COLORS.COLOR_RUSSET
 
     STEPS = [2, 4, 8, 20, 40]
     HALF_STEPS = [1, 3, 6, 10, 30]
