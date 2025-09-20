@@ -109,10 +109,6 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
         ev_chan = ev[0] & 0x0F
         if evtype == 0x9:
             note = ev[1] & 0x7F
-            # Entered session mode so set pad LEDs
-            # QUESTION: What kind of message is this? Only SysEx messages can be bigger than 3 bytes.
-            # if ev == b'\x90\x90\x0C\x7F':
-            # self.update_seq_bank()
 
             # Toggle pad
             try:
@@ -203,19 +199,12 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
 
         return True
 # ------------------------------------------------------------------------------
-##notes
-## ch1 cc 107 = down
-## ch1 cc 106 = up
-## ch1 cc 74 = capture midi
-## ch1 cc 77 = undo 
-## ch1 cc 75 = quantize
-## ch1 cc 76 = metronome
-## ch1 cc 118 = back
-## ch1 cc 115 = play
-
- #elif ccnum == 0x68:
- #               # UP
- #               self.state_manager.send_cuia("ARROW_UP")
- #           elif ccnum == 0x69:
- #               # DOWN
- #               self.state_manager.send_cuia("ARROW_DOWN")
+#notes
+# ch1 cc 107 = down
+# ch1 cc 106 = up
+# ch1 cc 74 = capture midi
+# ch1 cc 77 = undo 
+# ch1 cc 75 = quantize
+# ch1 cc 76 = metronome
+# ch1 cc 118 = back
+# ch1 cc 115 = play
