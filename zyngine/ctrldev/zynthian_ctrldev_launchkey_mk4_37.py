@@ -107,10 +107,10 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
     def midi_event(self, ev):
         evtype = (ev[0] >> 4) & 0x0F
         ev_chan = ev[0] & 0x0F
+        
+        # New block: Handle pad events for the sequencer
         if evtype == 0x9:
             note = ev[1] & 0x7F
-
-            # Toggle pad
             try:
                 col = (note - 96) // 16
                 row = (note - 96) % 16
@@ -123,8 +123,19 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
 
+            # Corrected SHIFT button CC from 0x6C to 0x3F
+            if ccnum == 0x3F:
+                # SHIFT
+                self.shift = ccval != 0
+                
+            # New logic for SHIFT + CC 76 (TEMPO)
+            elif self.shift and ccnum == 76:
+                if ccval > 0:
+                    self.state_manager.send_cuia("TEMPO")
+                    return True
+            
             # Time-based ZynSwitch Logic
-            if ccnum in [74, 75, 76, 77]:
+            elif ccnum in [74, 75, 76, 77]:
                 # Assign ZynSwitch index based on the CC number
                 zynswitch_index = {74: 0, 75: 1, 77: 2, 76: 3}.get(ccnum)
 
@@ -150,12 +161,7 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
                         del self.press_times[ccnum]
                 return True
             
-            # Original Launchkey MK4 buttons
-            elif ccnum == 0x6C:
-                # SHIFT
-                self.shift = ccval != 0
-            elif ccnum == 0 or ccval == 0:
-                return True
+            # Knob logic (Restored from the working file)
             elif (self.shift and 20 < ccnum < 29) or (20 < ccnum < 25):
                 chain = self.chain_manager.get_chain_by_position(
                     ccnum - 21, midi=False)
@@ -163,6 +169,10 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
                     self.zynmixer.set_level(chain.mixer_chan, ccval / 127.0)
             elif 24 < ccnum < 29:
                 self.state_manager.send_cuia("ZYNPOT_ABS", [ccnum - 25, ccval/127])
+            
+            # Original Launchkey MK4 buttons
+            elif ccnum == 0 or ccval == 0:
+                return True
             elif ccnum == 0x66:
                 # TRACK RIGHT
                 self.state_manager.send_cuia("ARROW_RIGHT")
@@ -188,9 +198,9 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
                 else:
                     self.state_manager.send_cuia("TOGGLE_RECORD")
                 
-            # Metronome button 
+            # The original "back" button on CC 118
             elif ccnum == 118:
-                self.state_manager.send_cuia("TEMPO")
+                self.state_manager.send_cuia("BACK")
                 return True
 
         elif evtype == 0xC:
@@ -198,13 +208,4 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
             self.zynseq.select_bank(val1 + 1)
 
         return True
-# ------------------------------------------------------------------------------
-#notes
-# ch1 cc 107 = down
-# ch1 cc 106 = up
-# ch1 cc 74 = capture midi
-# ch1 cc 77 = undo 
-# ch1 cc 75 = quantize
-# ch1 cc 76 = metronome
-# ch1 cc 118 = back
-# ch1 cc 115 = play
+#-------------------------------------------------------------------------
