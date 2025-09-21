@@ -812,6 +812,7 @@ class looper_handler(
         self.parent = parent
         self.state = {}
         self.loopcount = 0
+        self._absolute_knobmoves = {}
         self._knobs_ease = KnobSpeedControl()
         self._state_manager = state_manager
         self._default_handler = SubModeDefaultWithGroups(
@@ -967,15 +968,26 @@ class looper_handler(
         self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
 
     def set(self, val, ctrl, track, loopnum):
+        val = val/127
         curval = track.get(ctrl)
         if curval is None:
             return
-        # Calculate the new value, ensuring it stays within the range [0, 1]
-        if ctrl == "pitch_shift":
-            new_value = max(-12, min(12, (val / 5.3) - 12))
+        value_min = 0
+        value_max = 1
+        if ctrl == 'pitch_shift':
+            value_min = -12
+            value_max = 12
+        value_range = abs(value_max - value_min)
+        value = value_min + val * value_range
+        ctrlid = f'{ctrl}{loopnum}'
+        now = time.perf_counter()
+        then = self._absolute_knobmoves.get(ctrlid)
+        if ((then is not None) and ((now - then) < 1)) or (abs(value - curval) < (abs(value_max - value_min) * 0.01)):
+            new_value = value_min + val * value_range
+            self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
+            self._absolute_knobmoves[ctrlid] = now
         else:
-            new_value = max(0, min(1, val / 127))
-        self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
+            pass
 
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
