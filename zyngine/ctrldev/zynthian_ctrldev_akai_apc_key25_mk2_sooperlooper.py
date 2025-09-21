@@ -1021,6 +1021,8 @@ class looper_handler(
         )  # @todo: use self._is_shifted (or not at all?)
         if self.knobs == 'rel' and delta is None:
             return
+        if self.knobs == 'abs':
+            return self.cc_change_abs(ccnum, ccval)
         knobnum = ccnum - 48
         if doLevelsOfSelectedMode(self.state):
             if knobnum == 0:
@@ -1031,10 +1033,7 @@ class looper_handler(
             loopnum = getGlob("selected_loop_num", self.state)
             if loopnum == -1:
                 return
-            if self.knobs == 'rel':
-                self.increase(delta, level, self.state["tracks"][loopnum], loopnum)
-            else:
-                self.set(ccval, level, self.state["tracks"][loopnum], loopnum)
+            self.increase(delta, level, self.state["tracks"][loopnum], loopnum)
             return
         loopoffset = getLoopoffset(self.state)
         loopnum = (knobnum % KNOBS_PER_ROW) - (loopoffset - 1)
@@ -1052,9 +1051,7 @@ class looper_handler(
                 1, channel_count + 1
             ):  # Loop from 1 to channel_count inclusive
                 ctrl = f"pan_{c}"
-                if self.knobs == 'abs':
-                    self.set(ccval, ctrl, track, loopnum)
-                elif getDeviceSetting("shifted", self.state):
+                if getDeviceSetting("shifted", self.state):
                     if c == 2 and channel_count == 2:
                         self.increase(-delta, ctrl, track, loopnum)
                     else:
@@ -1070,11 +1067,52 @@ class looper_handler(
                     else:
                         self.increase(delta, ctrl, track, loopnum)
         else:
-            if self.knobs == 'abs':
-                self.set(ccval, fun, track, loopnum)
-            else:
-                self.increase(delta, fun, track, loopnum)
+            self.increase(delta, fun, track, loopnum)
         pass
+
+    def cc_change_abs(self, ccnum, ccval):
+        knobnum = ccnum - 48
+        if doLevelsOfSelectedMode(self.state):
+            if knobnum == 0:
+                return
+            level = TRACK_LEVELS[knobnum]
+            if not level:
+                return
+            loopnum = getGlob("selected_loop_num", self.state)
+            if loopnum == -1:
+                return
+            self.set(ccval, level, self.state["tracks"][loopnum], loopnum)
+            return
+        loopoffset = getLoopoffset(self.state)
+        loopnum = (knobnum % KNOBS_PER_ROW) - (loopoffset - 1)
+        tracks = self.state["tracks"]
+        track = tracks.get(loopnum)
+        if track is None:  # Check if track is None
+            return None  # Or handle as needed
+        funnum = knobnum // KNOBS_PER_ROW
+        # todo: this could be larger than 1?
+        funs = ["wet", "pan"]
+        fun = funs[funnum]
+        if fun == "pan":
+            channel_count = int(track.get("channel_count", 0))
+            for c in range(
+                1, channel_count + 1
+            ):  # Loop from 1 to channel_count inclusive
+                ctrl = f"pan_{c}"
+                if getDeviceSetting("shifted", self.state):
+                    self.set(ccval, ctrl, track, loopnum)
+                else:
+                    if channel_count == 2:
+                        if c == 1:
+                            if ccval >= 64:
+                                self.set(2*(ccval - 63.5), ctrl, track, loopnum)
+                        if c == 2:
+                            if ccval <= 64:
+                                self.set(ccval*2, ctrl, track, loopnum)
+                    else:
+                        self.set(ccval, ctrl, track, loopnum)
+        else:
+            self.set(ccval, fun, track, loopnum)
 
     def pad_event(self, evtype, pad):
         submode = getDeviceSetting("submode", self.state)
