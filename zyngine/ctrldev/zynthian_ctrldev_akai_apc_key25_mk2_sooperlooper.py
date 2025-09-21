@@ -1449,11 +1449,11 @@ class looper_handler(
                     # any_pads = set(pads_left) | set(pads_right)
 
                     return lambda x: (
-                        COLORS.COLOR_PURPLE
+                        self.parent.COLOR_SET.COLOR_PURPLE
                         if x in both
-                        else COLORS.COLOR_RED
+                        else self.parent.COLOR_SET.COLOR_RED
                         if x in pads_left
-                        else COLORS.COLOR_BLUE
+                        else self.parent.COLOR_SET.COLOR_BLUE
                         if x in pads_right
                         else self.SL_STATES[track_state]["color"]
                     )
