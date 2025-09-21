@@ -49,6 +49,8 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
     # Function to initialise class
     def __init__(self, state_manager, idev_in, idev_out=None):
         self.shift = False
+        self.mode_cc51 = False
+        self.mode_cc52 = False
         self.press_times = {}
         super().__init__(state_manager, idev_in, idev_out)
         self.sys_ex_header = (0xF0, 0x00, 0x20, 0x29, 0x02, 0x14)
@@ -122,19 +124,21 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
         elif evtype == 0xB:
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
-
-            # Corrected SHIFT button CC from 0x6C to 0x3F
-            if ccnum == 0x3F:
-                # SHIFT
-                self.shift = ccval != 0
-                
-            # New logic for SHIFT + CC 76 (TEMPO)
-            elif self.shift and ccnum == 76:
-                if ccval > 0:
-                    self.state_manager.send_cuia("TEMPO")
-                    return True
             
-            # Time-based ZynSwitch Logic
+            # The Launchkey's physical shift button uses CC 0x3F.
+            if ccnum == 0x3F:
+                self.shift = ccval != 0
+                return True
+
+            # Logic for CC 51 and CC 52, which toggle mixer bank for knobs 1-4
+            elif ccnum == 51 and ev_chan == 0:
+                self.mode_cc51 = (ccval != 0)
+                return True
+            elif ccnum == 52 and ev_chan == 0:
+                self.mode_cc52 = (ccval != 0)
+                return True
+                
+            # Re-added ZynSwitch Logic
             elif ccnum in [74, 75, 76, 77]:
                 # Assign ZynSwitch index based on the CC number
                 zynswitch_index = {74: 0, 75: 1, 77: 2, 76: 3}.get(ccnum)
@@ -161,15 +165,25 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
                         del self.press_times[ccnum]
                 return True
             
-            # Knob logic (Restored from the working file)
-            elif (self.shift and 20 < ccnum < 29) or (20 < ccnum < 25):
-                chain = self.chain_manager.get_chain_by_position(
-                    ccnum - 21, midi=False)
+            # Knob 1-4 logic for mixer channels
+            elif 20 < ccnum < 25:
+                mixer_channel = ccnum - 20
+                if self.mode_cc51:
+                    mixer_channel += 4
+                elif self.mode_cc52:
+                    mixer_channel += 8
+                    
+                chain = self.chain_manager.get_chain_by_position(mixer_channel - 1, midi=False)
                 if chain and chain.mixer_chan is not None and chain.mixer_chan < 17:
                     self.zynmixer.set_level(chain.mixer_chan, ccval / 127.0)
-            elif 24 < ccnum < 29:
-                self.state_manager.send_cuia("ZYNPOT_ABS", [ccnum - 25, ccval/127])
+                return True
             
+            # Knobs 5-8 now always trigger ZYNPOT_ABS
+            ## not sure how to get this to behave like hardware encoders ##
+            elif 24 < ccnum < 29:
+                self.state_manager.send_cuia("ZYNPOT_ABS", [ccnum - 25, ccval / 127])
+                return True
+
             # Original Launchkey MK4 buttons
             elif ccnum == 0 or ccval == 0:
                 return True
