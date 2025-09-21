@@ -7,6 +7,8 @@
 #
 # Copyright (C) 2015-2023 Fernando Moyano <jofemodo@zynthian.org>
 #                         Brian Walton <brian@riban.co.uk>
+#                         Jorge Razon <jrazon@gmail.com>
+#
 #
 #******************************************************************************
 #
@@ -125,6 +127,15 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
             ccnum = ev[1] & 0x7F
             ccval = ev[2] & 0x7F
             
+            # Button mappings for cleaner code
+            button_commands = {
+                0x66: "ARROW_RIGHT",
+                0x67: "ARROW_LEFT",
+                106: "ARROW_UP",
+                107: "ARROW_DOWN",
+                118: "BACK"
+            }
+            
             # The Launchkey's physical shift button uses CC 0x3F.
             if ccnum == 0x3F:
                 self.shift = ccval != 0
@@ -138,35 +149,9 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
                 self.mode_cc52 = (ccval != 0)
                 return True
                 
-            # Re-added ZynSwitch Logic
-            elif ccnum in [74, 75, 76, 77]:
-                # Assign ZynSwitch index based on the CC number
-                zynswitch_index = {74: 0, 75: 1, 77: 2, 76: 3}.get(ccnum)
-
-                if ccval > 0:
-                    # Button press: Record the current time
-                    self.press_times[ccnum] = time()
-                else:
-                    # Button release: Calculate the duration and send the command
-                    if ccnum in self.press_times:
-                        duration = time() - self.press_times[ccnum]
-                        
-                        # Use if/elif to send a single command based on duration
-                        if duration < 0.5:
-                            # Short press
-                            self.state_manager.send_cuia("ZYNSWITCH", [zynswitch_index, 'S'])
-                        elif duration < 1.5:
-                            # Bold press
-                            self.state_manager.send_cuia("ZYNSWITCH", [zynswitch_index, 'B'])
-                        else:
-                            # Long press
-                            self.state_manager.send_cuia("ZYNSWITCH", [zynswitch_index, 'L'])
-                            
-                        del self.press_times[ccnum]
-                return True
-            
-            # Knob 1-4 logic for mixer channels
+            # Consolidated Knob Logic
             elif 20 < ccnum < 25:
+                # Knobs 1-4 for mixer channels
                 mixer_channel = ccnum - 20
                 if self.mode_cc51:
                     mixer_channel += 4
@@ -177,44 +162,59 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
                 if chain and chain.mixer_chan is not None and chain.mixer_chan < 17:
                     self.zynmixer.set_level(chain.mixer_chan, ccval / 127.0)
                 return True
-            
-            # Knobs 5-8 now always trigger ZYNPOT_ABS
-            ## not sure how to get this to behave like hardware encoders ##
             elif 24 < ccnum < 29:
+                # Knobs 5-8 for ZYNPOT_ABS
                 self.state_manager.send_cuia("ZYNPOT_ABS", [ccnum - 25, ccval / 127])
                 return True
 
-            # Original Launchkey MK4 buttons
-            elif ccnum == 0 or ccval == 0:
+            # Combined ZynSwitch and Metronome logic
+            elif ccnum in [74, 75, 76, 77]:
+                # If SHIFT is held and it's the Metronome button (CC 76)
+                if self.shift and ccnum == 76:
+                    if ccval > 0:
+                        self.state_manager.send_cuia("TEMPO")
+                    return True
+                
+                # ZynSwitch logic for button presses and releases
+                zynswitch_index = {74: 0, 75: 1, 76: 3, 77: 2}.get(ccnum)
+                if ccval > 0:
+                    # Button press: Record the current time
+                    self.press_times[ccnum] = time()
+                else:
+                    # Button release: Calculate the duration and send the command
+                    if ccnum in self.press_times:
+                        duration = time() - self.press_times[ccnum]
+                        if duration < 0.5:
+                            # Short press
+                            self.state_manager.send_cuia("ZYNSWITCH", [zynswitch_index, 'S'])
+                        elif duration < 1.5:
+                            # Bold press
+                            self.state_manager.send_cuia("ZYNSWITCH", [zynswitch_index, 'B'])
+                        else:
+                            # Long press
+                            self.state_manager.send_cuia("ZYNSWITCH", [zynswitch_index, 'L'])
+                        del self.press_times[ccnum]
                 return True
-            elif ccnum == 0x66:
-                # TRACK RIGHT
-                self.state_manager.send_cuia("ARROW_RIGHT")
-            elif ccnum == 0x67:
-                # TRACK LEFT
-                self.state_manager.send_cuia("ARROW_LEFT")
-            elif ccnum == 106:
-                # UP
-                self.state_manager.send_cuia("ARROW_UP")
-            elif ccnum == 107:
-                # DOWN
-                self.state_manager.send_cuia("ARROW_DOWN")
-            elif ccnum == 0x73:
-                # PLAY
+
+            # Handle the PLAY and RECORD buttons
+            elif ccnum == 0x73 and ccval > 0:
                 if self.shift:
                     self.state_manager.send_cuia("TOGGLE_MIDI_PLAY")
                 else:
                     self.state_manager.send_cuia("TOGGLE_PLAY")
-            elif ccnum == 0x75:
-                # RECORD
+                return True
+            elif ccnum == 0x75 and ccval > 0:
                 if self.shift:
                     self.state_manager.send_cuia("TOGGLE_MIDI_RECORD")
                 else:
                     self.state_manager.send_cuia("TOGGLE_RECORD")
-                
-            # The original "back" button on CC 118
-            elif ccnum == 118:
-                self.state_manager.send_cuia("BACK")
+                return True
+            
+            # Use the dictionary for the remaining buttons and check for press
+            elif ccnum in button_commands and ccval > 0:
+                self.state_manager.send_cuia(button_commands[ccnum])
+                return True
+            elif ccnum == 0 or ccval == 0:
                 return True
 
         elif evtype == 0xC:
@@ -222,4 +222,4 @@ class zynthian_ctrldev_launchkey_mk4_37(zynthian_ctrldev_zynpad, zynthian_ctrlde
             self.zynseq.select_bank(val1 + 1)
 
         return True
-#-------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------------------------------------
