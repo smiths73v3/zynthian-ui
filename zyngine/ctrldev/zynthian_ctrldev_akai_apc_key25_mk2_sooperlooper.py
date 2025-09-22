@@ -230,6 +230,7 @@ LEVEL_BOUNDS = {
     "pitch_shift": (-12, 12),
     "none": (0, 1),
 }
+
 SYNC_SOURCE_CHARS = {
     # -3 = internal, -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
     -3: 'I',
@@ -745,8 +746,6 @@ class looper_handler(
         "input_gain",
     ]
 
-    knobs = 'rel'
-
     MODE_DEFAULT = 0
     MODE_LEVEL1 = 1
     MODE_LEVEL2 = 2
@@ -812,7 +811,6 @@ class looper_handler(
         self.parent = parent
         self.state = {}
         self.loopcount = 0
-        self._absolute_knobmoves = {}
         self._knobs_ease = KnobSpeedControl()
         self._state_manager = state_manager
         self._default_handler = SubModeDefaultWithGroups(
@@ -967,28 +965,6 @@ class looper_handler(
             new_value = max(0, min(1, curval + delta * 0.1))
         self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
 
-    def set(self, val, ctrl, track, loopnum):
-        val = val/127
-        curval = track.get(ctrl)
-        if curval is None:
-            return
-        value_min = 0
-        value_max = 1
-        if ctrl == 'pitch_shift':
-            value_min = -12
-            value_max = 12
-        value_range = abs(value_max - value_min)
-        value = value_min + val * value_range
-        ctrlid = f'{ctrl}{loopnum}'
-        now = time.perf_counter()
-        then = self._absolute_knobmoves.get(ctrlid)
-        if ((then is not None) and ((now - then) < 1)) or (abs(value - curval) < (abs(value_max - value_min) * 0.01)):
-            new_value = value_min + val * value_range
-            self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
-            self._absolute_knobmoves[ctrlid] = now
-        else:
-            pass
-
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
         if (shifted_override and note == 7):
@@ -1019,10 +995,8 @@ class looper_handler(
         delta = self._knobs_ease.feed(
             ccnum, ccval, getDeviceSetting("shifted", self.state)
         )  # @todo: use self._is_shifted (or not at all?)
-        if self.knobs == 'rel' and delta is None:
+        if delta is None:
             return
-        if self.knobs == 'abs':
-            return self.cc_change_abs(ccnum, ccval)
         knobnum = ccnum - 48
         if doLevelsOfSelectedMode(self.state):
             if knobnum == 0:
@@ -1069,50 +1043,6 @@ class looper_handler(
         else:
             self.increase(delta, fun, track, loopnum)
         pass
-
-    def cc_change_abs(self, ccnum, ccval):
-        knobnum = ccnum - 48
-        if doLevelsOfSelectedMode(self.state):
-            if knobnum == 0:
-                return
-            level = TRACK_LEVELS[knobnum]
-            if not level:
-                return
-            loopnum = getGlob("selected_loop_num", self.state)
-            if loopnum == -1:
-                return
-            self.set(ccval, level, self.state["tracks"][loopnum], loopnum)
-            return
-        loopoffset = getLoopoffset(self.state)
-        loopnum = (knobnum % KNOBS_PER_ROW) - (loopoffset - 1)
-        tracks = self.state["tracks"]
-        track = tracks.get(loopnum)
-        if track is None:  # Check if track is None
-            return None  # Or handle as needed
-        funnum = knobnum // KNOBS_PER_ROW
-        # todo: this could be larger than 1?
-        funs = ["wet", "pan"]
-        fun = funs[funnum]
-        if fun == "pan":
-            channel_count = int(track.get("channel_count", 0))
-            for c in range(
-                1, channel_count + 1
-            ):  # Loop from 1 to channel_count inclusive
-                ctrl = f"pan_{c}"
-                if getDeviceSetting("shifted", self.state):
-                    self.set(ccval, ctrl, track, loopnum)
-                else:
-                    if channel_count == 2:
-                        if c == 1:
-                            if ccval >= 64:
-                                self.set(2*(ccval - 63.5), ctrl, track, loopnum)
-                        if c == 2:
-                            if ccval <= 64:
-                                self.set(ccval*2, ctrl, track, loopnum)
-                    else:
-                        self.set(ccval, ctrl, track, loopnum)
-        else:
-            self.set(ccval, fun, track, loopnum)
 
     def pad_event(self, evtype, pad):
         submode = getDeviceSetting("submode", self.state)

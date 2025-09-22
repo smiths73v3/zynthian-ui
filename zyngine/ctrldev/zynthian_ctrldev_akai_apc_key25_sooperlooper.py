@@ -1,10 +1,12 @@
+import time
+
 from zyncoder.zyncore import lib_zyncore
 
 from zyngine.ctrldev.zynthian_ctrldev_akai_apc_key25 import \
     zynthian_ctrldev_akai_apc_key25, COLORS, BTN_PAD_END
 
 from zyngine.ctrldev.zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper import \
-    zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper, looper_handler, split_every, generator_difference
+    zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper, looper_handler, split_every, generator_difference, TRACK_LEVELS, KNOBS_PER_ROW, getGlob, getLoopoffset, getDeviceSetting
 
 from zyngine.zynthian_engine_sooperlooper import (
     SL_STATE_UNKNOWN,
@@ -138,7 +140,7 @@ SL_STATES = {
     SL_STATE_INSERTING: {
         "name": "insert",
         "idx": 2,
-        "color": COLORS.COLOR_YELLOW,
+        "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_REPLACING: {
@@ -150,7 +152,7 @@ SL_STATES = {
     SL_STATE_SUBSTITUTING: {
         "name": "substitute",
         "idx": 4,
-        "color": COLORS.COLOR_YELLOW,
+        "color": COLORS.COLOR_RED,
         "ledmode": BRIGHTS.LED_BRIGHT_100,
     },
     SL_STATE_DELAYING: {
@@ -231,7 +233,7 @@ class zynthian_ctrldev_akai_apc_key25_sooperlooper(zynthian_ctrldev_akai_apc_key
     def get_autoload_flag(cls):
         return False
 
-    class looper_handler(zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper.looper_handler):
+    class looper_handler(looper_handler):
 
         LEVEL_COLORS = LEVEL_COLORS
         SL_STATES = SL_STATES
@@ -242,7 +244,10 @@ class zynthian_ctrldev_akai_apc_key25_sooperlooper(zynthian_ctrldev_akai_apc_key
         COLOR_EIGHTH_BTN = COLORS.COLOR_YELLOW
         matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_OFF}
         matrixPadColor = {".": COLORS.COLOR_YELLOW, "_": COLORS.COLOR_DARK_GREY}
-        knobs = 'abs'
+
+        def init(self):
+            super().init()
+            self._knobmoves = {}
 
         def render(self):
             pads = self.createAllPads(self.state)
@@ -270,5 +275,74 @@ class zynthian_ctrldev_akai_apc_key25_sooperlooper(zynthian_ctrldev_akai_apc_key
                 msg = bytes(sendable)
                 lib_zyncore.dev_send_midi_event(self.idev_out, msg, len(msg))
             # NOW RENDER
+
+
+        def set(self, val, ctrl, track, loopnum):
+            val = val/127
+            curval = track.get(ctrl)
+            if curval is None:
+                return
+            value_min = 0
+            value_max = 1
+            if ctrl == 'pitch_shift':
+                value_min = -12
+                value_max = 12
+            value_range = abs(value_max - value_min)
+            value = value_min + val * value_range
+            ctrlid = f'{ctrl}{loopnum}'
+            now = time.perf_counter()
+            then = self._knobmoves.get(ctrlid)
+            if ((then is not None) and ((now - then) < 1)) or (abs(value - curval) < (abs(value_max - value_min) * 0.01)):
+                new_value = value_min + val * value_range
+                self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
+                self._knobmoves[ctrlid] = now
+            else:
+                pass
+
+        def cc_change(self, ccnum, ccval):
+            knobnum = ccnum - 48
+            if self._current_handler == self._levels2_handler:
+            # if doLevelsOfSelectedMode(self.state):
+                if knobnum == 0:
+                    return
+                level = TRACK_LEVELS[knobnum]
+                if not level:
+                    return
+                loopnum = getGlob("selected_loop_num", self.state)
+                if loopnum == -1:
+                    return
+                self.set(ccval, level, self.state["tracks"][loopnum], loopnum)
+                return
+            loopoffset = getLoopoffset(self.state)
+            loopnum = (knobnum % KNOBS_PER_ROW) - (loopoffset - 1)
+            tracks = self.state["tracks"]
+            track = tracks.get(loopnum)
+            if track is None:  # Check if track is None
+                return None  # Or handle as needed
+            funnum = knobnum // KNOBS_PER_ROW
+            # todo: this could be larger than 1?
+            funs = ["wet", "pan"]
+            fun = funs[funnum]
+            if fun == "pan":
+                channel_count = int(track.get("channel_count", 0))
+                for c in range(
+                    1, channel_count + 1
+                ):  # Loop from 1 to channel_count inclusive
+                    ctrl = f"pan_{c}"
+                    if getDeviceSetting("shifted", self.state):
+                        self.set(ccval, ctrl, track, loopnum)
+                    else:
+                        if channel_count == 2:
+                            if c == 1:
+                                if ccval >= 64:
+                                    self.set(2*(ccval - 63.5), ctrl, track, loopnum)
+                            if c == 2:
+                                if ccval <= 64:
+                                    self.set(ccval*2, ctrl, track, loopnum)
+                        else:
+                            self.set(ccval, ctrl, track, loopnum)
+            else:
+                self.set(ccval, fun, track, loopnum)
+
 
 
