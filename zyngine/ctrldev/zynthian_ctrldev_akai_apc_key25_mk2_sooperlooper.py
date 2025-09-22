@@ -766,6 +766,10 @@ class looper_handler(
 
     COLOR_LOAD = COLORS.COLOR_DARK_GREEN
     COLOR_SAVE = COLORS.COLOR_ORANGE
+    COLOR_YES = COLORS.COLOR_GREEN
+    COLOR_NO = COLORS.COLOR_RED
+    COLOR_EIGHTHS = COLORS.COLOR_BROWNISH_RED
+    COLOR_EIGHTH_BTN = COLORS.COLOR_BROWN_LIGHT
 
     matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_BRIGHT_10}
     matrixPadColor = {".": COLORS.COLOR_WHITE, "_": COLORS.COLOR_DARK_GREY}
@@ -774,8 +778,7 @@ class looper_handler(
     SL_STATES = SL_STATES
     SETTINGCOLORS = SETTINGCOLORS
 
-    COLOR_EIGHTHS = COLORS.COLOR_BROWNISH_RED
-    COLOR_EIGHTH_BTN = COLORS.COLOR_BROWN_LIGHT
+
 
     @classmethod
     def get_autoload_flag(cls):
@@ -1607,7 +1610,7 @@ class looper_handler(
             confirmation_pads = []
             if (confirmpad is not None):
                 [no, yes] = confirmers(confirmpad, COLS)
-                confirmation_pads = [BRIGHTS.LED_BRIGHT_100, no, COLORS.COLOR_RED, BRIGHTS.LED_BRIGHT_100, yes, COLORS.COLOR_GREEN]
+                confirmation_pads = [BRIGHTS.LED_BRIGHT_100, no, self.COLOR_NO, BRIGHTS.LED_BRIGHT_100, yes, self.COLOR_YES]
 
             return overlay(confirmation_pads, sessionnums, emptycells) + ctrl_keys
 

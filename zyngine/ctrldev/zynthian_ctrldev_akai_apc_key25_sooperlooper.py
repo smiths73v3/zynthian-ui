@@ -239,7 +239,9 @@ class zynthian_ctrldev_akai_apc_key25_sooperlooper(zynthian_ctrldev_akai_apc_key
         SL_STATES = SL_STATES
         SETTINGCOLORS = SETTINGCOLORS
         COLOR_LOAD = COLORS.COLOR_GREEN
-        COLOR_SAVE = COLORS.COLOR_RED
+        COLOR_SAVE = COLORS.COLOR_YELLOW
+        COLOR_YES = COLORS.COLOR_GREEN
+        COLOR_NO = COLORS.COLOR_RED
         COLOR_EIGHTHS = COLORS.COLOR_YELLOW
         COLOR_EIGHTH_BTN = COLORS.COLOR_YELLOW
         matrixPadLedmode = {".": BRIGHTS.LED_BRIGHT_100, "_": BRIGHTS.LED_OFF}
