@@ -74,9 +74,8 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
 
     dev_ids = ["APC Key 25 MIDI 1", "APC Key 25 IN 1"]
     driver_name = 'AKAI APC Key25'
-    unroute_from_chains = True
+    unroute_from_chains = 0b1111111111111101
     on_notes = {}
-
 
     COLOR_SET = COLORS
 
@@ -86,34 +85,6 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
             
         # Direct keybed to chains
         if (channel == 1):
-            if evtype == EV_NOTE_OFF:
-                # get and use old midi_channel, iif any
-                if ev[1] in self.on_notes:
-                    midi_chan = self.on_notes[ev[1]]
-                    status = (ev[0] & 0xF0) | midi_chan
-                    del self.on_notes[ev[1]]
-                    self.zynseq.libseq.sendMidiCommand(status, ev[1], ev[2])
-                    return
-            if evtype == EV_CC and ev[2] == 0:
-                # get and use old midi_channel, iif any
-                if 256 in self.on_notes:
-                    midi_chan = self.on_notes[256]
-                    status = (ev[0] & 0xF0) | midi_chan
-                    del self.on_notes[256]
-                    self.zynseq.libseq.sendMidiCommand(status, ev[1], ev[2])
-                    return
-            chain = self.chain_manager.get_active_chain()
-            # print(chain.midi_chan)
-            # @todo: find out how to get 'last' active chain, for now: just back out.
-            if chain.midi_chan is None:
-                return
-            status = (ev[0] & 0xF0) | chain.midi_chan
-            # save old MIDI channel in case switched to other
-            if evtype == EV_NOTE_ON:
-                self.on_notes[ev[1]] = chain.midi_chan
-            if evtype == EV_CC:
-                self.on_notes[256] = chain.midi_chan
-            self.zynseq.libseq.sendMidiCommand(status, ev[1], ev[2])
             return
 
         return super()._on_midi_event(ev)
