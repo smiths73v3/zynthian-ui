@@ -137,12 +137,16 @@ class zynthian_ctrldev_manager():
         izmop = zynautoconnect.dev_in_2_dev_out(izmip)
         try:
             # Create the driver instance
-            self.drivers[izmip] = driver_class(self.state_manager, izmip, izmop)
+            driver = driver_class(self.state_manager, izmip, izmop)
             # Unroute from chains if driver want it
-            if self.drivers[izmip].unroute_from_chains:
-                lib_zyncore.zmip_set_route_chains(izmip, 0)
+            if driver.unroute_from_chains:
+                if isinstance(driver.unroute_from_chains, bool):
+                    lib_zyncore.zmip_set_ui_midi_chans(izmip, 0xF)
+                elif isinstance(driver.unroute_from_chains, int):
+                    lib_zyncore.zmip_set_ui_midi_chans(izmip, driver.unroute_from_chains)
             # Initialize the driver after creating the instance to enable driver MIDI handler
-            self.drivers[izmip].init() #TODO: Why not call this in the driver _init_()?
+            driver.init()  # TODO: Why not call this in the driver _init_()?
+            self.drivers[izmip] = driver
             if uid in self.disabled_devices:
                 self.disabled_devices.remove(uid)
             logging.info(f"Loaded ctrldev driver '{driver_class.get_driver_name()}' for '{dev_id}'.")
@@ -163,14 +167,15 @@ class zynthian_ctrldev_manager():
         if izmip in self.drivers:
             dev_id = zynautoconnect.get_midi_in_devid(izmip)
             uid = zynautoconnect.get_midi_in_uid(izmip)
-            # Restore route to chains
-            if self.drivers[izmip].unroute_from_chains:
-                lib_zyncore.zmip_set_route_chains(izmip, 1)
-            # Terminate driver instance
-            self.drivers[izmip].end()
+            driver = self.drivers[izmip]
             # Drop from the list => Unload driver!
-            logging.info(f"Unloaded ctrldev driver '{self.drivers[izmip].get_driver_name()}' for '{dev_id}'.")
             self.drivers.pop(izmip)
+            # Restore route to chains
+            if driver.unroute_from_chains:
+                lib_zyncore.zmip_set_ui_midi_chans(izmip, 0)
+            # Terminate driver instance
+            driver.end()
+            logging.info(f"Unloaded ctrldev driver '{driver.get_driver_name()}' for '{dev_id}'.")
             if disable and uid not in self.disabled_devices:
                 self.disabled_devices.append(uid)
             return True
@@ -191,9 +196,10 @@ class zynthian_ctrldev_manager():
 
     def is_input_device_available_to_chains(self, idev):
         if idev in self.drivers and self.drivers[idev].unroute_from_chains:
-            return False
-        else:
-            return True
+            unroute_from_chains = self.drivers[idev].unroute_from_chains
+            if isinstance(unroute_from_chains, bool) or unroute_from_chains == 0xF:
+                return False
+        return True
 
     def get_state_drivers(self):
         state = {}
