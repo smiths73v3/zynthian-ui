@@ -26,7 +26,9 @@
 # ******************************************************************************
 
 import logging
+from multiprocessing import Process
 
+import zynautoconnect
 from zyncoder.zyncore import lib_zyncore
 from zyngine.zynthian_signal_manager import zynsigman
 
@@ -44,6 +46,7 @@ class zynthian_ctrldev_base:
     dev_zynmixer = False    # Can act as an audio mixer controller device
     dev_pated = False		# Can act as a pattern editor device
     enabled = False			# True if device driver is enabled
+    autoload_flag = True    # False to prevent autoloading the driver when device is detected
     # True if input device must be unrouted from chains when driver is loaded
     # Alternately specific MIDI channels can be unrouted by specifying a bitwise mask,
     # For instance, use "0b0000000000001111" to unroute MIDI channels 0 to 3.
@@ -54,7 +57,7 @@ class zynthian_ctrldev_base:
 
     @classmethod
     def get_autoload_flag(cls):
-        return True
+        return cls.autoload_flag
 
     # Function to initialise class
     def __init__(self, state_manager, idev_in, idev_out=None):
@@ -64,6 +67,9 @@ class zynthian_ctrldev_base:
         self.idev = idev_in
         # Slot index where the output device (feedback), if any, is connected, starting from 1 (0 = None)
         self.idev_out = idev_out
+        # OPTIONAL: real-time MIDI processor (jack client), inserted between the input device and zmip
+        self.midiproc_jackname = None
+        self.midiproc = None
 
     # Returns the driver name
     @classmethod
@@ -88,30 +94,58 @@ class zynthian_ctrldev_base:
     # Initialize control device: setup, register signals, etc
     # It *SHOULD* be implemented by child class
     def init(self):
+        self.init_midiproc()
         self.refresh()
 
     # End control device: restore initial state, unregister signals, etc
     # It *SHOULD* be implemented by child class
     def end(self):
-        logging.debug("End() for {}: NOT IMPLEMENTED!".format(
-            type(self).__name__))
+        self.end_midiproc()
+
+    # Spawn midiproc task using multiprocessing API
+    def init_midiproc(self):
+        midiproc_task = getattr(self, "midiproc_task", None)
+        if callable(midiproc_task):
+            try:
+                self.midiproc_jackname = "mididings_" + self.get_driver_name()
+                self.midiproc = Process(target=midiproc_task)
+                self.midiproc.start()
+                zynautoconnect.request_midi_connect()
+            except Exception as e:
+                logging.error(e)
+
+    # Terminate middings process
+    def end_midiproc(self):
+        if self.midiproc:
+            try:
+                self.midiproc.terminate()
+                self.midiproc = None
+                zynautoconnect.request_midi_connect()
+            except Exception as e:
+                logging.error(e)
+
+    # The midiproc task itself. It runs in a spawned process.
+    # *COULD* be implemented by child class
+    # def midiproc_task(self):
+    #    logging.debug(f"midiproc_task() for {type(self).__name__)}: NOT IMPLEMENTED!")
 
     # Refresh full device status (LED feedback, etc)
-    # *SHOULD* be implemented by child class
+    # *COULD* be implemented by child class
     def refresh(self):
-        logging.debug("Refresh LEDs for {}: NOT IMPLEMENTED!".format(
-            type(self).__name__))
+        pass
+        #logging.debug(f"Refresh LEDs for {type(self).__name__}: NOT IMPLEMENTED!")
 
     # Device MIDI event handler
-    # *SHOULD* be implemented by child class
+    # *COULD* be implemented by child class
     def midi_event(self, ev):
-        logging.debug("MIDI EVENT FROM '{}'".format(type(self).__name__))
+        pass
+        #logging.debug(f"MIDI EVENT for '{type(self).__name__}'")
 
     # Light-Off LEDs
-    # *SHOULD* be implemented by child class
+    # *COULD* be implemented by child class
     def light_off(self):
-        logging.debug("Lighting Off LEDs for {}: NOT IMPLEMENTED!".format(
-            type(self).__name__))
+        pass
+        #logging.debug(f"Lighting Off LEDs for {type(self).__name__}: NOT IMPLEMENTED!")
 
     # Sleep On
     # *COULD* be improved by child class
@@ -162,6 +196,7 @@ class zynthian_ctrldev_zynpad(zynthian_ctrldev_base):
         zynsigman.unregister(zynsigman.S_STEPSEQ,
                              self.zynseq.SS_SEQ_REFRESH, self.refresh)
         self.light_off()
+        super().end()
 
     def update_seq_bank(self):
         """Update hardware indicators for active bank and refresh sequence state as needed.
@@ -179,8 +214,7 @@ class zynthian_ctrldev_zynpad(zynthian_ctrldev_base):
         mode - sequence's mode
         group - sequence's group
         """
-        logging.debug("Update sequence playing state for {}: NOT IMPLEMENTED!".format(
-            type(self).__name__))
+        logging.debug(f"Update sequence playing state for {type(self).__name__}: NOT IMPLEMENTED!")
 
     def pad_off(self, col, row):
         """Light-Off the pad specified with column & row
@@ -206,8 +240,7 @@ class zynthian_ctrldev_zynpad(zynthian_ctrldev_base):
                     mode = (state >> 8) & 0xFF
                     group = (state >> 16) & 0xFF
                     state &= 0xFF
-                    self.update_seq_state(
-                        bank=self.zynseq.bank, seq=seq, state=state, mode=mode, group=group)
+                    self.update_seq_state(bank=self.zynseq.bank, seq=seq, state=state, mode=mode, group=group)
 
 
 # ------------------------------------------------------------------------------------------------------------------
@@ -238,6 +271,7 @@ class zynthian_ctrldev_zynmixer(zynthian_ctrldev_base):
         zynsigman.unregister(
             zynsigman.S_AUDIO_MIXER, self.zynmixer.SS_ZCTRL_SET_VALUE, self.update_mixer_strip)
         self.light_off()
+        super().end()
 
     def update_mixer_strip(self, chan, symbol, value):
         """Update hardware indicators for a mixer strip: mute, solo, level, balance, etc.
@@ -247,8 +281,7 @@ class zynthian_ctrldev_zynmixer(zynthian_ctrldev_base):
         symbol - Control name
         value - Control value
         """
-        logging.debug(
-            f"Update mixer strip for {type(self).__name__}: NOT IMPLEMENTED!")
+        logging.debug(f"Update mixer strip for {type(self).__name__}: NOT IMPLEMENTED!")
 
     def update_mixer_active_chain(self, active_chain):
         """Update hardware indicators for active_chain
@@ -256,8 +289,7 @@ class zynthian_ctrldev_zynmixer(zynthian_ctrldev_base):
 
         active_chain - Active chain
         """
-        logging.debug(
-            f"Update mixer active chain for {type(self).__name__}: NOT IMPLEMENTED!")
+        logging.debug(f"Update mixer active chain for {type(self).__name__}: NOT IMPLEMENTED!")
 
 
 # --------------------------------------------------------------------------
