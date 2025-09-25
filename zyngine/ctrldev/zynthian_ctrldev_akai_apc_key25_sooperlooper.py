@@ -295,7 +295,7 @@ class zynthian_ctrldev_akai_apc_key25_sooperlooper(zynthian_ctrldev_akai_apc_key
             ctrlid = f'{ctrl}{loopnum}'
             now = time.perf_counter()
             then = self._knobmoves.get(ctrlid)
-            if ((then is not None) and ((now - then) < 1)) or (abs(value - curval) < (abs(value_max - value_min) * 0.01)):
+            if ((then is not None) and ((now - then) < 0.2)) or (abs(value - curval) < (abs(value_max - value_min) * 0.01)):
                 new_value = value_min + val * value_range
                 self.just_send(f"/sl/{loopnum}/set", ("s", ctrl), ("f", new_value))
                 self._knobmoves[ctrlid] = now
