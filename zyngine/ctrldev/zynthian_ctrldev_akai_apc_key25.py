@@ -1,3 +1,4 @@
+import time
 from zyngine.ctrldev.zynthian_ctrldev_akai_apc_key25_mk2 import \
     zynthian_ctrldev_akai_apc_key25_mk2, NotePad, KNOB_1, KNOB_LAYER, KNOB_2, KNOB_SNAPSHOT, KNOB_3, \
 KNOB_4,\
@@ -113,6 +114,10 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
         
     class MixerHandler(zynthian_ctrldev_akai_apc_key25_mk2.MixerHandler):
 
+        def __init__(self, state_manager,  leds: zynthian_ctrldev_akai_apc_key25_mk2.FeedbackLEDs):
+            self._knobmoves = {}
+            super().__init__(state_manager, leds)
+
         def _update_control(self, type, ccnum, ccval, minv, maxv):
             if self._is_shifted:
                 # Only main chain is handled with SHIFT, ignore the rest
@@ -126,19 +131,32 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                     return False
                 mixer_chan = chain.mixer_chan
 
+            ctrlid = f'{type}{mixer_chan}'
+            now = time.perf_counter()
+            then = self._knobmoves.get(ctrlid)
+            within_time = ((then is not None) and ((now - then) < 0.2))
+            cval = ccval / 127
+
             if type == "level":
-                value = (ccval * 100 ) / 127
-                set_value = self._zynmixer.set_level
+                val = cval
+                old_value = self._zynmixer.get_level(mixer_chan)
+                if within_time or abs(val - old_value) < 0.01:
+                    self._zynmixer.set_level(mixer_chan, max(0, min(1, val)))
+                    self._knobmoves[ctrlid] = now
+                    return True
+                else:
+                    return False
             elif type == "balance":
-                value = ((ccval * 100) / 63.5) - 100
-                set_value = self._zynmixer.set_balance
+                val = -1 + cval * 2
+                old_value = self._zynmixer.get_balance(mixer_chan)
+                if within_time or abs(val - old_value) < (1 - -1) * 0.01:
+                    self._knobmoves[ctrlid] = now
+                    self._zynmixer.set_balance(mixer_chan, max(-1, min(1, val)))
+                    return True
+                else:
+                    return False
             else:
                 return False
-
-            # NOTE: knobs are pots, not encoders (so ccval is absolute)
-            value = max(minv, min(value, maxv))
-            set_value(mixer_chan, value / 100)
-            return True
         
     class PadMatrixHandler(zynthian_ctrldev_akai_apc_key25_mk2.PadMatrixHandler):
             # Just make a pattern...
