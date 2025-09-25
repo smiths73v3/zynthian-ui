@@ -195,6 +195,10 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
         COLOR_VELOCITY = COLOR_CLEAR = COLOR_SELECTED = COLORS.COLOR_RED
         COLOR_COPY = COLORS.COLOR_YELLOW
 
+        def __init__(self, state_manager,  leds: zynthian_ctrldev_akai_apc_key25_mk2.FeedbackLEDs, dev_idx):
+            self._knobmoves = {}
+            super().__init__(state_manager, leds, dev_idx)
+
         # NOTE: Do NOT change argument names here (is called using keyword args)
         def _on_midi_note_on(self, izmip, chan, note, vel):
             # Skip own device events / not assigning mode
@@ -321,8 +325,19 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
             if ccnum == KNOB_1:
                 self._show_screen_briefly(
                     screen="tempo", cuia="TEMPO", timeout=1500)
-                val = 13.2 + ((ccval / 127) * (420 - 13.2))
-                self._zynseq.set_tempo(val)
+                cval = ccval / 127
+                curval = self._zynseq.get_tempo()
+                min = 13.2
+                max = 420
+                val = min + (cval * (max - min))
+                ctrlid = 'tempo'
+                now = time.perf_counter()
+                then = self._knobmoves.get(ctrlid)
+                within_time = ((then is not None) and ((now - then) < 0.2))
+
+                if within_time or (abs(curval - val) < ((max - min) * 0.01)):
+                    self._zynseq.set_tempo(val)
+                    self._knobmoves[ctrlid] = now
 
             # Update sequence's chain volume
             elif ccnum == KNOB_2:
@@ -333,6 +348,16 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                 chain = self._chain_manager.chains.get(chain_id)
                 if chain is not None:
                     mixer_chan = chain.mixer_chan
-                    level = max(
-                        0, min(100, ccval / 1.27))
-                    self._zynmixer.set_level(mixer_chan, level / 100)
+                    cval = ccval / 127
+                    curval = self._zynmixer.get_level(mixer_chan)
+                    min = 0
+                    max = 1
+                    val = min + (cval * (max - min))
+                    ctrlid = f'level{mixer_chan}'
+                    now = time.perf_counter()
+                    then = self._knobmoves.get(ctrlid)
+                    within_time = ((then is not None) and ((now - then) < 0.2))
+
+                    if within_time or (abs(curval - val) < ((max - min) * 0.01)):
+                        self._zynmixer.set_level(mixer_chan, val)
+                        self._knobmoves[ctrlid] = now
