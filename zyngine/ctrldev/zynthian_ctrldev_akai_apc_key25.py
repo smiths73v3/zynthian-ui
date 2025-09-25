@@ -15,17 +15,9 @@ EV_CC, \
 BTN_PAD_END, \
 LED_PULSING_8
 
-
-
-# from zyngui import zynthian_gui_config
-
 from zyncoder.zyncore import lib_zyncore
-   # lib_zyncore.get_active_midi_chan() does not work
 
-
-# APC Key25 MK2 LED colors and modes
-
-
+# APC Key25 (gen 1) LED colors and modes
 class COLORS:
     COLOR_BLACK = 0x00
     COLOR_DARK_GREY = 0x01
@@ -107,9 +99,6 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
     class DeviceHandler(zynthian_ctrldev_akai_apc_key25_mk2.DeviceHandler):
 
         def cc_change(self, ccnum, ccval):
-            #delta = self._knobs_ease.feed(ccnum, ccval, self._is_shifted)
-            #if delta is None:
-            #    return
 
             zynpot = {
                 KNOB_LAYER: 0,
