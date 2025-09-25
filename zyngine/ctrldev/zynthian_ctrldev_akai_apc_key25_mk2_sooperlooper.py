@@ -2100,7 +2100,44 @@ class SubModePan(ModeHandlerBase):
             return
         if args.track >= self.parent.loopcount:
             return SubModeDefault.handle_loop_operations(self, args.numpad)
+        if args.pad < ((ROWS - 1) * COLS):
+            return self.handle_pan(args)
         return
+
+    def handle_pan(self, args: EventArgs):
+        stateTrack = args.stateTrack
+        if not stateTrack:
+            return
+
+        channel_count = int(stateTrack.get("channel_count", 0))
+        for c in range(
+            1, channel_count + 1
+        ):  # Loop from 1 to channel_count inclusive
+            ctrl = f"pan_{c}"
+            storedValue = stateTrack.get(ctrl)
+            if storedValue is None:
+                return
+            if channel_count == 2:
+                if c == 1:
+                    value = 0
+                    if args.numpad > 3:
+                        value = (args.numpad - 4) / 3
+                if c == 2:
+                    value = 1
+                    if args.numpad < 4:
+                        value = args.numpad / 3
+            else:
+                if 2 < args.numpad < 5:
+                    value = 0.5
+                    if value == storedValue:
+                        if args.numpad == 3:
+                            value = 0.45
+                        else:
+                            value = 0.6
+                else:
+                    value = args.numpad / 7
+            self.parent.dispatch(trackAction(args.track, ctrl, value))
+            self.parent.just_send(f"/sl/{args.track}/set", ("s", ctrl), ("f", value))
 
 class SubModeGroups(ModeHandlerBase):
     """Submode to handle groups of loops"""
