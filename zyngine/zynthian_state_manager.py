@@ -1937,6 +1937,7 @@ class zynthian_state_manager:
 
                 if "midi_cc" in state:
                     for chan_cc, cfg in state["midi_cc"].items():
+                        chan_cc = int(chan_cc)
                         for proc_id, symbol in cfg:
                             try:
                                 processor = self.chain_manager.processors[proc_id]

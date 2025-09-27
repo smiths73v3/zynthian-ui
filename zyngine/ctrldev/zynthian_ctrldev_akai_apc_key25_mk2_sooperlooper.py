@@ -2452,6 +2452,9 @@ class SubModeSessionsLoad(ModeHandlerBase):
 class zynthian_ctrldev_akai_apc_key25_mk2_sooperlooper(zynthian_ctrldev_akai_apc_key25_mk2):
 
     driver_name = 'AKAI APC Key25 MK2 + SL'
+    driver_description = 'Full UI integration with SooperLooper extension'
+    autoload_flag = False
+
     looper_handler = looper_handler
 
     @classmethod

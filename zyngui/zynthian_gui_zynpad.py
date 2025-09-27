@@ -113,6 +113,7 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
         self.zynseq.libseq.updateSequenceInfo()
         self.setup_zynpots()
         self.refresh_status(True)
+        self.refresh_trigger_params()
         if self.param_editor_zctrl == None:
             self.set_title(f"Scene {self.bank}")
         zynsigman.register(
@@ -738,14 +739,21 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
     # **************************************************************************
 
     def refresh_trigger_params(self):
+        """
+        Trigger channel is 0 for none, 1..16 for MIDI channel or 255 for all
+        """
         trig_chan = self.zynseq.libseq.getTriggerChannel()
         if trig_chan == 0:
             self.trigger_channel = None
+        elif trig_chan == 255:
+            self.trigger_channel = 255
         else:
             self.trigger_channel = trig_chan - 1
         trig_dev = self.zynseq.libseq.getTriggerDevice()
         if trig_dev == 0:
             self.trigger_device = None
+        elif trig_dev == 255:
+            self.trigger_device = 255
         else:
             self.trigger_device = trig_dev - 1
 

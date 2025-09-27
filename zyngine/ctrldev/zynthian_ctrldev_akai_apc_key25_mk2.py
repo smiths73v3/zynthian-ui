@@ -2589,6 +2589,7 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
 
     dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
     driver_name = 'AKAI APC Key25 MK2'
+    driver_description = 'Full UI integration'
 
     COLOR_SET = COLORS
     FeedbackLEDs = FeedbackLEDs
@@ -2596,10 +2597,6 @@ class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ct
     DeviceHandler = DeviceHandler
     PadMatrixHandler = PadMatrixHandler
     StepSeqHandler = StepSeqHandler
-
-    @classmethod
-    def get_autoload_flag(cls):
-        return True
 
     def __init__(self, state_manager, idev_in, idev_out=None):
         self._leds = self.FeedbackLEDs(idev_out)
