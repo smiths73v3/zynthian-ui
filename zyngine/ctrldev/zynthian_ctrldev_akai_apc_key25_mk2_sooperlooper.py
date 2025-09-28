@@ -244,6 +244,8 @@ def syncSourceChar(source):
         return source
     return SYNC_SOURCE_CHARS.get(source, '')
 
+QUANT_CHARS = ['-', 'C', 8, 'L']
+
 # @todo factor out this from here and zynthian_engine_sooperlooper?
 # ------------------------------------------------------------------------------
 # Sooper Looper State Codes
@@ -414,10 +416,10 @@ SETTINGCOLORS = [
         COLORS.COLOR_BLUE_DARK,
     ],
     [
-        COLORS.COLOR_WHITE,
-        COLORS.COLOR_ORANGE,
-        COLORS.COLOR_BROWNISH_RED,
-        COLORS.COLOR_BLUE,
+        COLORS.COLOR_WHITE,        # off
+        COLORS.COLOR_ORANGE,       # cycle
+        COLORS.COLOR_BROWNISH_RED, # 8th
+        COLORS.COLOR_BLUE,         # loop
     ],
 ]
 PATH_LOOP_OFFSET = ["device", "loopoffset"]
@@ -432,7 +434,9 @@ CHARS = {
     8: ["...", "._.", "...", "._.", "..."],
     9: ["_._", "._.", "...", "__.", "..."],
     0: ["_._", "._.", "._.", "._.", "_._"],
+   'C': ["...", ".__", ".__", ".__", "..."],
    'J': ["...", "__.", "__.", "._.", "_._"],
+   'L': [".__", ".__", ".__", ".__", "..."],
    'M': ["._.", "...", "._.", "._.", "._."],
    'I': ["...", "_._", "_._", "_._", "..."],
    '': ["___", "___", "___", "___", "___"],
@@ -1646,8 +1650,12 @@ class looper_handler(
                     )
                 else:
                     return overlay(self.make_loopnum_overlay(firstLoop, 5), pads)
+            elif getDeviceSetting("showquant", state):
+                return overlay(self.make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 0), 
+                                self.make_loopnum_overlay(QUANT_CHARS[int(tracks.get(0).get('quantize', 0))], 4), 
+                                pads)
             elif getDeviceSetting("showsource", state):
-                return overlay(self.make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 1), pads)
+                return overlay(self.make_loopnum_overlay(syncSourceChar(getGlob('sync_source', state)), 0), pads)
             elif getDeviceSetting("group-selecting", state):
                 groupnum = getDeviceSetting("group-selected", state)
                 loops = getAny(["device", "groups", groupnum, "loops"], state) or []
@@ -2288,6 +2296,7 @@ class SubModeSync(ModeHandlerBase):
     def set_active(self, active):
         super().set_active(active)
         self.parent.dispatch(deviceAction("showsource", None))
+        self.parent.dispatch(deviceAction("showquant", None))
 
     def on_pad(self, args: EventArgs):
         # @todo: numpad 6 and row 2 and 3 would be better to get multiples of 8
@@ -2326,6 +2335,8 @@ class SubModeSync(ModeHandlerBase):
         if evtype == EV_NOTE_OFF:
             if track == -1 and numpad == 6:
                 self.parent.dispatch(deviceAction('showsource', None))
+            if numpad == 7:
+                self.parent.dispatch(deviceAction('showquant', None))
             return
         if numpad < 6:
             if stateTrack is None:
@@ -2336,13 +2347,20 @@ class SubModeSync(ModeHandlerBase):
                 setting,
                 int(not stateTrack.get(setting, False)),  # Convert boolean to int
             )
+            return
 
         if track == -1 and numpad == 7:
             # NOTE: it seems just loop 1's setting is used for all
-            quant = int(tracks.get(0).get("quantize", -1))  # Default to -1 if not found
+            setting = "quantize"
+            quant = int(tracks.get(0).get(setting, -1))  # Default to -1 if not found
             if quant is None:  # Check for NaN equivalent
                 quant = -1
-            self.parent.just_send(f"/sl/{track}/set", "quantize", (quant + 1) % 4)
+            self.parent.just_send(f"/sl/{track}/set", setting, (quant + 1) % 4)
+            self.parent.dispatch(deviceAction('showquant', True))
+            return
+
+        if numpad == 7:
+            self.parent.dispatch(deviceAction('showquant', True))
 
         if track == -1 and numpad == 6:
             # -3 = internal, -2 = midi, -1 = jack, 0 = none, # > 0 = loop number (1 indexed)
