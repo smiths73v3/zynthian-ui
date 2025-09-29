@@ -364,14 +364,18 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
             */
             case MIDI_START:
                 g_nBar = 1;
-            case MIDI_CONTINUE:
                 if (nState != JackTransportRolling)
                     transportStart("zynseq");
                 nState   = JackTransportRolling;
                 g_nClock = 0;
                 g_nMidiClock == 0;
                 nLastBeatFrame = 0;
-                g_nBeat        = 1; //!@todo This should be reset with START, not CONTINUE but currently used for bar sync
+                g_nBeat        = 1;
+                break;
+            case MIDI_CONTINUE:
+                if (nState != JackTransportRolling)
+                    transportStart("zynseq");
+                nState   = JackTransportRolling;
                 break;
             case MIDI_CLOCK:
                 if (g_nClockSource & TRANSPORT_CLOCK_MIDI) {
@@ -575,7 +579,7 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
         }
         // g_nTick = g_dTicksPerBeat - nRemainingFrames / getFramesPerTick(g_dTempo);
 
-        if (g_nPlayingSequences == 0) {
+        if (g_nPlayingSequences == 0 && (g_nClockSource & TRANSPORT_CLOCK_INTERNAL)) {
             DPRINTF("Stopping transport because no sequences playing clock: %u beat: %u tick: %u\n", g_nClock, g_nBeat, g_nTick);
             transportStop("zynseq");
             g_nMetronomePtr = -1;
@@ -2050,9 +2054,9 @@ bool isEmpty(uint8_t bank, uint8_t sequence) { return g_seqMan.getSequence(bank,
 void setPlayState(uint8_t bank, uint8_t sequence, uint8_t state) {
     if (transportGetPlayStatus() != JackTransportRolling) {
         if (state == STARTING) {
-            setTransportToStartOfBar();
             if (g_nClockSource & TRANSPORT_CLOCK_INTERNAL)
-                transportStart("zynseq");
+                setTransportToStartOfBar();
+            transportStart("zynseq");
         } else if (state == STOPPING)
             state = STOPPED;
     }
@@ -2144,12 +2148,10 @@ void setSequencesInBank(uint8_t bank, uint8_t sequences) {
     g_bMutex = true;
     g_seqMan.setSequencesInBank(bank, sequences);
     g_bMutex    = false;
-    g_pSequence = g_seqMan.getSequence(0, 0);
+    g_pSequence = g_seqMan.getSequence(bank, 0);
 }
 
 uint32_t getSequencesInBank(uint32_t bank) { return g_seqMan.getSequencesInBank(bank); }
-
-void clearBank(uint32_t bank) { g_seqMan.clearBank(bank); }
 
 // ** Sequence management functions **
 

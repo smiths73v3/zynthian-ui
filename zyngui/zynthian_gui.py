@@ -187,6 +187,8 @@ class zynthian_gui:
         self.osc_clients = {}
         self.osc_heartbeat_timeout = 120  # Heartbeat timeout period
 
+        self.prog_change = [0] * 16 # Track last program change for each MIDI channel
+
     # ---------------------------------------------------------------------------
     # Capture Log
     # ---------------------------------------------------------------------------
@@ -1691,7 +1693,6 @@ class zynthian_gui:
     # MIDI CUIAs
     def cuia_program_change(self, params=None):
         if len(params) > 0:
-            pgm = int(params[0])
             if len(params) > 1:
                 chan = int(params[1])
             else:
@@ -1701,8 +1702,15 @@ class zynthian_gui:
                         chan = 0
                 except:
                     chan = 0
+            if params[0] == "+":
+                pgm = self.prog_change[chan] + 1
+            elif params[0] == "-":
+                pgm = self.prog_change[chan] - 1
+            else:
+                pgm = int(params[0])
             if 0 <= chan < 16 and 0 <= pgm < 128:
                 lib_zyncore.write_zynmidi_program_change(chan, pgm)
+                self.prog_change[chan] = pgm
 
     def cuia_zyn_cc(self, params=None):
         if len(params) > 2:
