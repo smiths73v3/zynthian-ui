@@ -945,6 +945,7 @@ class zynthian_gui_mixer(zynthian_gui_base.zynthian_gui_base):
     def build_view(self):
         """ Function to handle showing display
         """
+        self.refresh_visible_strips()
         if zynthian_gui_config.enable_touch_navigation and self.moving_chain or self.zynmixer.midi_learn_zctrl:
             self.show_back_button()
 
