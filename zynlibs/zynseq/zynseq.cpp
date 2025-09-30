@@ -2144,12 +2144,10 @@ void setSequencesInBank(uint8_t bank, uint8_t sequences) {
     g_bMutex = true;
     g_seqMan.setSequencesInBank(bank, sequences);
     g_bMutex    = false;
-    g_pSequence = g_seqMan.getSequence(0, 0);
+    g_pSequence = g_seqMan.getSequence(bank, 0);
 }
 
 uint32_t getSequencesInBank(uint32_t bank) { return g_seqMan.getSequencesInBank(bank); }
-
-void clearBank(uint32_t bank) { g_seqMan.clearBank(bank); }
 
 // ** Sequence management functions **
 
