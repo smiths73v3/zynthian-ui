@@ -1883,6 +1883,8 @@ class zynthian_state_manager:
                     routed_chains.append(ch)
             mcstate[uid] = {
                 "zmip_input_mode": bool(lib_zyncore.zmip_get_flag_active_chain(izmip)),
+                "zmip_system": bool(lib_zyncore.zmip_get_flag_system(izmip)),
+                "zmip_system_rt": bool(lib_zyncore.zmip_get_flag_system_rt(izmip)),
                 "disable_ctrldev": self.ctrldev_manager.get_disabled_driver(uid),
                 "ctrldev_driver": self.ctrldev_manager.get_driver_class_name(izmip),
                 "routed_chains": routed_chains
@@ -1922,12 +1924,20 @@ class zynthian_state_manager:
                 except:
                     pass
                 try:
+                    lib_zyncore.zmip_set_flag_system(izmip, bool(state["zmip_system"]))
+                except:
+                    pass
+                try:
+                    lib_zyncore.zmip_set_flag_system_rt(izmip, bool(state["zmip_system_rt"]))
+                except:
+                    pass
+                try:
                     self.aubio_in = state["audio_in"]
                 except:
                     pass
                 zynautoconnect.update_midi_in_dev_mode(izmip)
                 try:
-                    #TODO: Use ctrldev_driver=None to disable driver
+                    # TODO: Use ctrldev_driver=None to disable driver
                     if state["disable_ctrldev"]:
                         self.ctrldev_manager.unload_driver(izmip, True)
                     else:
