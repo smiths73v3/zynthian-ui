@@ -611,6 +611,9 @@ class zynthian_state_manager:
                 status_midi_player = libsmf.getPlayState()
                 if self.status_midi_player != status_midi_player:
                     self.status_midi_player = status_midi_player
+                    if status_midi_player == 0:
+                        self.zynseq.transport_stop("zynsmf")
+
                     zynsigman.send(zynsigman.S_STATE_MAN, self.SS_MIDI_PLAYER_STATE, state=status_midi_player)
 
                 # MIDI Recorder
@@ -1523,6 +1526,26 @@ class zynthian_state_manager:
             zynautoconnect.request_audio_connect(True)
         return True
 
+    def get_next_zs3_index(self):
+        used_indexes = []
+        for zid, state in self.zs3.items():
+            if state['title'].startswith("ZS3-"):
+                try:
+                    used_indexes.append(int(state['title'].split('-')[1]))
+                except:
+                    pass
+            elif zid.startswith("zs3-"):
+                try:
+                    used_ids.append(int(zid.split('-')[1]))
+                except:
+                    pass
+
+        used_indexes.sort()
+        try:
+            return max(used_indexes[-1] + 1, len(self.zs3))
+        except:
+            return len(self.zs3)
+
     def save_zs3(self, zs3_id=None, title=None):
         """Store current state as ZS3
 
@@ -1530,30 +1553,21 @@ class zynthian_state_manager:
         title : ZS3 title (Default: Create new title)
         """
 
+        index = self.get_next_zs3_index()
+
         if zs3_id is None:
-            # Get next id and name
-            used_ids = []
-            for zid in self.zs3:
-                if zid.startswith("zs3-"):
-                    try:
-                        used_ids.append(int(zid.split('-')[1]))
-                    except:
-                        pass
-            used_ids.sort()
-            # Get next free zs3 id
-            for index in range(1, len(used_ids) + 2):
-                if index not in used_ids:
-                    zs3_id = f"zs3-{index}"
-                    break
+            zs3_id = f"zs3-{index}"
 
         if title is None:
             title = self.midi_learn_pc
 
         if not title:
+            # Existing ZS3s => keep current title
             if zs3_id in self.zs3:
                 title = self.zs3[zs3_id]['title']
+            # New ZS3 => autogenerate title
             else:
-                title = zs3_id.upper()
+                title = f"ZS3-{index}"
 
         # Initialise zs3
         self.zs3[zs3_id] = {
@@ -1872,6 +1886,8 @@ class zynthian_state_manager:
                     routed_chains.append(ch)
             mcstate[uid] = {
                 "zmip_input_mode": bool(lib_zyncore.zmip_get_flag_active_chain(izmip)),
+                "zmip_system": bool(lib_zyncore.zmip_get_flag_system(izmip)),
+                "zmip_system_rt": bool(lib_zyncore.zmip_get_flag_system_rt(izmip)),
                 "disable_ctrldev": self.ctrldev_manager.get_disabled_driver(uid),
                 "ctrldev_driver": self.ctrldev_manager.get_driver_class_name(izmip),
                 "routed_chains": routed_chains
@@ -1911,12 +1927,20 @@ class zynthian_state_manager:
                 except:
                     pass
                 try:
+                    lib_zyncore.zmip_set_flag_system(izmip, bool(state["zmip_system"]))
+                except:
+                    pass
+                try:
+                    lib_zyncore.zmip_set_flag_system_rt(izmip, bool(state["zmip_system_rt"]))
+                except:
+                    pass
+                try:
                     self.aubio_in = state["audio_in"]
                 except:
                     pass
                 zynautoconnect.update_midi_in_dev_mode(izmip)
                 try:
-                    #TODO: Use ctrldev_driver=None to disable driver
+                    # TODO: Use ctrldev_driver=None to disable driver
                     if state["disable_ctrldev"]:
                         self.ctrldev_manager.unload_driver(izmip, True)
                     else:
