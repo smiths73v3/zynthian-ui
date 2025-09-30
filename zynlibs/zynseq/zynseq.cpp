@@ -2395,11 +2395,6 @@ void transportStop(const char* client) {
     g_bClientPlaying = (g_setTransportClient.size() != 0);
     if (g_bClientPlaying)
         return;
-    else {
-        for (auto it: g_setTransportClient) {
-            fprintf(stderr, "   %s\n", it.c_str());
-        }
-    }
     jack_transport_stop(g_pJackClient);
     if (g_nClockSource & TRANSPORT_CLOCK_INTERNAL) {
         // Send MIDI stop message
