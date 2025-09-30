@@ -4,7 +4,7 @@
  *
  * Library providing step sequencer as a Jack connected device
  *
- * Copyright (C) 2020-2023 Brian Walton <brian@riban.co.uk>
+ * Copyright (C) 2020-2025 Brian Walton <brian@riban.co.uk>
  *
  * ******************************************************************
  *
@@ -364,18 +364,24 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
             */
             case MIDI_START:
                 g_nBar = 1;
-                if (nState != JackTransportRolling)
-                    transportStart("zynseq");
-                nState   = JackTransportRolling;
+                g_bMutex = false;
+                transportStart("zynseq");
+                while (g_bMutex)
+                    std::this_thread::sleep_for(std::chrono::microseconds(10));
+                g_bMutex = true;
+                nState = JackTransportRolling;
                 g_nClock = 0;
-                g_nMidiClock == 0;
+                g_nMidiClock = 0;
                 nLastBeatFrame = 0;
-                g_nBeat        = 1;
+                g_nBeat = 1;
                 break;
             case MIDI_CONTINUE:
-                if (nState != JackTransportRolling)
-                    transportStart("zynseq");
-                nState   = JackTransportRolling;
+                g_bMutex = false;
+                transportStart("zynseq");
+                while (g_bMutex)
+                    std::this_thread::sleep_for(std::chrono::microseconds(10));
+                g_bMutex = true;
+                nState = JackTransportRolling;
                 break;
             case MIDI_CLOCK:
                 if (g_nClockSource & TRANSPORT_CLOCK_MIDI) {
@@ -561,12 +567,11 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
                 g_nClock = 0;
                 if (++g_nBeat > g_nBeatsPerBar) {
                     g_nBeat = 1;
-                    if (g_bClientPlaying) //!@todo This will advance bar and stop manual beats per bar changes working when other clients are playing
-                        ++g_nBar;
+                    ++g_nBar;
                 }
                 DPRINTF("Beat %u of %u\n", g_nBeat, g_nBeatsPerBar);
             }
-            if (g_bSendMidiClock && g_nPlayingSequences) {
+            if (g_bSendMidiClock && g_bClientPlaying) {
                 // Add a MIDI clock to the queue
                 jack_nframes_t nClockTime = g_qClockPos.front().first - nNow;
                 //if (bSync)
@@ -580,8 +585,12 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
         // g_nTick = g_dTicksPerBeat - nRemainingFrames / getFramesPerTick(g_dTempo);
 
         if (g_nPlayingSequences == 0 && (g_nClockSource & TRANSPORT_CLOCK_INTERNAL)) {
-            DPRINTF("Stopping transport because no sequences playing clock: %u beat: %u tick: %u\n", g_nClock, g_nBeat, g_nTick);
+            DPRINTF("Stopping transport because no sequences playing now: %u clock: %u beat: %u tick: %u\n", nNow, g_nClock, g_nBeat, g_nTick);
+            g_bMutex = false;
             transportStop("zynseq");
+            while (g_bMutex)
+                std::this_thread::sleep_for(std::chrono::microseconds(10));
+            g_bMutex = true;
             g_nMetronomePtr = -1;
             // if(g_nClockSource & TRANSPORT_CLOCK_INTERNAL)
             {
@@ -2052,7 +2061,7 @@ uint8_t getPlayState(uint8_t bank, uint8_t sequence) { return g_seqMan.getSequen
 bool isEmpty(uint8_t bank, uint8_t sequence) { return g_seqMan.getSequence(bank, sequence)->isEmpty(); }
 
 void setPlayState(uint8_t bank, uint8_t sequence, uint8_t state) {
-    if (transportGetPlayStatus() != JackTransportRolling) {
+    if (g_nPlayingSequences == 0) {
         if (state == STARTING) {
             if (g_nClockSource & TRANSPORT_CLOCK_INTERNAL)
                 setTransportToStartOfBar();
@@ -2060,18 +2069,7 @@ void setPlayState(uint8_t bank, uint8_t sequence, uint8_t state) {
         } else if (state == STOPPING)
             state = STOPPED;
     }
-    g_seqMan.setSequencePlayState(bank, sequence, state);
-    /*
-    if(sequence == 0)
-    {
-        while(g_bMutex)
-            std::this_thread::sleep_for(std::chrono::microseconds(10));
-        g_bMutex = true;
-        for(uint8_t i = 0; i < 128; ++i)
-            startEvents[i].start = -1;
-        g_bMutex = false;
-    }
-    */
+     g_seqMan.setSequencePlayState(bank, sequence, state);
 }
 
 void togglePlayState(uint8_t bank, uint8_t sequence) {
@@ -2364,37 +2362,53 @@ bool transportRequestTimebase() {
 void transportReleaseTimebase() { jack_release_timebase(g_pJackClient); }
 
 void transportStart(const char* client) {
-    if (strcmp("zynseq", client)) {
-        // Not zynseq so flag other client(s) playing
-        g_bClientPlaying = true;
-        g_setTransportClient.emplace(client);
-    }
+    bool bPlaying = (g_setTransportClient.size() != 0);
+    g_bClientPlaying = true;
+    g_setTransportClient.emplace(client);
+    if (bPlaying)
+        return;
+
     jack_position_t pos;
     if (jack_transport_query(g_pJackClient, &pos) != JackTransportRolling)
         jack_transport_start(g_pJackClient);
     if (g_nClockSource & TRANSPORT_CLOCK_INTERNAL) {
         // Send MIDI start message
-        jack_nframes_t nClockTime = g_qClockPos.front().first - jack_last_frame_time(g_pJackClient);
+        jack_nframes_t nClockTime = jack_last_frame_time(g_pJackClient);
+        while (g_bMutex)
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        g_bMutex = true;
         g_mSchedule.insert(std::pair<uint32_t, MIDI_MESSAGE*>(nClockTime, new MIDI_MESSAGE({MIDI_START, 0, 0})));
+        g_bMutex = false;
     }
 }
 
 void transportStop(const char* client) {
-    if (strcmp(client, "ALL") == 0) {
+    if (strcmp(client, "ALL") == 0)
         g_setTransportClient.clear();
-        jack_transport_stop(g_pJackClient);
+    else if (!g_bClientPlaying)
         return;
+    else {
+        auto itClient = g_setTransportClient.find(std::string(client));
+        if (itClient != g_setTransportClient.end())
+            g_setTransportClient.erase(itClient);
     }
-    auto itClient = g_setTransportClient.find(std::string(client));
-    if (itClient != g_setTransportClient.end())
-        g_setTransportClient.erase(itClient);
     g_bClientPlaying = (g_setTransportClient.size() != 0);
-    if (!g_bClientPlaying && g_nPlayingSequences == 0)
-        jack_transport_stop(g_pJackClient);
+    if (g_bClientPlaying)
+        return;
+    else {
+        for (auto it: g_setTransportClient) {
+            fprintf(stderr, "   %s\n", it.c_str());
+        }
+    }
+    jack_transport_stop(g_pJackClient);
     if (g_nClockSource & TRANSPORT_CLOCK_INTERNAL) {
         // Send MIDI stop message
-        jack_nframes_t nClockTime = g_qClockPos.front().first - jack_last_frame_time(g_pJackClient);
+        jack_nframes_t nClockTime = jack_last_frame_time(g_pJackClient);
+        while (g_bMutex)
+            std::this_thread::sleep_for(std::chrono::microseconds(10));
+        g_bMutex = true;
         g_mSchedule.insert(std::pair<uint32_t, MIDI_MESSAGE*>(nClockTime, new MIDI_MESSAGE({MIDI_STOP, 0, 0})));
+        g_bMutex = false;
     }
 }
 
