@@ -409,7 +409,8 @@ class zynthian_engine_jalv(zynthian_engine):
                         return
                 #logging.debug(f"#CTR> {symparts[1]} ({symparts[0]}) = {val}")
                 if zctrl.get_ignore_engine_fb():
-                    logging.debug(f"Ignoring feedback value for {zctrl.symbol} from {self.name} => {val}")
+                    #logging.debug(f"Ignoring feedback value for {zctrl.symbol} from {self.name} => {val}")
+                    pass
                 else:
                     zctrl.set_value(val, False)
                 if zctrl.graph_path is None:
