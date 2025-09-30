@@ -111,7 +111,18 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
                 return
 
             self._state_manager.send_cuia("ZYNPOT_ABS", [zynpot, ccval / 127])
-        
+
+        def note_on(self, note, velocity, shifted_override=None):
+            super().note_on(note, velocity, shifted_override)
+            if note < 4:
+                self._state_manager.send_cuia("ZYNPOT", [note, -10])
+            elif 7 < note < 12:
+                self._state_manager.send_cuia("ZYNPOT", [note-8, -1])
+            elif 15 < note < 20:
+                self._state_manager.send_cuia("ZYNPOT", [note-16, +1])
+            elif 23 < note < 28:
+                self._state_manager.send_cuia("ZYNPOT", [note-24, +10])
+
     class MixerHandler(zynthian_ctrldev_akai_apc_key25_mk2.MixerHandler):
 
         def __init__(self, state_manager,  leds: zynthian_ctrldev_akai_apc_key25_mk2.FeedbackLEDs):
