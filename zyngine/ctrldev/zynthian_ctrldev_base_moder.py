@@ -158,8 +158,8 @@ class zynthian_ctrldev_base_moder():
                             pass
                         continue
 
-                    # Pass through
-                    outport.write_midi_event(offset, indata)
+                # Pass through
+                outport.write_midi_event(offset, indata)
 
         #@client.set_shutdown_callback
         def shutdown(status, reason):
