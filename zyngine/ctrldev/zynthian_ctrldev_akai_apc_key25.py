@@ -99,6 +99,9 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
     
     class DeviceHandler(zynthian_ctrldev_akai_apc_key25_mk2.DeviceHandler):
 
+        COLS = 8
+        ROWS = 4
+
         def cc_change(self, ccnum, ccval):
 
             zynpot = {
@@ -113,15 +116,16 @@ class zynthian_ctrldev_akai_apc_key25(zynthian_ctrldev_akai_apc_key25_mk2):
             self._state_manager.send_cuia("ZYNPOT_ABS", [zynpot, ccval / 127])
 
         def note_on(self, note, velocity, shifted_override=None):
-            super().note_on(note, velocity, shifted_override)
             if note < 4:
                 self._state_manager.send_cuia("ZYNPOT", [note, -10])
-            elif 7 < note < 12:
-                self._state_manager.send_cuia("ZYNPOT", [note-8, -1])
-            elif 15 < note < 20:
-                self._state_manager.send_cuia("ZYNPOT", [note-16, +1])
-            elif 23 < note < 28:
-                self._state_manager.send_cuia("ZYNPOT", [note-24, +10])
+            elif self.COLS <= note < self.COLS*1+4:
+                self._state_manager.send_cuia("ZYNPOT", [note-self.COLS, -1])
+            elif self.COLS*2 <= note < self.COLS*2+4:
+                self._state_manager.send_cuia("ZYNPOT", [note-self.COLS*2, +1])
+            elif self.COLS*3 <= note < self.COLS*3+4:
+                self._state_manager.send_cuia("ZYNPOT", [note-self.COLS*3, +10])
+            else:
+                super().note_on(note, velocity, shifted_override)
 
     class MixerHandler(zynthian_ctrldev_akai_apc_key25_mk2.MixerHandler):
 
