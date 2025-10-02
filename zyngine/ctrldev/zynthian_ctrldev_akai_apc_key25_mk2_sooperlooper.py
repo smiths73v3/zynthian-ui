@@ -2298,6 +2298,17 @@ class SubModeSync(ModeHandlerBase):
         self.parent.dispatch(deviceAction("showsource", None))
         self.parent.dispatch(deviceAction("showquant", None))
 
+    def on_button(self, button, evtype, shifted):
+        if shifted:
+            pass
+        on = True if evtype == EV_NOTE_ON else None
+        if button == BUTTONS.BTN_SOFT_KEY_CLIP_STOP:
+            self.parent.dispatch(batchAction([deviceAction("showsource", on), deviceAction("showquant", on)]))
+            return True
+        if button == BUTTONS.BTN_SOFT_KEY_SOLO:
+            self.parent.dispatch(deviceAction("show8ths", on))
+            return True
+
     def on_pad(self, args: EventArgs):
         # @todo: numpad 6 and row 2 and 3 would be better to get multiples of 8
         row = args.row
@@ -2322,20 +2333,23 @@ class SubModeSync(ModeHandlerBase):
             self.parent.just_send("/set", ("s", setting), ("f", value))
             self.parent.dispatch(globAction(setting, value))
             return
+        if args.stateTrack == {}:
+            if args.evtype == EV_NOTE_ON:
+                return SubModeDefault.handle_loop_operations(self, numpad)
+        else:
+            return self.handle_syncs(args)
+
+    def handle_syncs(self, args: EventArgs):
         track = args.track
         stateTrack = args.stateTrack
         tracks = args.tracks
-        if stateTrack == {}:
-            if args.evtype == EV_NOTE_ON:
-                return SubModeDefault.handle_loop_operations(self, args.numpad)
-        else:
-            return self.handle_syncs(numpad, track, stateTrack, tracks, evtype)
-
-    def handle_syncs(self, numpad: int, track: int, stateTrack: Dict[str, Any], tracks, evtype):
+        numpad = args.numpad
+        evtype = args.evtype
+        row = args.row
         if evtype == EV_NOTE_OFF:
-            if track == -1 and numpad == 6:
+            if row == 0 and numpad == 6:
                 self.parent.dispatch(deviceAction('showsource', None))
-            if numpad == 7:
+            if row in [0, 1] and numpad == 7:
                 self.parent.dispatch(deviceAction('showquant', None))
             return
         if numpad < 6:
@@ -2359,7 +2373,7 @@ class SubModeSync(ModeHandlerBase):
             self.parent.dispatch(deviceAction('showquant', True))
             return
 
-        if numpad == 7:
+        if row == 1 and numpad == 7:
             self.parent.dispatch(deviceAction('showquant', True))
 
         if track == -1 and numpad == 6:
