@@ -73,7 +73,7 @@ class zynthian_gui_wifi(zynthian_gui_selector_info):
             sleep(1)
 
     def fill_list(self):
-        wifi_status_code = zynconf.get_nwdev_status_code("wlan0")
+        wifi_status_code = zynconf.get_nwdev_status_code("wlo1")
         if wifi_status_code == 20:
             self.list_data = [
                 (self.enable_wifi, None, "\u2610 Wi-Fi is disabled", False, False)]
