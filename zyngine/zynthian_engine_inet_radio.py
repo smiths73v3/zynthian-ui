@@ -25,6 +25,7 @@
 from collections import OrderedDict
 import logging
 import json
+import copy
 from subprocess import Popen, STDOUT, PIPE
 import socket
 from threading import Thread, Timer
@@ -675,7 +676,10 @@ class zynthian_engine_inet_radio(zynthian_engine):
                 if line:
                     self.proc_poll_parse_line(line)
             if self.pending_preset_i != self.preset_i and now > self.pending_preset_ts:
-                self.processors[0].set_bank(self.preset2bank[self.pending_preset_i][0])
+                if self.processors[0].bank_list[0][0]=="*FAVS*":
+                    self.processors[0].set_bank(self.preset2bank[self.pending_preset_i][0] + 1)
+                else:
+                    self.processors[0].set_bank(self.preset2bank[self.pending_preset_i][0])
                 self.processors[0].load_preset_list()
                 self.processors[0].set_preset(self.preset2bank[self.pending_preset_i][1])
 
@@ -746,18 +750,25 @@ class zynthian_engine_inet_radio(zynthian_engine):
 
         self.banks = []
         self.preset2bank = []
+        playlists = None
         for bank_i, bank in enumerate(self.presets):
             self.banks.append([bank, None, bank, None])
+            if bank == "Playlists":
+                self.presets[bank] = [] # Clear playlists
+                playlists = bank_i
+                continue
             for preset_i, preset in enumerate(self.presets[bank]):
                 self.preset2bank.append((bank_i, preset_i, preset[2]))
 
-        playlists = []
+        # Append playlists
+        if playlists is None:
+            self.banks.append(["Playlists", None, "Playlists", None])
+            self.presets["Playlists"] = []
+            playlists = len(self.banks) - 1
+        # Populate playlists
         for file in listdir(f"{self.my_data_dir}/capture"):
             if file[-4:].lower() in (".m3u", ".pls"):
-                playlists.append([f"{self.my_data_dir}/capture/{file}", 1, file[:-4]])
-        if playlists:
-            self.presets["Playlists"] = playlists
-            self.banks.append(["Playlists", None, "Playlists", None])
+                self.presets["Playlists"].append([f"{self.my_data_dir}/capture/{file}", 1, file[:-4]])
 
         return self.banks
 
@@ -769,9 +780,11 @@ class zynthian_engine_inet_radio(zynthian_engine):
         presets = []
         for preset in self.presets[bank[0]]:
             presets.append(preset)
-        return presets
+        return copy.deepcopy(presets)
 
     def set_preset(self, processor, preset, preload=False):
+        if preload or self.preset == preset:
+            return
         self.preset = preset
         for self.preset_i, config in enumerate(self.preset2bank):
             if config[0] == processor.bank_index and config[1] == processor.preset_index:
