@@ -78,7 +78,7 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
     def refresh_wifi_task(self):
         while self.refresh_wifi:
-            self.wifi_status = zynconf.get_nwdev_status_string("wlan0")
+            self.wifi_status = zynconf.get_nwdev_status_string("wlo1")
             if not self.filling_list and self.wifi_index > 0:
                 wifi_item = f"Wi-Fi Config ({self.wifi_status})"
                 if self.listbox.get(self.wifi_index) != wifi_item:
