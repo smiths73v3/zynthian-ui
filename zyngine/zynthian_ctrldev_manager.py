@@ -199,7 +199,7 @@ class zynthian_ctrldev_manager():
     def is_input_device_available_to_chains(self, idev):
         if idev in self.drivers and self.drivers[idev].unroute_from_chains:
             unroute_from_chains = self.drivers[idev].unroute_from_chains
-            if isinstance(unroute_from_chains, bool) or unroute_from_chains == 0xF:
+            if (isinstance(unroute_from_chains, bool) and unroute_from_chains) or unroute_from_chains == 0xFFFF:
                 return False
         return True
 
