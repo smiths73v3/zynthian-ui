@@ -81,9 +81,9 @@ pt_ctrl_map = {
     "bounce_velocity_loss": ["MBVelL", "Bounce Vel Loss", "Mallet Bounce 2", 949, None, None],
     "bounce_humanization": ["MBHuma", "Bounce Humanization", "Mallet Bounce 2", 949, None, None],
 
-    "harpsichord_register[1]": ["Regis[1]", "Harpsichord L8'", "Hapsichord", 940, 'toggle', None],
-    "harpsichord_register[2]": ["Regis[2]", "Harpsichord U8'", "Hapsichord", 940, 'toggle', None],
-    "harpsichord_register[3]": ["Regis[3]", "Harpsichord 4'", "Hapsichord", 940, 'toggle', None],
+    "harpsichord_register_1": ["Regis[1]", "Harpsichord L8'", "Hapsichord", 940, 'toggle', None],
+    "harpsichord_register_2": ["Regis[2]", "Harpsichord U8'", "Hapsichord", 940, 'toggle', None],
+    "harpsichord_register_3": ["Regis[3]", "Harpsichord 4'", "Hapsichord", 940, 'toggle', None],
 
     "clavinet_low_mic": ["ClvMicL", "Clavinet Low Mic", "Clavinet", 930, None, None],
     "clavinet_high_mic": ["ClvMicH", "Clavinet High Mic", "Clavinet", 930, None, None],
@@ -120,36 +120,36 @@ pt_ctrl_map = {
     "limiter_gain": ["LimGain", "Limiter Gain", "Limiter", 890, None, None],
 
     "equalizer_switch": ["EquOn", "Equalizer Switch", "FX Switches", 880, "toggle", None],
-    "effect[1].switch": ["Eff[1].Switch", "FX1 Switch ", "FX Switches", 880, "toggle", None],
-    "effect[2].switch": ["Eff[2].Switch", "FX2 Switch", "FX Switches", 880, "toggle", None],
-    "effect[3].switch": ["Eff[3].Switch", "FX3 Switch", "FX Switches", 880, "toggle", None],
+    "effect_1_switch": ["Eff[1].Switch", "FX1 Switch ", "FX Switches", 880, "toggle", None],
+    "effect_2_switch": ["Eff[2].Switch", "FX2 Switch", "FX Switches", 880, "toggle", None],
+    "effect_3_switch": ["Eff[3].Switch", "FX3 Switch", "FX Switches", 880, "toggle", None],
 
-    "effect[1].param[1]": ["Eff[1].Param[1]", "FX1 Param1", "FX1-1", 870, None, None],
-    "effect[1].param[2]": ["Eff[1].Param[2]", "FX1 Param2", "FX1-1", 870, None, None],
-    "effect[1].param[3]": ["Eff[1].Param[3]", "FX1 Param3", "FX1-1", 870, None, None],
-    "effect[1].param[4]": ["Eff[1].Param[4]", "FX1 Param4", "FX1-1", 870, None, None],
-    "effect[1].param[5]": ["Eff[1].Param[5]", "FX1 Param5", "FX1-2", 869, None, None],
-    "effect[1].param[6]": ["Eff[1].Param[6]", "FX1 Param6", "FX1-2", 869, None, None],
-    "effect[1].param[7]": ["Eff[1].Param[7]", "FX1 Param7", "FX1-2", 869, None, None],
-    "effect[1].param[8]": ["Eff[1].Param[8]", "FX1 Param8", "FX1-2", 869, None, None],
+    "effect_1_param_1": ["Eff[1].Param[1]", "FX1 Param1", "FX1-1", 870, None, None],
+    "effect_1_param_2": ["Eff[1].Param[2]", "FX1 Param2", "FX1-1", 870, None, None],
+    "effect_1_param_3": ["Eff[1].Param[3]", "FX1 Param3", "FX1-1", 870, None, None],
+    "effect_1_param_4": ["Eff[1].Param[4]", "FX1 Param4", "FX1-1", 870, None, None],
+    "effect_1_param_5": ["Eff[1].Param[5]", "FX1 Param5", "FX1-2", 869, None, None],
+    "effect_1_param_6": ["Eff[1].Param[6]", "FX1 Param6", "FX1-2", 869, None, None],
+    "effect_1_param_7": ["Eff[1].Param[7]", "FX1 Param7", "FX1-2", 869, None, None],
+    "effect_1_param_8": ["Eff[1].Param[8]", "FX1 Param8", "FX1-2", 869, None, None],
 
-    "effect[2].param[1]": ["Eff[2].Param[1]", "FX2 Param1", "FX2-1", 860, None, None],
-    "effect[2].param[2]": ["Eff[2].Param[2]", "FX2 Param2", "FX2-1", 860, None, None],
-    "effect[2].param[3]": ["Eff[2].Param[3]", "FX2 Param3", "FX2-1", 860, None, None],
-    "effect[2].param[4]": ["Eff[2].Param[4]", "FX2 Param4", "FX2-1", 860, None, None],
-    "effect[2].param[5]": ["Eff[2].Param[5]", "FX2 Param5", "FX2-2", 859, None, None],
-    "effect[2].param[6]": ["Eff[2].Param[6]", "FX2 Param6", "FX2-2", 859, None, None],
-    "effect[2].param[7]": ["Eff[2].Param[7]", "FX2 Param7", "FX2-2", 859, None, None],
-    "effect[2].param[8]": ["Eff[2].Param[8]", "FX2 Param8", "FX2-2", 859, None, None],
+    "effect_2_param_1": ["Eff[2].Param[1]", "FX2 Param1", "FX2-1", 860, None, None],
+    "effect_2_param_2": ["Eff[2].Param[2]", "FX2 Param2", "FX2-1", 860, None, None],
+    "effect_2_param_3": ["Eff[2].Param[3]", "FX2 Param3", "FX2-1", 860, None, None],
+    "effect_2_param_4": ["Eff[2].Param[4]", "FX2 Param4", "FX2-1", 860, None, None],
+    "effect_2_param_5": ["Eff[2].Param[5]", "FX2 Param5", "FX2-2", 859, None, None],
+    "effect_2_param_6": ["Eff[2].Param[6]", "FX2 Param6", "FX2-2", 859, None, None],
+    "effect_2_param_7": ["Eff[2].Param[7]", "FX2 Param7", "FX2-2", 859, None, None],
+    "effect_2_param_8": ["Eff[2].Param[8]", "FX2 Param8", "FX2-2", 859, None, None],
 
-    "effect[3].param[1]": ["Eff[3].Param[1]", "FX3 Param1", "FX3-1", 850, None, None],
-    "effect[3].param[2]": ["Eff[3].Param[2]", "FX3 Param2", "FX3-1", 850, None, None],
-    "effect[3].param[3]": ["Eff[3].Param[3]", "FX3 Param3", "FX3-1", 850, None, None],
-    "effect[3].param[4]": ["Eff[3].Param[4]", "FX3 Param4", "FX3-1", 850, None, None],
-    "effect[3].param[5]": ["Eff[3].Param[5]", "FX3 Param5", "FX3-2", 849, None, None],
-    "effect[3].param[6]": ["Eff[3].Param[6]", "FX3 Param6", "FX3-2", 849, None, None],
-    "effect[3].param[7]": ["Eff[3].Param[7]", "FX3 Param7", "FX3-2", 849, None, None],
-    "effect[3].param[8]": ["Eff[3].Param[8]", "FX3 Param8", "FX3-2", 849, None, None]
+    "effect_3_param_1": ["Eff[3].Param[1]", "FX3 Param1", "FX3-1", 850, None, None],
+    "effect_3_param_2": ["Eff[3].Param[2]", "FX3 Param2", "FX3-1", 850, None, None],
+    "effect_3_param_3": ["Eff[3].Param[3]", "FX3 Param3", "FX3-1", 850, None, None],
+    "effect_3_param_4": ["Eff[3].Param[4]", "FX3 Param4", "FX3-1", 850, None, None],
+    "effect_3_param_5": ["Eff[3].Param[5]", "FX3 Param5", "FX3-2", 849, None, None],
+    "effect_3_param_6": ["Eff[3].Param[6]", "FX3 Param6", "FX3-2", 849, None, None],
+    "effect_3_param_7": ["Eff[3].Param[7]", "FX3 Param7", "FX3-2", 849, None, None],
+    "effect_3_param_8": ["Eff[3].Param[8]", "FX3 Param8", "FX3-2", 849, None, None]
 }
 
 
@@ -672,6 +672,7 @@ class zynthian_engine_pianoteq(zynthian_engine):
 
     #   Get a list of parameters for the loaded preset
     #   returns: dictionary of all parameters indexed by parameter id: {name, value}
+    #   API is too slow for UX so we don't use this. We use MIDI CC... but that limits quantity of controls.
     def get_params(self):
         params = {}
         result = self.rpc('getParameters')
@@ -679,7 +680,9 @@ class zynthian_engine_pianoteq(zynthian_engine):
             return {}
         param_list = list(pt_ctrl_map.keys())
         for param in result['result']:
-            id = param['id'].lower().replace(" ", "_")
+            id = param['id'].lower().replace(" ", "_").replace(".", "").replace("[", "_").replace("]", "_")
+            if id[-1] == "_":
+                id = id[:-1]
             #logging.debug(f"PARAM {id} INFO =>\n {param}")
             if id in param_list:
                 index = param_list.index(id)
