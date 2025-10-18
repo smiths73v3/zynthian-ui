@@ -39,6 +39,14 @@ from . import zynthian_engine
 from . import zynthian_controller
 from zynconf import ServerPort
 
+""" Map of parameters to expose in UI
+    0: Symbol used in MIDI mapping file
+    1: Name
+    2: Group
+    3: Display priority
+    4: Type [toggle, pedal, None (for continuous)]
+    5: CC used to control parameter in PT
+"""
 pt_ctrl_map = {
     "volume": ["Volum", "Volume", "Main", 1000, None, 7],
     "condition": ["Cond", "Condition", "Main", 1000, None, None],
@@ -71,6 +79,22 @@ pt_ctrl_map = {
     "pinch_harmonic_pedal": ["PinchH", "Pinch Harmonic Pedal", "Pedals 3", 958, 'pedal', None],
     "glissando_pedal": ["Gliss", "Glissando Pedal", "Pedals 3", 958, 'pedal', None],
     "reversed_sustain": ["RevSus", "Reversed Sustain", "Pedals 3", 958, 'toggle', None],
+
+    "mic_1_mic_switch": ["Mic[1].MicOn", "Mic 1 enable", "Mic 1", 957, 'toggle', None],
+    "mic_1_bus_1_volume": ["Mic[1].Bus[1].Volume", "Mic 1 volume", "Mic 1", 957, None, None],
+    "mic_1_bus_1_pan": ["Mic[1].Bus[1].Pan", "Mic 1 pan", "Mic 1", 957, None, None],
+
+    "mic_2_mic_switch": ["Mic[2].MicOn", "Mic 2 enable", "Mic 2", 957, 'toggle', None],
+    "mic_2_bus_1_volume": ["Mic[2].Bus[1].Volume", "Mic 2 volume", "Mic 2", 957, None, None],
+    "mic_2_bus_1_pan": ["Mic[2].Bus[1].Pan", "Mic 2 pan", "Mic 2", 957, None, None],
+
+    "mic_3_mic_switch": ["Mic[3].MicOn", "Mic 3 enable", "Mic 3", 957, 'toggle', None],
+    "mic_3_bus_1_volume": ["Mic[3].Bus[1].Volume", "Mic 3 volume", "Mic 3", 957, None, None],
+    "mic_3_bus_1_pan": ["Mic[3].Bus[1].Pan", "Mic 3 pan", "Mic 3", 957, None, None],
+
+    "mic_4_mic_switch": ["Mic[4].MicOn", "Mic 4 enable", "Mic 4", 957, 'toggle', None],
+    "mic_4_bus_1_volume": ["Mic[4].Bus[1].Volume", "Mic 4 volume", "Mic 4", 957, None, None],
+    "mic_4_bus_1_pan": ["Mic[4].Bus[1].Pan", "Mic 4 pan", "Mic 4", 957, None, None],
 
     "bounce_switch": ["MBOn", "Bounce Switch", "Mallet Bounce 1", 950, None, None],
     "bounce_delay": ["MBDel", "Bounce Delay", "Mallet Bounce 1", 950, None, None],
