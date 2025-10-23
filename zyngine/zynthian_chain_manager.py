@@ -827,8 +827,7 @@ class zynthian_chain_manager:
                 chain.remove_processor(processor)
                 logging.error(f"Failed to start engine '{eng_code}'!")
         else:
-            logging.error(
-                f"Failed to insert processor '{proc_id}' in chain '{chain_id}', slot '{slot}'!")
+            logging.error(f"Failed to insert processor '{proc_id}' in chain '{chain_id}', slot '{slot}'!")
         # Failed!! => Remove processor from list
         del self.processors[proc_id]
         self.state_manager.end_busy("add_processor")
