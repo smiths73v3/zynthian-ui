@@ -189,10 +189,11 @@ class zynseq(zynthian_engine):
         zynsigman.send(zynsigman.S_STEPSEQ, self.SS_SEQ_REFRESH)
         self.changing_bank = False
 
-    # Build a default bank 1 with 16 sequences in grid of midi channels 1,2,3,10
+    # Build a default bank with 16 sequences in grid of midi channels 1,2,3,10
     # bank: Index of bank to rebuild
     def build_default_bank(self, bank):
         if self.libseq:
+            self.libseq.setSequencesInBank(bank, 0)
             self.libseq.setSequencesInBank(bank, 16)
             for column in range(4):
                 channel = column

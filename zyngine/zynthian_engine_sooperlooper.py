@@ -500,14 +500,14 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 	# Preset Management
 	# ---------------------------------------------------------------------------
 
-	def get_preset_list(self, bank):
+	def get_preset_list(self, bank, processor=None):
 		presets = self.get_filelist(f"{self.data_dir}/presets/sooperlooper", "slsess")
 		presets += self.get_filelist(f"{self.my_data_dir}/presets/sooperlooper", "slsess")
 		return presets
 
 	def set_preset(self, processor, preset, preload=False):
-		if self.osc_server is None:
-			return
+		if preload or self.osc_server is None:
+			return False
 		self.osc_server.send(self.osc_target, '/load_session', ('s', preset[0]),  ('s', self.osc_server_url), ('s', '/error'))
 		sleep(0.5)  # Wait for session to load to avoid consequent controller change conflicts
 
@@ -527,6 +527,7 @@ class zynthian_engine_sooperlooper(zynthian_engine):
 
 		# Start loops (muted) to synchronise
 		self.osc_server.send(self.osc_target, '/sl/-1/hit', ('s', 'mute'))
+		return True
 
 	def preset_exists(self, bank_info, preset_name):
 		return os.path.exists(f"{self.my_data_dir}/presets/sooperlooper/{preset_name}.slsess")

@@ -218,11 +218,6 @@ class SequenceManager {
      */
     void removeSequence(uint8_t bank, uint8_t sequence);
 
-    /** @brief    Remove all sequences from bank
-     *   @param  bank Index of bank
-     */
-    void clearBank(uint32_t bank);
-
     /** @brief  Get quantity of banks
      *   @retval uint32_t Quantity of populated banks
      */

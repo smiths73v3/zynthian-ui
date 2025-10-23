@@ -27,6 +27,7 @@ import copy
 import logging
 
 # Zynthian specific modules
+from zyngui import zynthian_gui_config
 from zyngui.zynthian_gui_selector_info import zynthian_gui_selector_info
 from zyngui.zynthian_gui_save_preset import zynthian_gui_save_preset
 
@@ -38,6 +39,8 @@ from zyngui.zynthian_gui_save_preset import zynthian_gui_save_preset
 class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
 
     def __init__(self):
+        self.preload_timer_id = None
+        self.preload_timer_ms = 300
         self.processor = None
         super().__init__('Preset', default_icon="preset.png")
 
@@ -60,6 +63,38 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
         if len(self.list_data) > 0:
             super().show()
 
+    def browse_root(self):
+        if self.processor and self.processor.preset_subdir_info:
+            self.index = self.processor.preset_subdir_info[1]
+            self.processor.preset_subdir_info = None
+            self.set_select_path()
+            self.update_list()
+            self.select_listbox(self.index)
+            return True
+        return False
+
+    def browse_back(self):
+        if self.processor and self.processor.preset_subdir_info:
+            self.index = self.processor.preset_subdir_info[1]
+            self.processor.preset_subdir_info = self.processor.preset_subdir_info[3]
+            self.set_select_path()
+            self.update_list()
+            self.select_listbox(self.index)
+            return True
+        return False
+
+    def autoselect(self):
+        """ If no presets => show control screen
+            For certain engines => load lonely preset
+        """
+        # If bank is empty (no presets), show instrument control
+        if len(self.list_data) == 0 or self.list_data[0][0] == "":
+            self.select_action(0)
+        # For certain engines => load lonely preset
+        elif len(self.list_data) == 1 and self.processor.engine.nickname in ["FS"]:
+            logging.debug("LOADING LONELY PRESET!!")
+            self.select_action(0)
+
     def select_action(self, i, t='S'):
         if t == 'S':
             # Allow animation
@@ -67,14 +102,19 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
             self.loading_canvas.grid(rowspan=1)
             self.zyngui.state_manager.start_busy("set preset")
             # Set preset
-            self.zyngui.get_current_processor().set_preset(i)
+            result = self.zyngui.get_current_processor().set_preset(i)
             self.zyngui.state_manager.end_busy("set preset")
-            self.zyngui.purge_screen_history("bank")
             # Stop animation and restore icon canvas
             self.loading_canvas.grid_remove()
             self.icon_canvas.grid()
-            # Close
-            self.zyngui.replace_screen("control")
+            # If result is None (still browsing) => refresh preset list
+            if result is None:
+                self.set_select_path()
+                self.update_list()
+            # If success or already loaded => open control screen
+            else:
+                self.zyngui.purge_screen_history("bank")
+                self.zyngui.replace_screen("control")
 
     def show_preset_options(self):
         options = {}
@@ -141,7 +181,7 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
                 # TODO: Confirm rename if overwriting existing preset or duplicate name
                 self.processor.engine.rename_preset(self.processor.bank_info, preset, new_name)
                 if preset[0] == self.processor.preset_info[0]:
-                    #TODO: This is not updating the display name of the current preset which is what I think it should be doing
+                    # TODO: This is not updating the display name of the current preset which is what I think it should be doing
                     self.zyngui.state_manager.start_busy("set preset")
                     self.processor.set_preset_by_id(preset[0])
                     self.zyngui.state_manager.end_busy("set preset")
@@ -150,8 +190,7 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
                 logging.error("Failed to rename preset => {}".format(e))
 
     def delete_preset(self, preset):
-        self.zyngui.show_confirm("Do you really want to delete '{}'?".format(
-            preset[2]), self.delete_preset_confirmed, preset)
+        self.zyngui.show_confirm(f"Do you really want to delete '{preset[2]}'?", self.delete_preset_confirmed, preset)
 
     def delete_preset_confirmed(self, preset):
         try:
@@ -197,11 +236,21 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
     def set_selector(self, zs_hidden=False):
         super().set_selector(zs_hidden)
 
-    def preselect_action(self):
-        self.zyngui.state_manager.start_busy("preselect preset")
-        res = self.processor.preload_preset(self.index)
-        self.zyngui.state_manager.end_busy("preselect preset")
-        return res
+    def select_listbox(self, index, see=True):
+        super().select_listbox(index, see=True)
+        if zynthian_gui_config.preset_preload:
+            try:
+                zynthian_gui_config.top.after_cancel(self.preload_timer_id)
+            except:
+                pass
+            self.preload_timer_id = zynthian_gui_config.top.after(self.preload_timer_ms, self.preload_action)
+
+    def preload_action(self):
+        self.preload_timer_id = None
+        if self.list_data and self.index < len(self.list_data):
+            self.zyngui.state_manager.start_busy("preload preset")
+            self.processor.preload_preset(self.index)
+            self.zyngui.state_manager.end_busy("preload preset")
 
     def restore_preset(self):
         return self.processor.restore_preset()

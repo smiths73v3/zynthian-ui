@@ -40,6 +40,7 @@ from zyngine.ctrldev.zynthian_ctrldev_base import zynthian_ctrldev_zynpad
 class zynthian_ctrldev_launchpad_mini_mk3(zynthian_ctrldev_zynpad):
 
     dev_ids = ["Launchpad Mini MK3 IN 1"]
+    driver_description = "Zynpad + arrow keys integration"
 
     PAD_COLOURS = [6, 29, 17, 49, 66, 41, 23,
                    13, 96, 2, 81, 82, 83, 84, 85, 86, 87]

@@ -268,8 +268,6 @@ void SequenceManager::cleanPatterns() {
 }
 
 void SequenceManager::setSequencesInBank(uint8_t bank, uint8_t sequences) {
-    if (sequences == 0)
-        return;
     // Remove excessive sequences
     size_t nSize = m_mBanks[bank].size();
     while (nSize > sequences) {
@@ -280,7 +278,8 @@ void SequenceManager::setSequencesInBank(uint8_t bank, uint8_t sequences) {
     }
     cleanPatterns();
     // Add required sequences
-    getSequence(bank, sequences - 1);
+    if (sequences == 0)
+        getSequence(bank, sequences - 1);
 }
 
 uint32_t SequenceManager::getSequencesInBank(uint32_t bank) { return m_mBanks[bank].size(); }
@@ -314,7 +313,5 @@ void SequenceManager::removeSequence(uint8_t bank, uint8_t sequence) {
         m_mBanks[bank].erase(m_mBanks[bank].begin() + sequence);
     }
 }
-
-void SequenceManager::clearBank(uint32_t bank) { setSequencesInBank(bank, 0); }
 
 uint32_t SequenceManager::getBanks() { return m_mBanks.size(); }
