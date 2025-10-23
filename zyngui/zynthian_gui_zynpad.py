@@ -113,6 +113,7 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
         self.zynseq.libseq.updateSequenceInfo()
         self.setup_zynpots()
         self.refresh_status(True)
+        self.refresh_trigger_params()
         if self.param_editor_zctrl == None:
             self.set_title(f"Scene {self.bank}")
         zynsigman.register(
@@ -261,31 +262,21 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
                 pad_y = int(row * self.row_height)
                 pad = row + col * self.zynseq.col_in_bank
                 header_h = int(0.28 * self.row_height)
-                self.grid_canvas.itemconfig(self.pads[pad]["group"], font=(
-                    zynthian_gui_config.font_family, fs2))
-                self.grid_canvas.itemconfig(self.pads[pad]["num"], font=(
-                    zynthian_gui_config.font_family, fs2))
-                self.grid_canvas.itemconfig(self.pads[pad]["title"], width=int(
-                    0.96 * self.column_width), font=(zynthian_gui_config.font_family, fs1))
+                self.grid_canvas.itemconfig(self.pads[pad]["group"], font=(zynthian_gui_config.font_family, fs2))
+                self.grid_canvas.itemconfig(self.pads[pad]["num"], font=(zynthian_gui_config.font_family, fs2))
+                self.grid_canvas.itemconfig(self.pads[pad]["title"], width=int(0.96 * self.column_width), font=(zynthian_gui_config.font_family, fs1))
                 self.grid_canvas.itemconfig(f"pad:{pad}", state=tkinter.NORMAL)
-                self.grid_canvas.coords(
-                    self.pads[pad]["header"], pad_x, pad_y, pad_x + self.column_width - 2, pad_y + header_h)
-                self.grid_canvas.coords(self.pads[pad]["body"], pad_x, pad_y + header_h,
-                                        pad_x + self.column_width - 2, pad_y + self.row_height - 2)
+                self.grid_canvas.coords(self.pads[pad]["header"], pad_x, pad_y, pad_x + self.column_width - 2, pad_y + header_h)
+                self.grid_canvas.coords(self.pads[pad]["body"], pad_x, pad_y + header_h, pad_x + self.column_width - 2, pad_y + self.row_height - 2)
                 posx = pad_x + int(0.02 * self.column_width)
                 posy = pad_y + int(0.04 * self.row_height)
-                self.grid_canvas.coords(
-                    self.pads[pad]["mode"], posx + int(0.125), posy)
+                self.grid_canvas.coords(self.pads[pad]["mode"], posx + int(0.125), posy)
                 posy = pad_y + int(0.05 * self.row_height)
-                self.grid_canvas.coords(
-                    self.pads[pad]["group"], posx + int(3 * 0.125 * self.column_width), posy)
-                self.grid_canvas.coords(
-                    self.pads[pad]["num"], posx + int(5 * 0.125 * self.column_width), posy)
-                self.grid_canvas.coords(
-                    self.pads[pad]["state"], posx + int(7 * 0.125 * self.column_width), posy)
+                self.grid_canvas.coords(self.pads[pad]["group"], posx + int(3 * 0.125 * self.column_width), posy)
+                self.grid_canvas.coords(self.pads[pad]["num"], posx + int(5 * 0.125 * self.column_width), posy)
+                self.grid_canvas.coords(self.pads[pad]["state"], posx + int(7 * 0.125 * self.column_width), posy)
                 posx = pad_x + int(0.03 * self.column_width)
-                self.grid_canvas.coords(
-                    self.pads[pad]["title"], posx, posy + 2 * fs1)
+                self.grid_canvas.coords(self.pads[pad]["title"], posx, posy + 2 * fs1)
 
         self.redrawing = False
         self.columns = self.zynseq.col_in_bank
@@ -330,23 +321,22 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
         title = self.zynseq.get_sequence_name(self.bank, pad)
         try:
             int(title)  # Test for default (integer index)
-            title = self.chain_manager.get_synth_preset_name(midi_chan)
+            #title = self.chain_manager.get_synth_preset_name(midi_chan)
+            # Get from first chain on this MIDI channel
+            for chain_id, chain in self.chain_manager.chains.items():
+                if chain.midi_chan == midi_chan:
+                    title = chain.get_title()
+                    #title = chain.get_description(2)
         except:
             pass
-        self.grid_canvas.itemconfig(
-            self.pads[pad]["title"], text=title, fill=foreground)
-        self.grid_canvas.itemconfig(
-            self.pads[pad]["group"], text=f"CH{midi_chan + 1}", fill=foreground)
-        self.grid_canvas.itemconfig(
-            self.pads[pad]["num"], text=f"{group}{pad+1}", fill=foreground)
-        self.grid_canvas.itemconfig(
-            self.pads[pad]["mode"], image=self.mode_icon[self.zynseq.col_in_bank][mode])
+        self.grid_canvas.itemconfig(self.pads[pad]["title"], text=title, fill=foreground)
+        self.grid_canvas.itemconfig(self.pads[pad]["group"], text=f"CH{midi_chan + 1}", fill=foreground)
+        self.grid_canvas.itemconfig(self.pads[pad]["num"], text=f"{group}{pad+1}", fill=foreground)
+        self.grid_canvas.itemconfig(self.pads[pad]["mode"], image=self.mode_icon[self.zynseq.col_in_bank][mode])
         if state == 0 and self.zynseq.libseq.isEmpty(self.bank, pad):
-            self.grid_canvas.itemconfig(
-                self.pads[pad]["state"], image=self.empty_icon)
+            self.grid_canvas.itemconfig(self.pads[pad]["state"], image=self.empty_icon)
         else:
-            self.grid_canvas.itemconfig(
-                self.pads[pad]["state"], image=self.state_icon[self.zynseq.col_in_bank][state])
+            self.grid_canvas.itemconfig(self.pads[pad]["state"], image=self.state_icon[self.zynseq.col_in_bank][state])
 
     def update_play_state(self, bank, seq, state, mode, group):
         if bank == self.bank:
@@ -660,8 +650,7 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
         elif encoder == self.ctrl_order[0] and zynthian_gui_config.transport_clock_source <= 1:
             self.zynseq.update_tempo()
             self.zynseq.nudge_tempo(dval)
-            self.set_title(
-                f"Tempo: {self.zynseq.get_tempo():.1f}", None, None, 2)
+            self.set_title(f"Tempo: {self.zynseq.get_tempo():.1f}", None, None, 2)
 
     # Function to handle SELECT button press
     #  type: Button press duration ["S"=Short, "B"=Bold, "L"=Long]
@@ -738,14 +727,21 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
     # **************************************************************************
 
     def refresh_trigger_params(self):
+        """
+        Trigger channel is 0 for none, 1..16 for MIDI channel or 255 for all
+        """
         trig_chan = self.zynseq.libseq.getTriggerChannel()
         if trig_chan == 0:
             self.trigger_channel = None
+        elif trig_chan == 255:
+            self.trigger_channel = 255
         else:
             self.trigger_channel = trig_chan - 1
         trig_dev = self.zynseq.libseq.getTriggerDevice()
         if trig_dev == 0:
             self.trigger_device = None
+        elif trig_dev == 255:
+            self.trigger_device = 255
         else:
             self.trigger_device = trig_dev - 1
 

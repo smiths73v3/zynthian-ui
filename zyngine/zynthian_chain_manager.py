@@ -110,8 +110,7 @@ class zynthian_chain_manager:
         self.zyngines = {}  # List of instantiated engines
         self.processors = {}  # Dictionary of processor objects indexed by UID
         self.active_chain_id = None  # Active chain id
-        self.midi_chan_2_chain_ids = [list() for _ in range(
-            MAX_NUM_MIDI_CHANS)]  # Chain IDs mapped by MIDI channel
+        self.midi_chan_2_chain_ids = [list() for _ in range(MAX_NUM_MIDI_CHANS)]  # Chain IDs mapped by MIDI channel
 
         # Map of list of zctrls indexed by 24-bit ZMOP,CHAN,CC
         self.absolute_midi_cc_binding = {}
@@ -233,12 +232,7 @@ class zynthian_chain_manager:
         if chain.zmop_index is not None:
             # Enable all MIDI input devices by default => TODO: Should we allow user to define default routing?
             for zmip in range(MAX_NUM_MIDI_DEVS):
-                try:
-                    unroute = zmip in self.state_manager.ctrldev_manager.drivers and self.state_manager.ctrldev_manager.drivers[zmip].unroute_from_chains
-                except Exception as e:
-                    unroute = False
-                    logging.warning(f"ctrldev_manager => {e}")
-                lib_zyncore.zmop_set_route_from(chain.zmop_index, zmip, not unroute)
+                lib_zyncore.zmop_set_route_from(chain.zmop_index, zmip, True)
             # Enable StepSeq MIDI intput
             lib_zyncore.zmop_set_route_from(chain.zmop_index, ZMIP_STEP_INDEX, True)
             # Enable SMF sequencer MIDI intput
@@ -802,7 +796,8 @@ class zynthian_chain_manager:
             self.state_manager.start_busy("add_processor", "Adding Processor", f"adding {eng_code} to chain {chain_id}")
 
         logging.debug(f"Adding processor '{eng_code}' with ID '{proc_id}'")
-        processor = zynthian_processor(eng_code, self.engine_info[eng_code], proc_id, midi_autolearn)
+        processor = zynthian_processor(eng_code, self.engine_info[eng_code], proc_id)
+        processor.set_midi_autolearn(midi_autolearn)
         chain = self.chains[chain_id]
         # Add proc early to allow engines to add more as required, e.g. Aeolus
         self.processors[proc_id] = processor
@@ -832,15 +827,14 @@ class zynthian_chain_manager:
                 chain.remove_processor(processor)
                 logging.error(f"Failed to start engine '{eng_code}'!")
         else:
-            logging.error(
-                f"Failed to insert processor '{proc_id}' in chain '{chain_id}', slot '{slot}'!")
+            logging.error(f"Failed to insert processor '{proc_id}' in chain '{chain_id}', slot '{slot}'!")
         # Failed!! => Remove processor from list
         del self.processors[proc_id]
         self.state_manager.end_busy("add_processor")
         return None
 
     def nudge_processor(self, chain_id, processor, up):
-        if (chain_id not in self.chains):
+        if chain_id not in self.chains:
             return False
         chain = self.chains[chain_id]
         if not chain.nudge_processor(processor, up):
@@ -1176,6 +1170,9 @@ class zynthian_chain_manager:
             else:
                 self.chains[chain_id].fader_pos = 0
 
+            if "zctrls" in chain_state:
+                self.chains[chain_id].set_zctrls_state(chain_state["zctrls"])
+
         self.state_manager.end_busy("set_chain_state")
 
     def restore_presets(self):
@@ -1240,10 +1237,19 @@ class zynthian_chain_manager:
         symbol : Control symbol
         """
 
-        if not proc or symbol not in proc.controllers_dict:
+        try:
+            zctrl = proc.controllers_dict[symbol]
+        except:
             return
-        zctrl = proc.controllers_dict[symbol]
-        logging.debug(f"(symbol={symbol} => zctrl={zctrl.symbol})")
+        self.remove_midi_learn_from_zctrl(zctrl)
+
+    def remove_midi_learn_from_zctrl(self, zctrl):
+        """Remove a midi learn configuration for a given zctrl
+
+        zctrl : Controller object
+        """
+
+        logging.debug(f"(proccessor={zctrl.processor.id}, symbol={zctrl.symbol})")
         for key in list(self.absolute_midi_cc_binding):
             zctrls = self.absolute_midi_cc_binding[key]
             try:
@@ -1268,13 +1274,6 @@ class zynthian_chain_manager:
                 pass
             if not zctrls:
                 self.chain_midi_cc_binding.pop(key)
-
-        """
-        if proc.eng_code == "MD":
-            # Remove native MIDI learn
-            proc.engine.midi_unlearn(zctrl)
-        return
-        """
 
     def get_midi_learn_from_zctrl(self, zctrl):
         for key, zctrls in self.absolute_midi_cc_binding.items():

@@ -5,7 +5,7 @@
 #
 # Zynthian Control Device Driver for "Akai APC Key 25 mk2"
 #
-# Copyright (C) 2023,2024 Oscar Aceña <oscaracena@gmail.com>
+# Copyright (C) 2023-2025 Oscar Aceña <oscaracena@gmail.com>
 #
 # ******************************************************************************
 #
@@ -112,25 +112,47 @@ KNOB_6 = KNOB_SELECT = 0x35
 KNOB_7 = 0x36
 KNOB_8 = 0x37
 
-# APC Key25 LED colors and modes
-COLOR_RED = 0x05
-COLOR_GREEN = 0x15
-COLOR_BLUE = 0x25
-COLOR_AQUA = 0x21
-COLOR_BLUE_DARK = 0x2D
-COLOR_WHITE = 0x08
-COLOR_EGYPT = 0x6C
-COLOR_ORANGE = 0x09
-COLOR_AMBER = 0x54
-COLOR_RUSSET = 0x3D
-COLOR_PURPLE = 0x51
-COLOR_PINK = 0x39
-COLOR_PINK_LIGHT = 0x52
-COLOR_PINK_WARM = 0x38
-COLOR_YELLOW = 0x0D
-COLOR_LIME = 0x4B
-COLOR_LIME_DARK = 0x11
-COLOR_GREEN_YELLOW = 0x4A
+# APC Key25 MK2 LED colors and modes
+class COLORS:
+    COLOR_BLACK = 0x00
+    COLOR_DARK_GREY = 0x01
+    COLOR_RED = 0x05
+    COLOR_GREEN = COLOR_STATE_1 = 0x15
+    COLOR_BLUE = COLOR_STATE_0 = 0x25
+    COLOR_AQUA = 0x21
+    COLOR_BLUE_DARK = COLOR_ALT_OFF = 0x2D
+    COLOR_BLUE_LIGHT = 0x24
+    COLOR_WHITE = COLOR_FN = 0x03
+    COLOR_EGYPT = 0x6C
+    COLOR_ORANGE = COLOR_STATE_2 = 0x09
+    COLOR_ORANGE_LIGHT = 0x08
+    COLOR_AMBER = 0x54
+    COLOR_RUSSET = 0x3D
+    COLOR_PURPLE = COLOR_ALT_ON = 0x51
+    COLOR_PINK = 0x39
+    COLOR_PINK_LIGHT = 0x52
+    COLOR_PINK_WARM = 0x38
+    COLOR_YELLOW = 0x0D
+    COLOR_LIME = COLOR_PLAYING = 0x4B
+    COLOR_LIME_DARK = 0x11
+    COLOR_DARK_GREEN = 0x41
+    COLOR_GREEN_YELLOW = 0x4A
+    COLOR_BROWNISH_RED = 0x0A
+    COLOR_BROWN_LIGHT = 0x7E
+    SOFT_OFF = 0x00
+    SOFT_ON = 0x01
+    SOFT_BLINK = 0x02
+
+# mk2: midi channel,
+# mk1: midi channel stays 0, always on, blink is color + 1
+    # 0=off,
+    # 1=green,
+    # 2=green blink,
+    # 3=red,
+    # 4=red blink,
+    # 5=yellow,
+    # 6=yellow blink,
+    # 7-127=green
 
 LED_BRIGHT_10 = 0x00
 LED_BRIGHT_25 = 0x01
@@ -166,230 +188,6 @@ FN_REMOVE_NOTE = 0x0D
 FN_REMOVE_PATTERN = 0x0F
 FN_SELECT_PATTERN = 0x10
 FN_CLEAR_PATTERN = 0x11
-
-
-# --------------------------------------------------------------------------
-# 'Akai APC Key 25 mk2' device controller class
-# --------------------------------------------------------------------------
-class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
-
-    dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
-
-    @classmethod
-    def get_autoload_flag(cls):
-        return True
-
-    def __init__(self, state_manager, idev_in, idev_out=None):
-        self._leds = FeedbackLEDs(idev_out)
-        self._device_handler = DeviceHandler(state_manager, self._leds)
-        self._mixer_handler = MixerHandler(state_manager, self._leds)
-        self._padmatrix_handler = PadMatrixHandler(state_manager, self._leds)
-        self._stepseq_handler = StepSeqHandler(state_manager, self._leds, idev_in)
-        self._current_handler = self._mixer_handler
-        self._is_shifted = False
-
-        self._signals = [
-            (zynsigman.S_GUI,
-                zynsigman.SS_GUI_SHOW_SCREEN,
-                self._on_gui_show_screen),
-
-            (zynsigman.S_AUDIO_PLAYER,
-                zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE,
-                lambda handle, state:
-                    self._on_media_change_state(state, f"audio-{handle}", "player")),
-
-            (zynsigman.S_AUDIO_RECORDER,
-                state_manager.audio_recorder.SS_AUDIO_RECORDER_STATE,
-                partial(self._on_media_change_state, media="audio", kind="recorder")),
-
-            (zynsigman.S_STATE_MAN,
-                state_manager.SS_MIDI_PLAYER_STATE,
-                partial(self._on_media_change_state, media="midi", kind="player")),
-
-            (zynsigman.S_STATE_MAN,
-                state_manager.SS_MIDI_RECORDER_STATE,
-                partial(self._on_media_change_state, media="midi", kind="recorder")),
-        ]
-
-        # NOTE: init will call refresh(), so _current_hanlder must be ready!
-        super().__init__(state_manager, idev_in, idev_out)
-
-    def init(self):
-        super().init()
-        for signal, subsignal, callback in self._signals:
-            zynsigman.register(signal, subsignal, callback)
-
-    def end(self):
-        for signal, subsignal, callback in self._signals:
-            zynsigman.unregister(signal, subsignal, callback)
-        super().end()
-
-    def refresh(self):
-        # PadMatrix is handled in volume/pan modes (when mixer handler is active)
-        self._current_handler.refresh()
-        if self._current_handler == self._mixer_handler:
-            self._padmatrix_handler.refresh()
-
-    def midi_event(self, ev):
-        if self._on_midi_event(ev):
-            while True:
-                action = self._current_handler.pop_action_request()
-                if not action:
-                    return True
-
-                # NOTE: Add other receivers as needed
-                receiver, action, args, kwargs = action
-                if receiver == "stepseq":
-                    self._stepseq_handler.run_action(action, args, kwargs)
-        return False
-
-    def _on_midi_event(self, ev):
-        evtype = (ev[0] >> 4) & 0x0F
-
-        if evtype == EV_NOTE_ON:
-            note = ev[1] & 0x7F
-            vel = ev[2] & 0x7F
-
-            if note == BTN_SHIFT:
-                return self._on_shift_changed(True)
-
-            if self._is_shifted:
-                old_handler = self._current_handler
-                # Change global mode here
-                if note == BTN_KNOB_CTRL_DEVICE:
-                    self._current_handler = self._device_handler
-                elif note in [BTN_KNOB_CTRL_PAN, BTN_KNOB_CTRL_VOLUME]:
-                    self._current_handler = self._mixer_handler
-                    self._padmatrix_handler.refresh()
-                elif note == BTN_KNOB_CTRL_SEND:
-                    self._current_handler = self._stepseq_handler
-
-                if old_handler != self._current_handler:
-                    old_handler.set_active(False)
-                    self._current_handler.set_active(True)
-
-                # Change sub-modes here
-                if self._current_handler == self._mixer_handler:
-                    if note == BTN_SOFT_KEY_CLIP_STOP:
-                        self._padmatrix_handler.enable_seqman(True)
-                    elif BTN_SOFT_KEY_SOLO <= note <= BTN_SOFT_KEY_END:
-                        self._padmatrix_handler.enable_seqman(False)
-
-            # Padmatrix related events
-            if self._current_handler == self._mixer_handler:
-                if BTN_PAD_START <= note <= BTN_PAD_END:
-
-                    # Launch StepSeq directly from SHIFT + PAD
-                    if self._is_shifted:
-                        seq = self._padmatrix_handler.get_sequence_from_pad(
-                            note)
-                        if seq is None:
-                            return False
-                        if self._current_handler != self._stepseq_handler:
-                            self._current_handler.set_active(False)
-                        self._current_handler = self._stepseq_handler
-                        self._current_handler.set_sequence(seq)
-                        self._current_handler.set_active(True)
-                        self._current_handler.refresh(
-                            shifted_override=self._is_shifted)
-                        return True
-
-                    return self._padmatrix_handler.pad_press(note)
-
-                # FIXME: move these events to padmatrix handler itself
-                elif note == BTN_RECORD and not self._is_shifted:
-                    return self._padmatrix_handler.on_record_changed(True)
-                elif note == BTN_PLAY:
-                    if not self._is_shifted:
-                        return self._padmatrix_handler.on_toggle_play()
-                    self._padmatrix_handler.note_on(
-                        note, vel, self._is_shifted)
-                elif (BTN_SOFT_KEY_START <= note <= BTN_SOFT_KEY_END
-                      and not self._is_shifted):
-                    row = note - BTN_SOFT_KEY_START
-                    return self._padmatrix_handler.on_toggle_play_row(row)
-                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
-                    track = note - BTN_TRACK_1
-                    self._padmatrix_handler.on_track_changed(track, True)
-                    self._current_handler.note_on(note, vel, self._is_shifted)
-                    self._padmatrix_handler.refresh()
-                    return True
-                elif note == BTN_STOP_ALL_CLIPS:
-                    self._padmatrix_handler.note_on(
-                        note, vel, self._is_shifted)
-
-            return self._current_handler.note_on(note, vel, self._is_shifted)
-
-        elif evtype == EV_NOTE_OFF:
-            note = ev[1] & 0x7F
-
-            if note == BTN_SHIFT:
-                return self._on_shift_changed(False)
-
-            # Padmatrix related events
-            if self._current_handler == self._mixer_handler:
-                if note == BTN_RECORD:
-                    return self._padmatrix_handler.on_record_changed(False)
-                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
-                    track = note - BTN_TRACK_1
-                    self._padmatrix_handler.on_track_changed(track, False)
-                elif note == BTN_STOP_ALL_CLIPS:
-                    self._padmatrix_handler.note_off(note, self._is_shifted)
-
-            return self._current_handler.note_off(note, self._is_shifted)
-
-        elif evtype == EV_CC:
-            ccnum = ev[1] & 0x7F
-            ccval = ev[2] & 0x7F
-            return self._current_handler.cc_change(ccnum, ccval)
-
-        elif ev[0] == EV_SYSEX:
-            logging.info(f" received SysEx => {ev}")
-            return True
-
-    def light_off(self):
-        self._leds.all_off()
-
-    def update_mixer_strip(self, chan, symbol, value):
-        if self._current_handler == self._mixer_handler:
-            self._current_handler.update_strip(chan, symbol, value)
-
-    def update_mixer_active_chain(self, active_chain):
-        refresh = self._current_handler == self._mixer_handler
-        self._mixer_handler.set_active_chain(active_chain, refresh)
-
-    def update_seq_state(self, *args, **kwargs):
-        if self._current_handler == self._mixer_handler:
-            self._padmatrix_handler.update_seq_state(*args, **kwargs)
-        elif self._current_handler == self._stepseq_handler:
-            self._current_handler.update_seq_state(*args, **kwargs)
-
-    def get_state(self):
-        state = {}
-        state.update(self._stepseq_handler.get_state())
-        return state
-
-    def set_state(self, state):
-        self._stepseq_handler.set_state(state)
-
-    def _on_shift_changed(self, state):
-        self._is_shifted = state
-        self._current_handler.on_shift_changed(state)
-        if self._current_handler == self._mixer_handler:
-            self._padmatrix_handler.on_shift_changed(state)
-        return True
-
-    def _on_gui_show_screen(self, screen):
-        self._device_handler.on_screen_change(screen)
-        self._padmatrix_handler.on_screen_change(screen)
-        self._stepseq_handler.on_screen_change(screen)
-        if self._current_handler == self._device_handler:
-            self._current_handler.refresh()
-
-    def _on_media_change_state(self, state, media, kind):
-        self._current_handler.on_media_change(media, kind, state)
-        if self._current_handler == self._device_handler:
-            self._current_handler.refresh()
 
 
 # --------------------------------------------------------------------------
@@ -459,9 +257,10 @@ class FeedbackLEDs:
 # Handle GUI (device mode)
 # --------------------------------------------------------------------------
 class DeviceHandler(ModeHandlerBase):
-    def __init__(self, state_manager, leds: FeedbackLEDs):
+    def __init__(self, state_manager, leds: FeedbackLEDs, colors: COLORS):
         super().__init__(state_manager)
         self._leds = leds
+        self._colors = colors
         self._knobs_ease = KnobSpeedControl()
         self._is_alt_active = False
         self._is_playing = set()
@@ -502,27 +301,27 @@ class DeviceHandler(ModeHandlerBase):
 
         # Lit up fixed buttons
         for btn in [BTN_PAD_UP, BTN_PAD_DOWN, BTN_PAD_LEFT, BTN_PAD_RIGHT]:
-            self._leds.led_on(btn, COLOR_YELLOW, LED_BRIGHT_100)
-        self._leds.led_on(BTN_SEL_YES, COLOR_GREEN, LED_BRIGHT_100)
-        self._leds.led_on(BTN_BACK_NO, COLOR_RED, LED_BRIGHT_100)
+            self._leds.led_on(btn, self._colors.COLOR_YELLOW, LED_BRIGHT_100)
+        self._leds.led_on(BTN_SEL_YES, self._colors.COLOR_GREEN, LED_BRIGHT_100)
+        self._leds.led_on(BTN_BACK_NO, self._colors.COLOR_RED, LED_BRIGHT_100)
 
         # Lit up alt-related buttons
-        alt_color = COLOR_BLUE_DARK if not self._is_alt_active else COLOR_PURPLE
-        fn_color = COLOR_WHITE if not self._is_alt_active else COLOR_PURPLE
+        alt_color = self._colors.COLOR_ALT_OFF if not self._is_alt_active else self._colors.COLOR_ALT_ON
+        fn_color = self._colors.COLOR_FN if not self._is_alt_active else self._colors.COLOR_ALT_ON
         for btn in [BTN_F1, BTN_F2, BTN_F3, BTN_F4]:
             self._leds.led_on(btn, fn_color, LED_BRIGHT_100)
         self._leds.led_on(BTN_ALT, alt_color, LED_BRIGHT_100)
 
         # Lit up state-full control buttons
         for btn, state in self._btn_states.items():
-            color = [COLOR_GREEN, COLOR_ORANGE, COLOR_BLUE][state]
+            color = [self._colors.COLOR_STATE_1, self._colors.COLOR_STATE_2, self._colors.COLOR_STATE_0][state]
             self._leds.led_on(btn, color, LED_BRIGHT_100)
 
         # Lit up play/record buttons
         if self._is_playing:
-            self._leds.led_on(BTN_PAD_PLAY, COLOR_LIME, LED_BLINKING_8)
+            self._leds.led_on(BTN_PAD_PLAY, self._colors.COLOR_PLAYING, LED_BLINKING_8)
         if self._is_recording:
-            self._leds.led_on(BTN_PAD_RECORD, COLOR_RED, LED_BLINKING_8)
+            self._leds.led_on(BTN_PAD_RECORD, self._colors.COLOR_RED, LED_BLINKING_8)
 
     def note_on(self, note, velocity, shifted_override=None):
         self._on_shifted_override(shifted_override)
@@ -880,7 +679,7 @@ class MixerHandler(ModeHandlerBase):
 
 
 # --------------------------------------------------------------------------
-#  Handle pad matrix for Zynseq (in Mixpad mode)
+# Handle pad matrix for Zynseq (in Mixpad mode)
 # --------------------------------------------------------------------------
 class PadMatrixHandler(ModeHandlerBase):
 
@@ -904,6 +703,7 @@ class PadMatrixHandler(ModeHandlerBase):
         0x6C,   # #D86A1C, Light Maroon
         0x56,   # #72FF15, Light Green
     ]
+    BRIGHT_OFF = LED_BRIGHT_25
 
     def __init__(self, state_manager, leds: FeedbackLEDs):
         super().__init__(state_manager)
@@ -915,6 +715,7 @@ class PadMatrixHandler(ModeHandlerBase):
         self._track_btn_pressed = None
         self._playing_seqs = set()
         self._btn_timer = ButtonTimer(self._handle_timed_button)
+        self._pattern_template = None
 
         # Seqman sub-mode
         self._seqman_func = None
@@ -1078,7 +879,7 @@ class PadMatrixHandler(ModeHandlerBase):
 
         # If seqman is enabled, update according to it's function
         if self._seqman_func is not None:
-            led_mode = LED_BRIGHT_25 if is_empty else LED_BRIGHT_100
+            led_mode = self.BRIGHT_OFF if is_empty else LED_BRIGHT_100
             if (self._seqman_func in (FN_COPY_SEQUENCE, FN_MOVE_SEQUENCE)
                     and self._seqman_src_seq is not None):
                 src_scene, src_seq = self._seqman_src_seq
@@ -1095,7 +896,7 @@ class PadMatrixHandler(ModeHandlerBase):
             elif state in (zynseq.SEQ_STOPPING, zynseq.SEQ_STARTING):
                 led_mode = LED_PULSING_2
             else:
-                led_mode = LED_BRIGHT_25 if is_empty else LED_BRIGHT_100
+                led_mode = self.BRIGHT_OFF if is_empty else LED_BRIGHT_100
                 self._playing_seqs.discard(seq)
 
         self._leds.led_on(btn, color, led_mode)
@@ -1262,6 +1063,9 @@ class PadMatrixHandler(ModeHandlerBase):
             self._libseq.addPattern(scene, seq, 0, 0, pattern)
             self._libseq.selectPattern(pattern)
 
+            if self._pattern_template is not None:
+                self._action_apply_pattern_template(pattern)
+
     def _copy_sequence(self, src_scene, src_seq, dst_scene, dst_seq):
         self._clear_sequence(dst_scene, dst_seq, create_empty=False)
 
@@ -1293,6 +1097,14 @@ class PadMatrixHandler(ModeHandlerBase):
         # Also copy StepSeq instrument pages
         self._request_action("stepseq", "sync-sequences",
             src_scene, src_seq, dst_scene, dst_seq)
+
+    def _action_set_pattern_template(self, pattern):
+        self._pattern_template = pattern
+
+    def _action_apply_pattern_template(self, dst_pattern, callback=None):
+        self._libseq.copyPattern(self._pattern_template, dst_pattern)
+        if callback is not None and callable(callback):
+            callback()
 
 
 # --------------------------------------------------------------------------
@@ -1390,7 +1202,7 @@ class StepSyncProvider(mp.Process):
 
 
 # --------------------------------------------------------------------------
-#  Step Sequencer clock sync
+# Step Sequencer clock sync
 # --------------------------------------------------------------------------
 class StepSyncConsumer(Thread):
     def __init__(self, event_queue, callback):
@@ -1408,8 +1220,8 @@ class StepSyncConsumer(Thread):
 
 
 # --------------------------------------------------------------------------
-#  Class to hold instrument pads for StepSeq (a.k.a. note-pads)
-#  Note: it inherits from dict to be json-serializable and easily comparable
+# Class to hold instrument pads for StepSeq (a.k.a. note-pads)
+# Note: it inherits from dict to be json-serializable and easily comparable
 # --------------------------------------------------------------------------
 class NotePad(dict):
     def __init__(self, note, velocity, duration=1, stutter_count=0, stutter_duration=1):
@@ -1433,19 +1245,24 @@ class NotePad(dict):
 
 
 # --------------------------------------------------------------------------
-#  Class to marshall/un-marshall saved state of StepSeq
-#  FIXME: add support for scenes too!
+# Class to marshall/un-marshall saved state of StepSeq
+# FIXME: add support for scenes too!
 # --------------------------------------------------------------------------
 class StepSeqState:
     def __init__(self):
         self._seqs = {}
         self._chains = {}
 
+        # Public properties
+        self.pattern_template = None
+
     def load(self, state):
         state = deepcopy(state)
 
         # Convert JSON stringfied key ints as real ints, and note-pad's dicts to NotePad
         self._chains = state.get("chains", {})
+        self.pattern_template = state.get("pattern_template", None)
+
         for c in self._chains.values():
             src_pages = c.get("pages", [])
             dst_pages = []
@@ -1457,7 +1274,11 @@ class StepSeqState:
             self._seqs[int(seq)] = value
 
     def save(self):
-        return {"seqs": self._seqs, "chains": self._chains}
+        return {
+            "seqs": self._seqs,
+            "chains": self._chains,
+            "pattern_template": self.pattern_template,
+        }
 
     def get_chain_by_id(self, chain_id):
         chain_id = str(chain_id) if chain_id is not None else "default"
@@ -1475,7 +1296,7 @@ class StepSeqState:
 
 
 # --------------------------------------------------------------------------
-#  Note objects used in NotePlayer's event queue
+# Note objects used in NotePlayer's event queue
 # --------------------------------------------------------------------------
 class Note:
     def __init__(self, note, velocity, duration_cycles, channel, stutt_count, stutt_duration):
@@ -1539,8 +1360,8 @@ class Note:
 
 
 # --------------------------------------------------------------------------
-#  Note player (adds support for stutter, is also quantized)
-#  FIXME: if jack is playing, synchronize with it
+# Note player (adds support for stutter, is also quantized)
+# FIXME: if jack is playing, synchronize with it
 # --------------------------------------------------------------------------
 class NotePlayer(Thread):
     def __init__(self, libseq):
@@ -1616,18 +1437,24 @@ class NotePlayer(Thread):
 
 
 # --------------------------------------------------------------------------
-#  Step Sequencer mode (StepSeq)
+# Step Sequencer mode (StepSeq)
 # --------------------------------------------------------------------------
 class StepSeqHandler(ModeHandlerBase):
     PAD_COLS = 8
     PAD_ROWS = 5
 
     NOTE_PAGE_COLORS = [
-        COLOR_BLUE,
-        COLOR_GREEN,
-        COLOR_ORANGE,
-        COLOR_PINK,
+        COLORS.COLOR_BLUE,
+        COLORS.COLOR_GREEN,
+        COLORS.COLOR_ORANGE,
+        COLORS.COLOR_PINK,
     ]
+
+    BRIGHT_FIRSTBEAT = LED_BRIGHT_10
+    COLOR_FIRSTBEAT = COLORS.COLOR_WHITE
+    COLOR_BEAT = COLORS.COLOR_WHITE
+    COLOR_VELOCITY = COLOR_CLEAR = COLOR_SELECTED = COLORS.COLOR_RED
+    COLOR_COPY = COLORS.COLOR_LIME
 
     def __init__(self, state_manager, leds: FeedbackLEDs, dev_idx):
         super().__init__(state_manager)
@@ -1682,6 +1509,10 @@ class StepSeqHandler(ModeHandlerBase):
             return
         self._saved_state.load(state)
 
+        if self._saved_state.pattern_template is not None:
+            self._request_action(
+                "mixpad", "set-pattern-template", self._saved_state.pattern_template)
+
     def get_state(self):
         return {"stepseq": self._saved_state.save()}
 
@@ -1712,6 +1543,9 @@ class StepSeqHandler(ModeHandlerBase):
 
         if self._is_arranger_mode:
             self._leds.led_blink(BTN_SOFT_KEY_SELECT)
+
+        if self._selected_pattern == self._saved_state.pattern_template:
+            self._leds.led_blink(BTN_SOFT_KEY_REC_ARM)
 
     def _refresh_note_pads(self):
         # If there is a note config controller, it will handle all pads, nothing to do here
@@ -1753,7 +1587,7 @@ class StepSeqHandler(ModeHandlerBase):
         spb = self._libseq.getStepsPerBeat()
         for idx in range(0, self._used_pads, spb):
             pad = self._pads[idx]
-            pads[pad] = (COLOR_WHITE, LED_BRIGHT_10)
+            pads[pad] = (self.COLOR_FIRSTBEAT, self.BRIGHT_FIRSTBEAT)
 
         # Red + velocity for each non-empty step
         for pad, color, mode in self._get_step_colors():
@@ -1805,7 +1639,7 @@ class StepSeqHandler(ModeHandlerBase):
                 if BTN_PAD_START <= note <= BTN_PAD_END:
                     return self._note_config.note_on(note, velocity, self._is_shifted)
             elif BTN_PAD_START <= note <= BTN_PAD_START + 7:
-                if not self._is_arranger_mode and self._note_config is None:
+                if not self._is_arranger_mode:
                     self._change_instrument(note)
             elif note == BTN_LEFT:
                 self._change_to_previous_pattern()
@@ -1814,6 +1648,15 @@ class StepSeqHandler(ModeHandlerBase):
             elif note == BTN_SOFT_KEY_SELECT:
                 self._is_select_pressed = True
                 self._enable_arranger_mode(True)
+
+            elif note == BTN_SOFT_KEY_REC_ARM:
+                new_template = self._selected_pattern
+                if new_template == self._saved_state.pattern_template:
+                    new_template = None
+                self._saved_state.pattern_template = new_template
+                self._request_action(
+                    "mixpad", "set-pattern-template", new_template)
+
             elif note == BTN_PLAY:
                 self._libseq.togglePlayState(
                     self._zynseq.bank, self._selected_seq)
@@ -1822,6 +1665,7 @@ class StepSeqHandler(ModeHandlerBase):
                 if state in (zynseq.SEQ_STARTING, zynseq.SEQ_PLAYING, zynseq.SEQ_RESTARTING):
                     self._is_stage_play = True
                     self.refresh()
+
             elif note == BTN_UP:
                 self._state_manager.send_cuia("BACK")
             elif note == BTN_DOWN:
@@ -2061,7 +1905,7 @@ class StepSeqHandler(ModeHandlerBase):
         velocity = self._libseq.getNoteVelocity(step, note) + delta
         velocity = min(127, max(10, velocity))
         self._libseq.setNoteVelocity(step, note, velocity)
-        self._leds.led_on(self._pads[step], COLOR_RED, int((velocity * 6) / 127))
+        self._leds.led_on(self._pads[step], self.COLOR_VELOCITY, int((velocity * 6) / 127))
         self._play_step(step)
 
     def _update_step_stutter_count(self, step, delta):
@@ -2142,9 +1986,9 @@ class StepSeqHandler(ModeHandlerBase):
             if self._is_arranger_mode and len(self._pressed_pads) == 2:
                 src_idx = next(
                     pad for pad in self._pressed_pads if pad != dst_idx)
-                self._copy_pattern(src_idx, dst_idx)
-                self._leds.led_on(note, COLOR_LIME,
-                                  LED_BLINKING_16, overlay=True)
+                if self._copy_pattern(src_idx, dst_idx):
+                    self._leds.led_on(note, self.COLOR_COPY,
+                        LED_BLINKING_16, overlay=True)
                 self._leds.delayed("remove_overlay", 1000, note)
             elif self._note_pads_function == FN_SELECT_PATTERN:
                 if dst_idx < len(self._sequence_patterns):
@@ -2158,7 +2002,7 @@ class StepSeqHandler(ModeHandlerBase):
             elif self._note_pads_function == FN_CLEAR_PATTERN:
                 self._clear_pattern(dst_idx)
                 self._leds.led_on(
-                    note, COLOR_RED, LED_BLINKING_16, overlay=True)
+                    note, self.COLOR_CLEAR, LED_BLINKING_16, overlay=True)
                 self._leds.delayed("remove_overlay", 1000, note)
             elif self._note_pads_function == FN_REMOVE_NOTE:
                 self._remove_note_pad(note)
@@ -2293,7 +2137,7 @@ class StepSeqHandler(ModeHandlerBase):
             return
         if self._cursor < self._used_pads:
             pad = self._pads[self._cursor]
-            self._leds.led_on(pad, COLOR_WHITE, LED_BRIGHT_50, overlay=True)
+            self._leds.led_on(pad, self.COLOR_BEAT, LED_BRIGHT_50, overlay=True)
 
     def _enable_midi_listening(self, active=True):
         func = zynsigman.register if active else zynsigman.unregister
@@ -2369,6 +2213,7 @@ class StepSeqHandler(ModeHandlerBase):
         track = 0
 
         if self._selected_pattern_idx < 7:
+            roll_pattern = self._is_select_pressed
             if self._selected_pattern_idx >= len(self._sequence_patterns) - 1:
                 # Create a new pattern only if SHIFT is pressed
                 if not self._is_shifted:
@@ -2378,18 +2223,26 @@ class StepSeqHandler(ModeHandlerBase):
                     logging.error(" could not add a new pattern!")
                     return
                 self._sequence_patterns.append(pattern)
+                if self._saved_state.pattern_template is not None and not roll_pattern:
+                    self._request_action(
+                        "mixpad", "apply-pattern-template", pattern,
+                        callback=partial(self.refresh, only_steps=True))
 
             self._change_to_pattern_index(
                 self._selected_pattern_idx,
                 self._selected_pattern_idx + 1,
-                self._is_select_pressed)
+                roll_pattern)
         self._show_patterns_bar()
 
     def _copy_pattern(self, from_idx, to_idx):
+        if to_idx >= len(self._sequence_patterns):
+            return False
+
         self._libseq.copyPattern(
             self._sequence_patterns[from_idx],
             self._sequence_patterns[to_idx])
         self._libseq.updateSequenceInfo()
+        return True
 
     def _clear_pattern(self, index):
         current = self._libseq.getPatternIndex()
@@ -2443,12 +2296,12 @@ class StepSeqHandler(ModeHandlerBase):
     def _show_patterns_bar(self, overlay=True):
         for i in range(8):
             pad = BTN_PAD_START + i
-            color = COLOR_WHITE
+            color = self.COLOR_BEAT
             mode = LED_BRIGHT_10
             if i < len(self._sequence_patterns):
                 mode = LED_BRIGHT_100
                 if i == self._selected_pattern_idx:
-                    color = COLOR_RED
+                    color = self.COLOR_SELECTED
             self._leds.led_on(pad, color, mode, overlay=overlay)
 
     def _get_step_colors(self):
@@ -2472,7 +2325,7 @@ class StepSeqHandler(ModeHandlerBase):
                 mode = (self._libseq.getNoteVelocity(step, note) * 6) // 127
             pad = self._pads[step]
             retval.append(
-                (pad, COLOR_AMBER if is_old_note else COLOR_RED, mode))
+                (pad, self.COLOR_BEAT if is_old_note else self.COLOR_SELECTED, mode))
             if duration <= 1:
                 duration = None
                 continue
@@ -2533,8 +2386,8 @@ class StepSeqHandler(ModeHandlerBase):
 
 
 # --------------------------------------------------------------------------
-#  Class to access individual steps using the same interface that pads uses,
-#  to be used by StepSeq's PropertyControls
+# Class to access individual steps using the same interface that pads uses,
+# to be used by StepSeq's PropertyControls
 # --------------------------------------------------------------------------
 class StepProxy:
     def __init__(self, libseq, note, step):
@@ -2574,7 +2427,7 @@ class StepProxy:
 
 
 # --------------------------------------------------------------------------
-#  Base of controller utilities to change some property of a NotePad/Step
+# Base of controller utilities to change some property of a NotePad/Step
 # --------------------------------------------------------------------------
 class BaseControl:
     KIND = "undefined"
@@ -2582,7 +2435,7 @@ class BaseControl:
     PAD_ROWS = 5
     INDICATOR_LED = None
     INDICATOR_BLINK = False
-    COLOR = COLOR_PURPLE
+    COLOR = COLORS.COLOR_PURPLE
 
     STEPS = [20, 40, 60, 80, 100]
     HALF_STEPS = [10, 30, 50, 70, 90]
@@ -2663,7 +2516,7 @@ class BaseControl:
             if brightness is not None:
                 self._leds.led_on(pad, self.COLOR, brightness)
             else:
-                self._leds.led_on(pad, COLOR_PINK_WARM, LED_BRIGHT_10)
+                self._leds.led_on(pad, COLORS.COLOR_PINK_WARM, LED_BRIGHT_10)
 
     def _get_note_property(self, note):
         raise NotImplementedError(
@@ -2675,12 +2528,12 @@ class BaseControl:
 
 
 # --------------------------------------------------------------------------
-#  A controller utility to change velocity of a NotePad/Step
+# A controller utility to change velocity of a NotePad/Step
 # --------------------------------------------------------------------------
 class VelocityControl(BaseControl):
     KIND = "velocity"
     INDICATOR_LED = BTN_KNOB_CTRL_VOLUME
-    COLOR = COLOR_AQUA
+    COLOR = COLORS.COLOR_AQUA
 
     STEPS = [25, 50, 76, 101, 127]
     HALF_STEPS = [12, 38, 63, 88, 114]
@@ -2693,12 +2546,12 @@ class VelocityControl(BaseControl):
 
 
 # --------------------------------------------------------------------------
-#  A controller utility to change stutter count of a NotePad/Step
+# A controller utility to change stutter count of a NotePad/Step
 # --------------------------------------------------------------------------
 class StutterCountControl(BaseControl):
     KIND = "stutter-count"
     INDICATOR_LED = BTN_KNOB_CTRL_SEND
-    COLOR = COLOR_LIME_DARK
+    COLOR = COLORS.COLOR_LIME_DARK
 
     STEPS = [2, 4, 8, 12, 20]
     HALF_STEPS = [1, 3, 6, 10, 15]
@@ -2711,13 +2564,13 @@ class StutterCountControl(BaseControl):
 
 
 # --------------------------------------------------------------------------
-#  A controller utility to change stutter duration of a NotePad/Step
+# A controller utility to change stutter duration of a NotePad/Step
 # --------------------------------------------------------------------------
 class StutterDurationControl(BaseControl):
     KIND = "stutter-duration"
     INDICATOR_LED = BTN_KNOB_CTRL_SEND
     INDICATOR_BLINK = True
-    COLOR = COLOR_RUSSET
+    COLOR = COLORS.COLOR_RUSSET
 
     STEPS = [2, 4, 8, 20, 40]
     HALF_STEPS = [1, 3, 6, 10, 30]
@@ -2727,3 +2580,236 @@ class StutterDurationControl(BaseControl):
 
     def _set_note_property(self, note, value):
         note.stutter_duration = value
+
+
+# --------------------------------------------------------------------------
+# 'Akai APC Key 25 mk2' device controller class
+# --------------------------------------------------------------------------
+class zynthian_ctrldev_akai_apc_key25_mk2(zynthian_ctrldev_zynmixer, zynthian_ctrldev_zynpad):
+
+    dev_ids = ["APC Key 25 mk2 MIDI 2", "APC Key 25 mk2 IN 2"]
+    driver_name = 'AKAI APC Key25 MK2'
+    driver_description = 'Full UI integration'
+
+    COLOR_SET = COLORS
+    FeedbackLEDs = FeedbackLEDs
+    MixerHandler = MixerHandler
+    DeviceHandler = DeviceHandler
+    PadMatrixHandler = PadMatrixHandler
+    StepSeqHandler = StepSeqHandler
+
+    def __init__(self, state_manager, idev_in, idev_out=None):
+        self._leds = self.FeedbackLEDs(idev_out)
+        self._device_handler = self.DeviceHandler(state_manager, self._leds, self.COLOR_SET)
+        self._mixer_handler = self.MixerHandler(state_manager, self._leds)
+        self._padmatrix_handler = self.PadMatrixHandler(state_manager, self._leds)
+        self._stepseq_handler = self.StepSeqHandler(state_manager, self._leds, idev_in)
+        self._current_handler = self._mixer_handler
+        self._is_shifted = False
+
+        self._signals = [
+            (zynsigman.S_GUI,
+                zynsigman.SS_GUI_SHOW_SCREEN,
+                self._on_gui_show_screen),
+
+            (zynsigman.S_AUDIO_PLAYER,
+                zynthian_engine_audioplayer.SS_AUDIO_PLAYER_STATE,
+                lambda handle, state:
+                    self._on_media_change_state(state, f"audio-{handle}", "player")),
+
+            (zynsigman.S_AUDIO_RECORDER,
+                state_manager.audio_recorder.SS_AUDIO_RECORDER_STATE,
+                partial(self._on_media_change_state, media="audio", kind="recorder")),
+
+            (zynsigman.S_STATE_MAN,
+                state_manager.SS_MIDI_PLAYER_STATE,
+                partial(self._on_media_change_state, media="midi", kind="player")),
+
+            (zynsigman.S_STATE_MAN,
+                state_manager.SS_MIDI_RECORDER_STATE,
+                partial(self._on_media_change_state, media="midi", kind="recorder")),
+        ]
+
+        # NOTE: init will call refresh(), so _current_hanlder must be ready!
+        super().__init__(state_manager, idev_in, idev_out)
+
+    def init(self):
+        super().init()
+        for signal, subsignal, callback in self._signals:
+            zynsigman.register(signal, subsignal, callback)
+
+    def end(self):
+        for signal, subsignal, callback in self._signals:
+            zynsigman.unregister(signal, subsignal, callback)
+        super().end()
+        zynthian_ctrldev_zynpad.end(self)
+
+    def refresh(self):
+        # PadMatrix is handled in volume/pan modes (when mixer handler is active)
+        self._current_handler.refresh()
+        if self._current_handler == self._mixer_handler:
+            self._padmatrix_handler.refresh()
+
+    def midi_event(self, ev):
+        if self._on_midi_event(ev):
+            while True:
+                action = self._current_handler.pop_action_request()
+                if not action:
+                    return True
+
+                # NOTE: Add other receivers as needed
+                receiver, action, args, kwargs = action
+                if receiver == "stepseq":
+                    self._stepseq_handler.run_action(action, args, kwargs)
+                elif receiver == "mixpad":
+                    self._padmatrix_handler.run_action(action, args, kwargs)
+        return False
+
+    def _on_midi_event(self, ev):
+        evtype = (ev[0] >> 4) & 0x0F
+
+        if evtype == EV_NOTE_ON:
+            note = ev[1] & 0x7F
+            vel = ev[2] & 0x7F
+
+            if note == BTN_SHIFT:
+                return self._on_shift_changed(True)
+
+            if self._is_shifted:
+                old_handler = self._current_handler
+                # Change global mode here
+                if note == BTN_KNOB_CTRL_DEVICE:
+                    self._current_handler = self._device_handler
+                elif note in [BTN_KNOB_CTRL_PAN, BTN_KNOB_CTRL_VOLUME]:
+                    self._current_handler = self._mixer_handler
+                    self._padmatrix_handler.refresh()
+                elif note == BTN_KNOB_CTRL_SEND:
+                    self._current_handler = self._stepseq_handler
+
+                if old_handler != self._current_handler:
+                    old_handler.set_active(False)
+                    self._current_handler.set_active(True)
+
+                # Change sub-modes here
+                if self._current_handler == self._mixer_handler:
+                    if note == BTN_SOFT_KEY_CLIP_STOP:
+                        self._padmatrix_handler.enable_seqman(True)
+                    elif BTN_SOFT_KEY_SOLO <= note <= BTN_SOFT_KEY_END:
+                        self._padmatrix_handler.enable_seqman(False)
+
+            # Padmatrix related events
+            if self._current_handler == self._mixer_handler:
+                if BTN_PAD_START <= note <= BTN_PAD_END:
+
+                    # Launch StepSeq directly from SHIFT + PAD
+                    if self._is_shifted:
+                        seq = self._padmatrix_handler.get_sequence_from_pad(
+                            note)
+                        if seq is None:
+                            return False
+                        if self._current_handler != self._stepseq_handler:
+                            self._current_handler.set_active(False)
+                        self._current_handler = self._stepseq_handler
+                        self._current_handler.set_sequence(seq)
+                        self._current_handler.set_active(True)
+                        self._current_handler.refresh(
+                            shifted_override=self._is_shifted)
+                        return True
+
+                    return self._padmatrix_handler.pad_press(note)
+
+                # FIXME: move these events to padmatrix handler itself
+                elif note == BTN_RECORD and not self._is_shifted:
+                    return self._padmatrix_handler.on_record_changed(True)
+                elif note == BTN_PLAY:
+                    if not self._is_shifted:
+                        return self._padmatrix_handler.on_toggle_play()
+                    self._padmatrix_handler.note_on(
+                        note, vel, self._is_shifted)
+                elif (BTN_SOFT_KEY_START <= note <= BTN_SOFT_KEY_END
+                      and not self._is_shifted):
+                    row = note - BTN_SOFT_KEY_START
+                    return self._padmatrix_handler.on_toggle_play_row(row)
+                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
+                    track = note - BTN_TRACK_1
+                    self._padmatrix_handler.on_track_changed(track, True)
+                    self._current_handler.note_on(note, vel, self._is_shifted)
+                    self._padmatrix_handler.refresh()
+                    return True
+                elif note == BTN_STOP_ALL_CLIPS:
+                    self._padmatrix_handler.note_on(
+                        note, vel, self._is_shifted)
+
+            return self._current_handler.note_on(note, vel, self._is_shifted)
+
+        elif evtype == EV_NOTE_OFF:
+            note = ev[1] & 0x7F
+
+            if note == BTN_SHIFT:
+                return self._on_shift_changed(False)
+
+            # Padmatrix related events
+            if self._current_handler == self._mixer_handler:
+                if note == BTN_RECORD:
+                    return self._padmatrix_handler.on_record_changed(False)
+                elif BTN_TRACK_1 <= note <= BTN_TRACK_8:
+                    track = note - BTN_TRACK_1
+                    self._padmatrix_handler.on_track_changed(track, False)
+                elif note == BTN_STOP_ALL_CLIPS:
+                    self._padmatrix_handler.note_off(note, self._is_shifted)
+
+            return self._current_handler.note_off(note, self._is_shifted)
+
+        elif evtype == EV_CC:
+            ccnum = ev[1] & 0x7F
+            ccval = ev[2] & 0x7F
+            return self._current_handler.cc_change(ccnum, ccval)
+
+        elif ev[0] == EV_SYSEX:
+            logging.info(f" received SysEx => {ev}")
+            return True
+
+    def light_off(self):
+        self._leds.all_off()
+
+    def update_mixer_strip(self, chan, symbol, value):
+        if self._current_handler == self._mixer_handler:
+            self._current_handler.update_strip(chan, symbol, value)
+
+    def update_mixer_active_chain(self, active_chain):
+        refresh = self._current_handler == self._mixer_handler
+        self._mixer_handler.set_active_chain(active_chain, refresh)
+
+    def update_seq_state(self, *args, **kwargs):
+        if self._current_handler == self._mixer_handler:
+            self._padmatrix_handler.update_seq_state(*args, **kwargs)
+        elif self._current_handler == self._stepseq_handler:
+            self._current_handler.update_seq_state(*args, **kwargs)
+
+    def get_state(self):
+        state = {}
+        state.update(self._stepseq_handler.get_state())
+        return state
+
+    def set_state(self, state):
+        self._stepseq_handler.set_state(state)
+
+    def _on_shift_changed(self, state):
+        self._is_shifted = state
+        self._current_handler.on_shift_changed(state)
+        if self._current_handler == self._mixer_handler:
+            self._padmatrix_handler.on_shift_changed(state)
+        return True
+
+    def _on_gui_show_screen(self, screen):
+        self._device_handler.on_screen_change(screen)
+        self._padmatrix_handler.on_screen_change(screen)
+        self._stepseq_handler.on_screen_change(screen)
+        if self._current_handler == self._device_handler:
+            self._current_handler.refresh()
+
+    def _on_media_change_state(self, state, media, kind):
+        self._current_handler.on_media_change(media, kind, state)
+        if self._current_handler == self._device_handler:
+            self._current_handler.refresh()
+

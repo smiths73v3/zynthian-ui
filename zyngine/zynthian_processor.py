@@ -46,7 +46,7 @@ class zynthian_processor:
     # Initialization
     # ------------------------------------------------------------------------
 
-    def __init__(self, eng_code, eng_info, id=None, midi_autolearn=True):
+    def __init__(self, eng_code, eng_info, id=None):
         """ Create an instance of a processor
 
         A processor represents a block within a chain.
@@ -72,6 +72,7 @@ class zynthian_processor:
         self.bank_index = 0
         self.bank_name = None
         self.bank_info = None
+        self.bank_subdir_info = None
         self.bank_msb = 0
         # system, user, external => [offset, n]
         self.bank_msb_info = [[0, 0], [0, 0], [0, 0]]
@@ -81,6 +82,7 @@ class zynthian_processor:
         self.preset_index = 0
         self.preset_name = None
         self.preset_info = None
+        self.preset_subdir_info = None
         self.preset_bank_index = None
         self.preset_loaded = None
 
@@ -92,7 +94,7 @@ class zynthian_processor:
         self.ctrl_screens_dict = {}
         self.current_screen_index = -1
         self.auto_save_bank = False
-        self.midi_autolearn = midi_autolearn  # When true, auto-learn MIDI-CC based controllers
+        self.midi_autolearn = True  # When true, auto-learn MIDI-CC based controllers
 
     def get_jackname(self, engine=False):
         """ Get the jackname for the processor's engine
@@ -139,6 +141,16 @@ class zynthian_processor:
         """Get ID of the chain to which the processor belongs, if any"""
 
         return self.chain_id
+
+    # ---------------------------------------------------------------------------
+    # MIDI autolearn CC controllers
+    # ---------------------------------------------------------------------------
+
+    def set_midi_autolearn(self, midi_autolearn):
+        self.midi_autolearn = midi_autolearn
+
+    def get_midi_autolearn(self):
+        return self.midi_autolearn
 
     # ---------------------------------------------------------------------------
     # MIDI Channel Management
@@ -237,13 +249,14 @@ class zynthian_processor:
 
             if set_engine and set_engine_needed:
                 return self.engine.set_bank(self, self.bank_info)
+            else:
+                return True
 
         return False
 
     def set_bank_by_info(self, bank_info, set_engine=True):
         try:
             self.bank_name = bank_info[2]
-            self.bank_id = bank_info[0]
             self.bank_info = copy.deepcopy(bank_info)
             for i in range(len(self.bank_list)):
                 if self.bank_name == self.bank_list[i][2]:
@@ -307,7 +320,7 @@ class zynthian_processor:
             for v in self.get_preset_favs().values():
                 preset_list.append(v[1])
         elif self.bank_info:
-            for preset in self.engine.get_preset_list(self.bank_info):
+            for preset in self.engine.get_preset_list(self.bank_info, self):
                 if self.engine.is_preset_fav(preset):
                     preset[2] = "❤" + preset[2]
                 preset_list.append(preset)
@@ -324,20 +337,27 @@ class zynthian_processor:
         self.preset_name = None
         self.preset_info = None
 
+
     def set_preset(self, preset_index, set_engine=True, force_set_engine=True):
         """Set the processor's engine preset
 
-        preset_index : Index of preset
+        preset_index : Index of preset or preset_info
         set_engine : True to set the engine preset???
         force_set_engine : True to force engine set???
         Returns : True on success
         """
 
-        if not isinstance(preset_index, int) or preset_index >= len(self.preset_list):
+        if isinstance(preset_index, int) and preset_index < len(self.preset_list):
+            preset_id = str(self.preset_list[preset_index][0])
+            preset_name = self.preset_list[preset_index][2]
+            preset_info = copy.deepcopy(self.preset_list[preset_index])
+        elif isinstance(preset_index, list):
+            preset_info = copy.deepcopy(preset_index)
+            preset_id = preset_info[0]
+            preset_name = preset_info[2]
+            preset_index = self.find_preset_index_by_id(preset_id)
+        else:
             return False
-        preset_id = str(self.preset_list[preset_index][0])
-        preset_name = self.preset_list[preset_index][2]
-        preset_info = copy.deepcopy(self.preset_list[preset_index])
 
         if not preset_name:
             return False
@@ -364,7 +384,8 @@ class zynthian_processor:
             set_engine_needed = True
             logging.info(f"Preset selected: {preset_name} ({preset_index})")
 
-        self.preset_index = preset_index
+        if preset_index is not None:
+            self.preset_index = preset_index
         self.preset_name = preset_name
         self.preset_info = preset_info
         self.preset_bank_index = self.bank_index
@@ -383,6 +404,9 @@ class zynthian_processor:
 
         return True
 
+    def set_preset_by_info(self, preset_info, set_engine=True, force_set_engine=True):
+        return self.set_preset(preset_info, set_engine, force_set_engine)
+
     def set_preset_by_name(self, preset_name, set_engine=True, force_set_engine=True):
         """Set processor's engine preset by name
 
@@ -391,6 +415,8 @@ class zynthian_processor:
         force_set_engine : True to force setting engine's preset???
         TODO:Optimize search!!
         """
+        if preset_name[0] == '❤':
+            preset_name = preset_name[1:]
         for i in range(len(self.preset_list)):
             name_i = self.preset_list[i][2]
             try:
@@ -403,20 +429,33 @@ class zynthian_processor:
 
         return False
 
-    # TODO Optimize search!!
     def set_preset_by_id(self, preset_id, set_engine=True, force_set_engine=True):
         """Set processor's engine preset by ID
 
         preset_id : ID of preset to select
         set_engine : True to set engine's preset???
         force_set_engine : True to force setting engine's preset???
+        """
+
+        index = self.find_preset_index_by_id(preset_id)
+        if index is not None:
+            return self.set_preset(index, set_engine, force_set_engine)
+        else:
+            return False
+
+    # TODO Optimize search!!
+    def find_preset_index_by_id(self, preset_id):
+        """Returns preset index by ID
+
+        preset_id : ID of preset to select
         TODO: Optimize search!!
         """
 
         for i in range(len(self.preset_list)):
+            #logging.debug(f"{preset_id} == {self.preset_list[i][0]}")
             if preset_id == self.preset_list[i][0]:
-                return self.set_preset(i, set_engine, force_set_engine)
-        return False
+                return i
+        return None
 
     def preload_preset(self, preset_index):
         """Preload processor's engine preset by index
@@ -467,7 +506,7 @@ class zynthian_processor:
     def get_preset_bank_name(self):
         """Get current preset's bank name"""
         try:
-            return self.bank_list[self.preset_bank_index][2]
+            return self.bank_list[self.preset_bank_index][2].replace("> ", "")
         except:
             return None
 
@@ -675,14 +714,14 @@ class zynthian_processor:
     def midi_bank_msb(self, bank_msb):
         """Handle MIDI bank MSB message
 
-        bank_msb : Bank MSB
+        bank_msb : Bank MSB [0: system, 1: user, 2: external]
         """
         logging.debug(f"Received Bank MSB for CH#{self.midi_chan}: {bank_msb}")
-        if 2 <= bank_msb >= 0:  # TODO Why this limit?
+        if 0 <= bank_msb <= 2:
             self.bank_msb = bank_msb
 
     def midi_bank_lsb(self, bank_lsb):
-        """Handle MIDI bank MSB message
+        """Handle MIDI bank LSB message
 
         bank_lsb : Bank LSB
         """
@@ -706,7 +745,9 @@ class zynthian_processor:
         state = {
             "processor_type": self.engine.nickname,
             "bank_info": self.bank_info,
+            "bank_subdir_info": self.bank_subdir_info,
             "preset_info": self.preset_info,
+            "preset_subdir_info": self.preset_subdir_info,
             "show_fav_presets": self.show_fav_presets,  # TODO: GUI
             "controllers": {},
             "current_screen_index": self.current_screen_index  # TODO: GUI
@@ -722,6 +763,8 @@ class zynthian_processor:
         state : Processor state
         """
 
+        if "bank_subdir_info" in state and state["bank_subdir_info"]:
+            self.bank_subdir_info = state["bank_subdir_info"]
         try:
             self.get_bank_list()
         except:
@@ -731,20 +774,40 @@ class zynthian_processor:
                 self.set_bank_by_info(state["bank_info"])
             except:
                 logging.exception(traceback.format_exc())
+
+        if "preset_subdir_info" in state and state["preset_subdir_info"]:
+            self.preset_subdir_info = state["preset_subdir_info"]
+            logging.debug(f"PRESET SUBDIR => {self.preset_subdir_info}")
         try:
             self.load_preset_list()
         except:
             pass
 
+        # Set preset
         if "preset_info" in state:
             try:
-                self.set_preset_by_id(
-                    state["preset_info"][0], force_set_engine=False)
+                res = self.set_preset(state["preset_info"], force_set_engine=False)
             except:
-                # Legacy snapshots without preset_info
-                self.set_preset(state["preset_info"], force_set_engine=False)
+                res = False
+                logging.exception(traceback.format_exc())
+        else:
+            res = False
+
         # Set controller values
         if "controllers" in state:
+            # Flag controllers to avoid collisions from preset feedback values
+            # It should be do it before setting the preset, but i need to know if preset has been changed,
+            # so it's done after, but ASAP, to avoid tallies from setting preset arrive before
+            if res:
+                for symbol, ctrl_state in state["controllers"].items():
+                    if "value" in ctrl_state:
+                        try:
+                            self.controllers_dict[symbol].set_ignore_engine_fb(2.0)
+                            #logging.debug(f"Ignoring next engine FB for {symbol}")
+                        except Exception as e:
+                            logging.warning(f"Invalid controller for processor {self.get_basepath()}: {e}")
+
+            # Set controller values
             for symbol, ctrl_state in state["controllers"].items():
                 try:
                     zctrl = self.controllers_dict[symbol]
@@ -776,7 +839,6 @@ class zynthian_processor:
     def get_path(self):
         """Get path (breadcrumb) string"""
 
-        # TODO: UI
         if self.preset_name:
             bank_name = self.get_preset_bank_name()
             if not bank_name:
@@ -788,7 +850,6 @@ class zynthian_processor:
 
     def get_basepath(self):
         """Get base path string"""
-        # TODO: UI
 
         if self.engine:
             path = self.engine.get_path(self)
@@ -801,30 +862,83 @@ class zynthian_processor:
                 path = f"ALL#{path}"
         return path
 
+    def get_basepath_subdir(self):
+        """Get base bank path string"""
+
+        path = self.get_basepath()
+        # Get bank subdir path
+        if self.bank_subdir_info:
+            subpath = self.bank_subdir_info[2].replace("> ", "")
+            sdi = self.bank_subdir_info[3]
+            while sdi:
+                subpath = sdi[2].replace("> ", "") + "/" + subpath
+                sdi = sdi[3]
+            path += " > " + subpath
+        return path
+
     def get_bankpath(self):
         """Get bank path string"""
 
-        # TODO: UI
         path = self.get_basepath()
-        if self.bank_name and self.bank_name != "None" and not path.endswith(self.bank_name):
-            path += " > " + self.bank_name
+        subpath = self.get_subdir_path()
+        if subpath:
+            path += " > " + subpath
         return path
 
     def get_presetpath(self):
         """Get preset path string"""
 
-        # TODO: UI
         path = self.get_basepath()
-        subpath = None
-        bank_name = self.get_preset_bank_name()
-        if bank_name and bank_name != "None" and not path.endswith(bank_name):
-            subpath = bank_name
-            if self.preset_name:
-                subpath += "/" + self.preset_name
-        elif self.preset_name:
-            subpath = self.preset_name
+        subpath = self.get_subdir_path()
+        if self.preset_name:
+            preset_name = self.preset_name.replace("> ", "")
+            if subpath:
+                # Avoid boring repetition in breadcrumbs
+                if not subpath.endswith(preset_name):
+                    subpath += "/" + preset_name
+            else:
+                subpath = preset_name
         if subpath:
             path += " > " + subpath
         return path
 
-# -----------------------------------------------------------------------------
+    def get_bank_subdir_path(self):
+        if self.bank_subdir_info:
+            subpath = self.bank_subdir_info[2].replace("> ", "")
+            sdi = self.bank_subdir_info[3]
+            while sdi:
+                subpath = sdi[2].replace("> ", "") + "/" + subpath
+                sdi = sdi[3]
+        else:
+            subpath = ""
+        return subpath
+
+    def get_preset_subdir_path(self):
+        if self.preset_subdir_info:
+            subpath = self.preset_subdir_info[2].replace("> ", "")
+            sdi = self.preset_subdir_info[3]
+            while sdi:
+                subpath = sdi[2].replace("> ", "") + "/" + subpath
+                sdi = sdi[3]
+        else:
+            subpath = ""
+        return subpath
+
+    def get_subdir_path(self):
+        subdir_path = self.get_bank_subdir_path()
+        if self.bank_name:
+            bank_name = self.bank_name.replace("> ", "")
+            if bank_name != "None" and not subdir_path.endswith(bank_name):
+                if subdir_path:
+                    subdir_path += "/" + bank_name
+                else:
+                    subdir_path = bank_name
+        preset_subdir_path = self.get_preset_subdir_path()
+        if preset_subdir_path:
+            if subdir_path:
+                subdir_path += "/" + preset_subdir_path
+            else:
+                subdir_path = preset_subdir_path
+        return subdir_path
+
+        # -----------------------------------------------------------------------------

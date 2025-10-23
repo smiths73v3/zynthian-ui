@@ -49,6 +49,7 @@ class zynthian_gui_control(zynthian_gui_selector):
     def __init__(self, selcap='Controllers'):
         self.mode = "control"
 
+        self.modules = {}
         self.widgets = {}
         self.current_widget = None
 
@@ -160,6 +161,23 @@ class zynthian_gui_control(zynthian_gui_selector):
         if not self.processors:
             self.list_data.append((None, None, "NO PROCESSORS!"))
         else:
+            # Chain controllers => favorite processor controllers
+            # Some processors have no chain => I.e. global audio player
+            if self.processors[0].chain:
+                chain_zctrls = self.processors[0].chain.zctrls
+                if chain_zctrls:
+                    self.list_data.append((None, None, "> CHAIN"))
+                    j = 0
+                    page_zctrls = []
+                    for zctrl in chain_zctrls:
+                        page_zctrls.append(zctrl)
+                        if len(page_zctrls) == 4:
+                            self.list_data.append((f"CHAIN_{j}", -1, f"Controllers {j + 1}", self.processors[0], j, page_zctrls))
+                            page_zctrls = []
+                            j += 1
+                    if len(page_zctrls) > 0:
+                        self.list_data.append((f"CHAIN_{j}", -1, f"Controllers {j + 1}", self.processors[0], j, page_zctrls))
+            # Processor Controllers
             i = 0
             for processor in self.processors:
                 j = 0
@@ -180,17 +198,18 @@ class zynthian_gui_control(zynthian_gui_selector):
     def get_screen_info(self):
         if 0 <= self.index < len(self.list_data):
             self.screen_info = self.list_data[self.index]
-            if len(self.screen_info) < 5:
+            while self.screen_info and self.screen_info[0] is None:
                 if self.index + 1 < len(self.list_data):
                     self.index += 1
                     self.screen_info = self.list_data[self.index]
                 else:
                     self.screen_info = None
-            if self.screen_info and len(self.screen_info) == 5:
-                self.screen_title = self.screen_info[2]
-                self.screen_processor = self.screen_info[3]
-                self.screen_type = None
-                return True
+            if self.screen_info:
+                if len(self.screen_info) >= 5:
+                    self.screen_title = self.screen_info[2]
+                    self.screen_processor = self.screen_info[3]
+                    self.screen_type = None
+                    return True
             else:
                 pass
                 # logging.info("Can't get screen info!!")
@@ -224,56 +243,80 @@ class zynthian_gui_control(zynthian_gui_selector):
         for i, val in enumerate(self.list_data):
             if val[0] is None:
                 # self.listbox.itemconfig(i, {'bg': zynthian_gui_config.color_off,'fg': zynthian_gui_config.color_tx_off})
-                self.listbox.itemconfig(
-                    i, {'bg': zynthian_gui_config.color_panel_hl, 'fg': zynthian_gui_config.color_tx_off})
+                self.listbox.itemconfig(i, {'bg': zynthian_gui_config.color_panel_hl, 'fg': zynthian_gui_config.color_tx_off})
 
     def set_selector(self, zs_hiden=True):
         if self.mode == 'select':
             super().set_selector(zs_hiden)
 
     def show_widget(self, processor):
-        module_path = processor.engine.custom_gui_fpath
-        if self.screen_type:  # and not module_path:
+        self.purge_widgets()
+
+        if self.screen_type:  # and not module_path
             module_path = f"/zynthian/zynthian-ui/zyngui/zynthian_widget_{self.screen_type}.py"
-        if module_path:
-            module_name = Path(module_path).stem
-            if module_name.startswith("zynthian_widget_"):
-                widget_name = module_name[len("zynthian_widget_"):]
-                if widget_name not in self.widgets:
-                    try:
-                        spec = importlib.util.spec_from_file_location(module_name, module_path)
-                        module = importlib.util.module_from_spec(spec)
-                        spec.loader.exec_module(module)
-                        class_ = getattr(module, module_name)
-                        self.widgets[widget_name] = class_(self.main_frame)
-                    except Exception as e:
-                        logging.error(f"Can't load custom widget {widget_name} => {e}")
+        elif processor.engine.custom_gui_fpath:
+            module_path = processor.engine.custom_gui_fpath
+        else:
+            self.hide_widgets()
+            return
 
-                if widget_name in self.widgets:
-                    self.widgets[widget_name].set_processor(processor)
-                else:
-                    widget_name = None
+        module_name = Path(module_path).stem
+        if module_name.startswith("zynthian_widget_"):
+            try:
+                module = self.modules[module_name]
+            except:
+                # Load module if not loaded
+                try:
+                    spec = importlib.util.spec_from_file_location(module_name, module_path)
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+                    self.modules[module_name] = module
+                except Exception as e:
+                    logging.error(f"Can't load custom widget module '{module_name}' => {e}")
+                    self.hide_widgets()
+                    return
 
-                if self.wide:
-                    padx = (0, 2)
+            # Create new widget if needed
+            widget_name = module_name[len("zynthian_widget_"):]
+            try:
+                multi_instance = getattr(module, "MULTI_INSTANCE")
+                if multi_instance:
+                    widget_name += f"#{processor.id}"
+            except:
+                pass
+            if widget_name not in self.widgets:
+                try:
+                    module_class = getattr(module, module_name)
+                    self.widgets[widget_name] = module_class(self.main_frame)
+                except Exception as e:
+                    logging.error(f"Can't create custom widget instance '{widget_name}' => {e}")
+                    self.hide_widgets()
+                    return
+
+            # Configure widget's processor
+            self.widgets[widget_name].set_processor(processor)
+
+            # Display widget and hide other ones
+            if self.wide:
+                padx = (0, 2)
+            else:
+                padx = (2, 2)
+            for k, widget in self.widgets.items():
+                if k == widget_name:
+                    self.listbox.grid_remove()
+                    lb_rows = self.layout['rows'] - widget.rows
+                    if lb_rows > 0:
+                        self.listbox.grid(rowspan=lb_rows)
+                        self._select_listbox(self.index, see=True)
+                    widget.grid(row=self.layout['list_pos'][0] + lb_rows, column=self.layout['list_pos']
+                                [1], rowspan=widget.rows, padx=padx, sticky="news")
+                    widget.show()
+                    self.set_current_widget(widget)
                 else:
-                    padx = (2, 2)
-                for k, widget in self.widgets.items():
-                    if k == widget_name:
-                        self.listbox.grid_remove()
-                        lb_rows = self.layout['rows'] - widget.rows
-                        if lb_rows > 0:
-                            self.listbox.grid(rowspan=lb_rows)
-                            self._select_listbox(self.index, see=True)
-                        widget.grid(row=self.layout['list_pos'][0] + lb_rows, column=self.layout['list_pos']
-                                    [1], rowspan=widget.rows, padx=padx, sticky="news")
-                        widget.show()
-                        self.set_current_widget(widget)
-                    else:
-                        widget.grid_remove()
-                        widget.hide()
-                return
-        self.hide_widgets()
+                    widget.grid_remove()
+                    widget.hide()
+        else:
+            self.hide_widgets()
 
     def hide_widgets(self):
         for k, widget in self.widgets.items():
@@ -283,8 +326,25 @@ class zynthian_gui_control(zynthian_gui_selector):
         self.listbox.grid_remove()
         self.listbox.grid(rowspan=4)
 
+    def purge_widgets(self):
+        """
+            Clean widget instances of removed processors (multi-instance modules only)
+        """
+        # multi_instances = [k for k, v in self.widgets.items() if k.startswith(widget_name)]
+        for k in list(self.widgets.keys()):
+            parts = k.split("#")
+            try:
+                proc_id = int(parts[1])
+            except:
+                continue
+            if proc_id not in self.zyngui.chain_manager.processors:
+                logging.debug(f"Deleting orphaned widget: {k}")
+                del self.widgets[k]
+
     def set_current_widget(self, widget):
-        if widget == self.current_widget:
+        if widget is None and self.current_widget is None:
+            return
+        if widget is not None and widget == self.current_widget:
             return
         self.current_widget = widget
         # Clean dynamic CUIA methods from widgets
@@ -304,15 +364,18 @@ class zynthian_gui_control(zynthian_gui_selector):
     def set_controller_screen(self):
         # Get screen info
         if self.get_screen_info():
-            try:
+            if self.screen_processor:
                 self.zyngui.chain_manager.get_active_chain().set_current_processor(self.screen_processor)
                 self.zyngui.current_processor = self.screen_processor
-            except:
-                pass
 
             # Get controllers for the current screen
-            self.zyngui.get_current_processor().set_current_screen_index(self.index)
-            self.zcontrollers = self.screen_processor.get_ctrl_screen(self.screen_title)
+            # Chain controllers
+            if self.screen_info[1] == -1:
+                self.zcontrollers = self.screen_info[5]
+            # Processor controllers
+            else:
+                self.zyngui.get_current_processor().set_current_screen_index(self.index)
+                self.zcontrollers = self.screen_processor.get_ctrl_screen(self.screen_title)
 
             # Show the widget for the current processor
             if self.mode == 'control':
@@ -669,9 +732,31 @@ class zynthian_gui_control(zynthian_gui_selector):
             zctrl = self.zgui_controllers[i].zctrl
             if zctrl is None:
                 return
+
+            if zctrl.is_path:
+                title = f"Control options: {zctrl.name}"
+                if self.processors[0].chain:
+                    if zctrl in self.processors[0].chain.zctrls:
+                        options["\u2612 Chain Controller"] = zctrl
+                    else:
+                        options["\u2610 Chain Controller"] = zctrl
+
+                options["Clear"] = zctrl
+
+                self.zyngui.screens['option'].config(title, options, self.midi_learn_options_cb)
+                self.zyngui.show_screen('option')
+                return
+
             mcparams = self.zyngui.chain_manager.get_midi_learn_from_zctrl(zctrl)
             if not unlearn_only:
-                title = "Control options"
+                title = f"Control options: {zctrl.name}"
+
+                if self.processors[0].chain:
+                    if zctrl in self.processors[0].chain.zctrls:
+                        options["\u2612 Chain Controller"] = zctrl
+                    else:
+                        options["\u2610 Chain Controller"] = zctrl
+
                 if not zctrl.is_toggle:
                     options["X-Y touchpad"] = None
                     # Only show X-Y if both zctrl are valid
@@ -735,7 +820,11 @@ class zynthian_gui_control(zynthian_gui_selector):
 
     def midi_learn_options_cb(self, option, param):
         parts = option.split(" ")
-        if option == "Control":
+        if option[2:] == "Chain Controller":
+            if self.processors[0].chain:
+                self.processors[0].chain.toggle_zctrl(param)
+                self.update_list()
+        elif option == "Control":
             self.show_xy()
         elif parts[1] == "X-axis":
             self.zyngui.state_manager.zctrl_x = param

@@ -85,10 +85,12 @@ class zynthian_controller:
         self.is_path = False  # True if the control is a file path (i.e. LV2's atom:Path)
         self.path_file_types = None  # List of supported file types
         self.path_dir_names = None  # List of directory names to look for files
+        self.path_preload = False  # Flag for enable/disable file preload
         self.not_on_gui = False  # True to hint to GUI to show control
         self.display_priority = 0  # Hint of order in which to display control (higher comes first)
 
         self.is_dirty = True  # True if control value changed since last UI update
+        self.ignore_engine_fb_ts = None  # Ignore next feedback value from the engine until this timestamp is over
 
         # Parameters to send values if engine-specific send method not available
         self.midi_chan = None  # MIDI channel to send CC messages from control
@@ -103,7 +105,6 @@ class zynthian_controller:
         self.midi_cc_mode_detecting_zero = 0    # Used by CC mode detection algorithm
         self.midi_cc_debounce = False # True to enable debounce of toggle
         self.midi_cc_debounce_timer = None
-        self.osc_port = None  # OSC destination port
         self.osc_path = None  # OSC path to send value to
         self.graph_path = None  # Complex map of control to engine parameter
 
@@ -175,14 +176,14 @@ class zynthian_controller:
             self.path_file_types = options['path_file_types']
         if 'path_dir_names' in options:
             self.path_dir_names = options['path_dir_names']
+        if 'path_preload' in options:
+            self.path_preload = options['path_preload']
         if 'midi_chan' in options:
             self.midi_chan = options['midi_chan']
         if 'midi_cc' in options:
             self.midi_cc = options['midi_cc']
         if 'midi_autolearn' in options:
             self.midi_autolearn = options['midi_autolearn']
-        if 'osc_port' in options:
-            self.osc_port = options['osc_port']
         if 'osc_path' in options:
             self.osc_path = options['osc_path']
         if 'graph_path' in options:
@@ -275,7 +276,7 @@ class zynthian_controller:
                 self.nudge_factor = 0.01  # TODO: Use number of divisions
                 self.nudge_factor_fine = 0.003 * self.nudge_factor
             elif not self.is_integer and not self.is_toggle:
-                if self.value_range <= 1.0:
+                if self.value_range <= 2.0:
                     self.nudge_factor = 0.01
                     self.nudge_factor_fine = 0.001
                 elif self.value_range <= 20:
@@ -326,6 +327,21 @@ class zynthian_controller:
             self.readonly = flag
             self.is_dirty = True
 
+    def set_ignore_engine_fb(self, timeout=2.0):
+        # Ignore FB from engine for 2.0 seconds
+        self.ignore_engine_fb_ts = monotonic() + timeout
+
+    def get_ignore_engine_fb(self):
+        if self.ignore_engine_fb_ts:
+            if self.ignore_engine_fb_ts > monotonic():
+                self.ignore_engine_fb_ts = None
+                return True
+            else:
+                self.ignore_engine_fb_ts = None
+                return False
+        else:
+            return False
+
     def get_path(self):
         if self.osc_path:
             return str(self.osc_path)
@@ -349,7 +365,8 @@ class zynthian_controller:
                                   cb_func=self.set_value,
                                   fexts=self.path_file_types,
                                   dirnames=self.path_dir_names,
-                                  path=self.value)
+                                  path=self.value,
+                                  preload=self.path_preload)
             return True
 
         if self.ticks:

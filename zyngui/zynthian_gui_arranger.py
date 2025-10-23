@@ -306,7 +306,7 @@ class zynthian_gui_arranger(zynthian_gui_base.zynthian_gui_base):
 
     # Function to actually clear bank
     def do_clear_bank(self, params=None):
-        self.zynseq.libseq.clearBank(self.zynseq.bank)
+        self.zynseq.build_default_bank(self.zynseq.bank)
         self.zynseq.select_bank(self.zynseq.bank, True)
         self.update_sequence_tracks()
         self.zynseq.libseq.setPlayPosition(self.zynseq.bank, self.sequence, 0)
@@ -715,7 +715,7 @@ class zynthian_gui_arranger(zynthian_gui_base.zynthian_gui_base):
     #  event: Mouse event
     def on_pattern_click(self, event):
         self.enable_param_editor(self, 'pattern', {
-                                 'name': 'Pattern', 'value_min': 1, 'value_max': 999, 'value_default': self.pattern, 'value': self.pattern})
+                                 'name': 'Pattern', 'value_min': 1, 'value_max': 999, 'value_default': self.pattern, 'nudge_factor':1, 'value': self.pattern})
 
     # Toggle playback of selected sequence
     def toggle_play(self):

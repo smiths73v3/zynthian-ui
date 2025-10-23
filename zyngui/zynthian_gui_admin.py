@@ -117,7 +117,8 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
 
         if lib_zyncore.get_active_midi_chan():
             self.list_data.append((self.toggle_active_midi_channel, 0, "\u2612 Active MIDI channel",
-                                   ["Send active MIDI channel messages to all chains with same MIDI channel.", "midi_settings.png"]))
+                                   ["Send active MIDI channel messages to all chains with same MIDI channel.",
+                                    "midi_settings.png"]))
         else:
             self.list_data.append((self.toggle_active_midi_channel, 0, "\u2610 Active MIDI channel",
                                    ["Send active MIDI channel messages to active chain only.",
@@ -136,15 +137,6 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                 self.list_data.append((self.toggle_bank_change, 0, "\u2610 MIDI Bank Change",
                                        ["Don't select bank when MIDI Program Change received", "midi_settings.png"]))
 
-        if zynthian_gui_config.preset_preload_noteon:
-            self.list_data.append((self.toggle_preset_preload_noteon, 0, "\u2612 Note-On Preset Preload",
-                                   ["Load preset for preview when a MIDI note-on command is received",
-                                    "midi_settings.png"]))
-        else:
-            self.list_data.append((self.toggle_preset_preload_noteon, 0, "\u2610 Note-On Preset Preload",
-                                   ["Do not load preset for preview when a MIDI note-on command is received",
-                                    "midi_settings.png"]))
-
         if zynthian_gui_config.midi_usb_by_port:
             self.list_data.append((self.toggle_usbmidi_by_port, 0, "\u2612 MIDI-USB mapped by port",
                                    ["MIDI ports are indexed by their device name and the physical USB port to which they are plugged",
@@ -152,14 +144,6 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         else:
             self.list_data.append((self.toggle_usbmidi_by_port, 0, "\u2610 MIDI-USB mapped by port",
                                    ["MIDI ports are indexed by their device name only.", "midi_settings.png"]))
-
-        if zynthian_gui_config.transport_clock_source == 0:
-            if zynthian_gui_config.midi_sys_enabled:
-                self.list_data.append((self.toggle_midi_sys, 0, "\u2612 MIDI System Messages",
-                                       ["System messages are sent to MIDI outputs.", "midi_settings.png"]))
-            else:
-                self.list_data.append((self.toggle_midi_sys, 0, "\u2610 MIDI System Messages",
-                                       ["System messages are not sent to MIDI outputs.", "midi_settings.png"]))
 
         gtrans = lib_zyncore.get_global_transpose()
         if gtrans > 0:
@@ -176,14 +160,14 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
             if zynthian_gui_config.rbpi_headphones:
                 self.list_data.append((self.stop_rbpi_headphones, 0, "\u2612 RBPi Headphones",
                                        ["Raspberry Pi onboard (low fidelity) headphone output is enabled",
-                                        "headphone.png"]))
+                                        "headphones.png"]))
             else:
                 self.list_data.append((self.start_rbpi_headphones, 0, "\u2610 RBPi Headphones",
                                        ["Raspberry Pi onboard (low fidelity) headphone output is disabled",
-                                        "headphone.png"]))
+                                        "headphones.png"]))
 
         self.list_data.append((self.hotplug_audio_menu, 0, "Hotplug USB Audio",
-                               ["Configure USB audio hotplug.\n\nWhen enabled, USB audio devices will be detected and available. This does not include any device that is already configured as the main audio device which must always reamain connected.",
+                               ["Configure USB audio hotplug.\n\nWhen enabled, USB audio devices will be detected and available. This does not include any device that is already configured as the main audio device which must always remain connected.",
                                 "audio_options.png"]))
 
         if zynthian_gui_config.snapshot_mixer_settings:
@@ -217,6 +201,14 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
                                     "network.png"]))
 
         self.list_data.append((None, 0, "> SETTINGS"))
+        if zynthian_gui_config.preset_preload:
+            self.list_data.append((self.toggle_preset_preload, 0, "\u2612 Preset Preload",
+                                   ["Pre-load presets while browsing the list",
+                                    "settings.png"]))
+        else:
+            self.list_data.append((self.toggle_preset_preload, 0, "\u2610 Preset Preload",
+                                   ["Do not pre-load preset for while browsing the list",
+                                    "settings.png"]))
         if not zynthian_gui_config.wiring_layout.startswith("V5"):
             match zynthian_gui_config.touch_navigation:
                 case "touch_widgets":
@@ -476,7 +468,8 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
             case "disable_output":
                 self.zyngui.state_manager.start_busy("hotplug", f"Disabling {option[2:]}")
                 zynautoconnect.enable_audio_output_device(option[2:-4], False)
-        self.zyngui.screens['option'].options = self.get_hotplug_menu_options()
+        self.zyngui.screens['option'].config("Hotplug Audio", self.get_hotplug_menu_options(), self.hotplug_audio_cb, False)
+        self.zyngui.show_screen('option')
         self.zyngui.state_manager.end_busy("hotplug")
         zynautoconnect.resume()
 
@@ -498,20 +491,16 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         })
         self.update_list()
 
-    def toggle_midi_sys(self):
-        if zynthian_gui_config.midi_sys_enabled:
-            logging.info("MIDI System Messages OFF")
-            zynthian_gui_config.midi_sys_enabled = False
+    def toggle_preset_preload(self):
+        if zynthian_gui_config.preset_preload:
+            logging.info("Preset Preload OFF")
+            zynthian_gui_config.preset_preload = False
         else:
-            logging.info("MIDI System Messages ON")
-            zynthian_gui_config.midi_sys_enabled = True
+            logging.info("Preset Preload ON")
+            zynthian_gui_config.preset_preload = True
 
-        # Update MIDI profile
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_SYS_ENABLED": str(int(zynthian_gui_config.midi_sys_enabled))
-        })
-
-        lib_zyncore.set_midi_system_events(zynthian_gui_config.midi_sys_enabled)
+        # Save config
+        zynconf.save_config({"ZYNTHIAN_UI_PRESET_PRELOAD": str(int(zynthian_gui_config.preset_preload))})
         self.update_list()
 
     def bluetooth(self):
@@ -612,20 +601,6 @@ class zynthian_gui_admin(zynthian_gui_selector_info):
         # Save config
         zynconf.update_midi_profile({
             "ZYNTHIAN_MIDI_BANK_CHANGE": str(int(zynthian_gui_config.midi_bank_change))
-        })
-        self.update_list()
-
-    def toggle_preset_preload_noteon(self):
-        if zynthian_gui_config.preset_preload_noteon:
-            logging.info("Preset Preload OFF")
-            zynthian_gui_config.preset_preload_noteon = False
-        else:
-            logging.info("Preset Preload ON")
-            zynthian_gui_config.preset_preload_noteon = True
-
-        # Save config
-        zynconf.update_midi_profile({
-            "ZYNTHIAN_MIDI_PRESET_PRELOAD_NOTEON": str(int(zynthian_gui_config.preset_preload_noteon))
         })
         self.update_list()
 

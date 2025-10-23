@@ -104,6 +104,10 @@ ZMOP_MOD_INDEX = 16   # Dedicated zmop for MOD-UI
 class zynthian_gui:
     # Subsignals are defined inside each module. Here we define GUI subsignals:
     SS_SHOW_SCREEN = 0
+    SS_GUI_SHOW_SIDEBAR = 1
+    SS_GUI_CONTROL_MODE = 2
+    SS_GUI_SHOW_FILE_SELECTOR = 3
+    SS_GUI_SHOW_MESSAGE = 4
 
     # Screen Modes
     SCREEN_HMODE_NONE = 0
@@ -182,6 +186,8 @@ class zynthian_gui:
         # Dictionary of {OSC clients, last heartbeat} registered for mixer feedback
         self.osc_clients = {}
         self.osc_heartbeat_timeout = 120  # Heartbeat timeout period
+
+        self.prog_change = [0] * 16 # Track last program change for each MIDI channel
 
     # ---------------------------------------------------------------------------
     # Capture Log
@@ -1406,12 +1412,6 @@ class zynthian_gui:
     def cuia_screen_arranger(self, params=None):
         self.show_screen("arranger")
 
-    def cuia_screen_bank(self, params=None):
-        self.show_screen("bank")
-
-    def cuia_screen_preset(self, params=None):
-        self.show_screen("preset")
-
     def cuia_screen_calibrate(self, params=None):
         self.calibrate_touchscreen()
 
@@ -1489,18 +1489,20 @@ class zynthian_gui:
                 logging.warning("Can't set control screen processor! ")
 
         if self.current_screen == 'bank':
-            # self.replace_screen('preset')
-            self.close_screen()
+            if not self.screens['bank'].browse_back():
+                self.close_screen()
         else:
             curproc = self.get_current_processor()
             if curproc:
-                bank_list = curproc.get_bank_list()
                 if self.current_screen == 'preset':
-                    if len(bank_list) > 1:
-                        self.replace_screen('bank')
-                    else:
-                        self.close_screen()
+                    if not self.screens['preset'].browse_back():
+                        bank_list = curproc.get_bank_list()
+                        if len(bank_list) > 1:
+                            self.replace_screen('bank')
+                        else:
+                            self.close_screen()
                 else:
+                    bank_list = curproc.get_bank_list()
                     if len(curproc.preset_list) > 0 and curproc.preset_list[0][0] != '':
                         self.screens['preset'].index = curproc.get_preset_index()
                         self.show_screen('preset', hmode=zynthian_gui.SCREEN_HMODE_ADD)
@@ -1685,7 +1687,6 @@ class zynthian_gui:
     # MIDI CUIAs
     def cuia_program_change(self, params=None):
         if len(params) > 0:
-            pgm = int(params[0])
             if len(params) > 1:
                 chan = int(params[1])
             else:
@@ -1695,8 +1696,15 @@ class zynthian_gui:
                         chan = 0
                 except:
                     chan = 0
+            if params[0] == "+":
+                pgm = self.prog_change[chan] + 1
+            elif params[0] == "-":
+                pgm = self.prog_change[chan] - 1
+            else:
+                pgm = int(params[0])
             if 0 <= chan < 16 and 0 <= pgm < 128:
                 lib_zyncore.write_zynmidi_program_change(chan, pgm)
+                self.prog_change[chan] = pgm
 
     def cuia_zyn_cc(self, params=None):
         if len(params) > 2:
@@ -2100,14 +2108,15 @@ class zynthian_gui:
         zynsigman.register(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_ON, self.cb_midi_note_on)
         zynsigman.register(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_OFF, self.cb_midi_note_off)
         zynsigman.register_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR, self.cb_show_file_selector)
+        zynsigman.register_queued(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_MESSAGE, self.cb_show_message)
         zynsigman.register_queued(
             zynsigman.S_CHAIN_MAN, self.chain_manager.SS_SET_ACTIVE_CHAIN, self.cb_set_active_chain)
-
 
     def unregister_signals(self):
         zynsigman.unregister(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_ON, self.cb_midi_note_on)
         zynsigman.unregister(zynsigman.S_MIDI, zynsigman.SS_MIDI_NOTE_OFF, self.cb_midi_note_off)
         zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_FILE_SELECTOR, self.cb_show_file_selector)
+        zynsigman.unregister(zynsigman.S_GUI, zynsigman.SS_GUI_SHOW_MESSAGE, self.cb_show_message)
         zynsigman.unregister(
             zynsigman.S_CHAIN_MAN, self.chain_manager.SS_SET_ACTIVE_CHAIN, self.cb_set_active_chain)
 
@@ -2125,11 +2134,12 @@ class zynthian_gui:
             if self.state_manager.zynseq.libseq.isMidiRecord():
                 self.screens['pattern_editor'].midi_note_on(note)
         # Preload preset (note-on)
-        elif self.current_screen == 'preset':
-            if zynthian_gui_config.preset_preload_noteon:
-                curproc = self.get_current_processor()
-                if curproc and (zynautoconnect.get_midi_in_dev_mode(izmip) or chan == curproc.midi_chan):
-                    self.screens['preset'].preselect_action()
+        # => Now using delayed pre-load (see zynthian_gui_preset.py)
+        #elif self.current_screen == 'preset':
+        #    if zynthian_gui_config.preset_preload_noteon:
+        #        curproc = self.get_current_processor()
+        #        if curproc and (zynautoconnect.get_midi_in_dev_mode(izmip) or chan == curproc.midi_chan):
+        #            self.screens['preset'].preselect_action()
         # Note Range Learn
         elif self.current_screen == 'midi_key_range':
             if self.state_manager.midi_learn_state:
@@ -2151,14 +2161,20 @@ class zynthian_gui:
         if self.current_screen == 'pattern_editor' and self.state_manager.zynseq.libseq.isMidiRecord():
             self.screens['pattern_editor'].midi_note_off(note)
 
-    def cb_show_file_selector(self, cb_func, fexts=None, dirnames=None, path=None):
-        self.screens["file_selector"].config(cb_func, fexts=fexts, dirnames=dirnames, path=path)
+    def cb_show_file_selector(self, cb_func, fexts=None, dirnames=None, path=None, preload=False):
+        self.screens["file_selector"].config(cb_func, fexts=fexts, dirnames=dirnames, path=path, preload=preload)
         self.show_screen("file_selector")
 
     def cb_set_active_chain(self, active_chain):
         active_chain = self.chain_manager.get_active_chain()
         if active_chain:
             self.zynswitches_midi_setup(active_chain.midi_chan)
+
+    def cb_show_message(self, message):
+        try:
+            self.get_current_screen_obj().set_title(message, None, None, 1)
+        except Exception as e:
+            logging.error(f"Can't show GUI message => {e}")
 
     # ------------------------------------------------------------------
     # Zynpot Thread

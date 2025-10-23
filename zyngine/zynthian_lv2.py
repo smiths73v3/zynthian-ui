@@ -195,6 +195,7 @@ def init_lilv():
     # Disable language filtering
     # world.set_option(lilv.OPTION_FILTER_LANG, world.new_bool(False))
     world.load_all()
+    world.ns.lv2 = lilv.Namespace(world, "http://lv2plug.in/ns/lv2core#")
     world.ns.ev = lilv.Namespace(world, "http://lv2plug.in/ns/ext/event#")
     world.ns.presets = lilv.Namespace(world, "http://lv2plug.in/ns/ext/presets#")
     world.ns.portprops = lilv.Namespace(world, "http://lv2plug.in/ns/ext/port-props#")
@@ -202,6 +203,7 @@ def init_lilv():
     world.ns.parameters = lilv.Namespace(world, "http://lv2plug.in/ns/ext/parameters#")
     world.ns.patch = lilv.Namespace(world, "http://lv2plug.in/ns/ext/patch#")
     world.ns.atom = lilv.Namespace(world, "http://lv2plug.in/ns/ext/atom#")
+    world.ns.doap = lilv.Namespace(world, "http://usefulinc.com/ns/doap#")
     world.ns.mod = lilv.Namespace(world, "http://moddevices.com/ns/mod#")
 
 # ------------------------------------------------------------------------------
@@ -467,7 +469,7 @@ def generate_engines_config_file(refresh=True, reset_rankings=None):
             'ENABLED': is_engine_enabled(key, False),
             'INDEX': engine_index,
             'URL': engine_uri,
-            'UI': is_plugin_ui(plugin),
+            'UI': get_plugin_ui(plugin),
             'DESCR': engine_descr,
             "QUALITY": engine_quality,
             "COMPLEX": engine_complex,
@@ -507,7 +509,7 @@ def get_engines_by_type():
 # ------------------------------------------------------------------------------
 
 
-def is_plugin_ui(plugin):
+def get_plugin_ui(plugin):
     for uri in plugin.get_data_uris():
         try:
             with open(urllib.parse.unquote(str(uri)[7:])) as f:
@@ -586,8 +588,11 @@ def get_plugin_description(plugin):
     try:
         res = str(plugin.get_value(world.ns.rdfs.comment)[0]).strip()
     except:
-        logging.debug(f"Can't get plugin {plugin.get_name()} description. Using default.")
-        res = None
+        try:
+            res = str(plugin.get_value(world.ns.doap.description)[0]).strip()
+        except:
+            logging.debug(f"Can't get plugin {plugin.get_name()} description. Using default.")
+            res = None
     return res
 
 # ------------------------------------------------------------------------------
@@ -663,7 +668,7 @@ def _generate_plugin_presets_cache(plugin):
 
         label = world.get(preset, world.ns.rdfs.label, None)
         if label is None:
-            label = preset.split('#')[-1]
+            label = str(preset).split('#')[-1]
             logging.debug(f"Preset <{preset}> has no label! Using '{label}'")
         else:
             label = str(label)
@@ -884,6 +889,7 @@ def get_plugin_ports(plugin_url):
                 'is_logarithmic': is_logarithmic,
                 'is_path': False,
                 'path_file_types': None,
+                'path_preload': False,
                 'envelope': envelope,
                 'not_on_gui': not_on_gui,
                 'display_priority': display_priority,
@@ -911,6 +917,8 @@ def get_plugin_ports(plugin_url):
             path_file_types = world.get(control, world.ns.mod.fileTypes, None)
             if path_file_types is not None:
                 path_file_types = str(path_file_types).split(",")
+            # TODO => Implement LV2 port propierty for path preload => only if really needed!
+            path_preload = True
             envelope = None
             sp = []
         else:
@@ -924,6 +932,7 @@ def get_plugin_ports(plugin_url):
             is_logarithmic = world.get(control, world.ns.portprops.logarithmic, None) is not None
             is_path = False
             path_file_types = None
+            path_preload = False
 
             envelope = None
             for env_type in ["delay", "attack", "hold", "decay", "sustain", "fade", "release"]:
@@ -999,6 +1008,7 @@ def get_plugin_ports(plugin_url):
             'is_logarithmic': is_logarithmic,
             'is_path': is_path,
             'path_file_types': path_file_types,
+            'path_preload': path_preload,
             'envelope': envelope,
             'not_on_gui': not_on_gui,
             'display_priority': display_priority,
