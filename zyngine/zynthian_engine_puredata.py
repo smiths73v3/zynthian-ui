@@ -23,13 +23,18 @@
 # ******************************************************************************
 
 import os
-import liblo
 import queue
 import shutil
 import logging
 import oyaml as yaml
 from time import sleep
 from os.path import isfile, join
+
+#there are now to possibilities for liblo, try both
+try:
+    import liblo #try the old name first
+except ImportError:
+    import pyliblo3 as liblo
 
 import zynautoconnect
 from . import zynthian_engine
