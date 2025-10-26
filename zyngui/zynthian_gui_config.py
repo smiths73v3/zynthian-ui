@@ -784,7 +784,9 @@ if "zynthian_main.py" in sys.argv[0]:
         fh2 = int(fh * fw2 / fw)
         nframes = 0
         while pil_frame:
-            pil_frame2 = pil_frame.resize((fw2, fh2), Image.ANTIALIAS)
+            #-# remove missing ANTIALIAS - pil_frame2 = pil_frame.resize((fw2, fh2), Image.ANTIALIAS)
+            #-# PIL library has been changed to Pillow, consider changing for future support
+            pil_frame2 = pil_frame.resize((fw2, fh2), Image.Resampling.LANCZOS)
             # convert PIL image object to Tkinter PhotoImage object
             loading_imgs.append(ImageTk.PhotoImage(pil_frame2))
             nframes += 1
