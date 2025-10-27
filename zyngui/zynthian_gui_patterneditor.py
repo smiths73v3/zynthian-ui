@@ -1222,13 +1222,13 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
 
     # Function to add a note or chord, depending on current chord mode
     # step: step number (column)
-    # note: MIDI note (0-127)
+    # row: grid row (MIDI note - note_offset)
     # vel: velocity (0-127)
     # dur: duration (in steps)
     # offset: offset of start of event (0..0.99)
-    def add_chord(self, step, note, vel, dur, offset=0.0):
+    def add_chord(self, step, row, vel, dur, offset=0.0):
         if self.display_mode == SHOW_CC:
-            self.add_event(step, note, vel, dur, offset)
+            self.add_event(step, row, vel, dur, offset)
             return
         match self.chord_mode:
             case 0:
@@ -1239,10 +1239,10 @@ class zynthian_gui_patterneditor(zynthian_gui_base.zynthian_gui_base):
                 chord = CHORDS[self.chord_type][1]
             case _:
                 # Diatonic chord entry mode
-                chord = self.get_diatonic_chord(note)
+                chord = self.get_diatonic_chord(row)
         for note_offset in chord:
-            if self.add_event(step, note + note_offset, vel, dur, offset):
-                self.play_note(note + note_offset)
+            if self.add_event(step, row + note_offset, vel, dur, offset):
+                self.play_note(self.keymap[row + note_offset]['note'])
 
     # Function to remove a note or chord, depending on current chord mode
     # step: step number (column)
