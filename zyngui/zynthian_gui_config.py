@@ -41,7 +41,7 @@ def get_env_int(env_var, default_val=0):
 # Log level and debuging
 # ------------------------------------------------------------------------------
 
-debug_thread = get_env_int('ZYNTHIAN_DEBUG_THREAD', "0")
+debug_thread = get_env_int('ZYNTHIAN_DEBUG_THREAD', 0)
 
 log_level = get_env_int('ZYNTHIAN_LOG_LEVEL', logging.WARNING)
 # log_level = logging.DEBUG
@@ -377,18 +377,18 @@ def set_midi_config():
 
     # MIDI options
     midi_fine_tuning = float(os.environ.get('ZYNTHIAN_MIDI_FINE_TUNING', "440.0"))
-    active_midi_channel = get_env_int('ZYNTHIAN_MIDI_ACTIVE_CHANNEL', "0")
-    midi_prog_change_zs3 = get_env_int('ZYNTHIAN_MIDI_PROG_CHANGE_ZS3', "1")
-    midi_bank_change = get_env_int('ZYNTHIAN_MIDI_BANK_CHANGE', "0")
-    midi_usb_by_port = get_env_int("ZYNTHIAN_MIDI_USB_BY_PORT", "0")
-    midi_network_enabled = get_env_int('ZYNTHIAN_MIDI_NETWORK_ENABLED', "0")
-    midi_netump_enabled = get_env_int('ZYNTHIAN_MIDI_NETUMP_ENABLED', "0")
-    midi_rtpmidi_enabled = get_env_int('ZYNTHIAN_MIDI_RTPMIDI_ENABLED', "0")
-    midi_touchosc_enabled = get_env_int('ZYNTHIAN_MIDI_TOUCHOSC_ENABLED', "0")
-    bluetooth_enabled = get_env_int('ZYNTHIAN_MIDI_BLE_ENABLED', "0")
+    active_midi_channel = get_env_int('ZYNTHIAN_MIDI_ACTIVE_CHANNEL', 0)
+    midi_prog_change_zs3 = get_env_int('ZYNTHIAN_MIDI_PROG_CHANGE_ZS3', 1)
+    midi_bank_change = get_env_int('ZYNTHIAN_MIDI_BANK_CHANGE', 0)
+    midi_usb_by_port = get_env_int("ZYNTHIAN_MIDI_USB_BY_PORT", 0)
+    midi_network_enabled = get_env_int('ZYNTHIAN_MIDI_NETWORK_ENABLED', 0)
+    midi_netump_enabled = get_env_int('ZYNTHIAN_MIDI_NETUMP_ENABLED', 0)
+    midi_rtpmidi_enabled = get_env_int('ZYNTHIAN_MIDI_RTPMIDI_ENABLED', 0)
+    midi_touchosc_enabled = get_env_int('ZYNTHIAN_MIDI_TOUCHOSC_ENABLED', 0)
+    bluetooth_enabled = get_env_int('ZYNTHIAN_MIDI_BLE_ENABLED', 0)
     ble_controller = os.environ.get('ZYNTHIAN_MIDI_BLE_CONTROLLER', "")
-    midi_aubionotes_enabled = get_env_int('ZYNTHIAN_MIDI_AUBIONOTES_ENABLED', "0")
-    transport_clock_source = get_env_int('ZYNTHIAN_MIDI_TRANSPORT_CLOCK_SOURCE', "0")
+    midi_aubionotes_enabled = get_env_int('ZYNTHIAN_MIDI_AUBIONOTES_ENABLED', 0)
+    transport_clock_source = get_env_int('ZYNTHIAN_MIDI_TRANSPORT_CLOCK_SOURCE', 0)
 
     # Filter Rules
     midi_filter_rules = os.environ.get('ZYNTHIAN_MIDI_FILTER_RULES', "")
@@ -609,7 +609,7 @@ visible_mixer_strips = get_env_int('ZYNTHIAN_UI_VISIBLE_MIXER_STRIPS', 0)
 ctrl_graph = get_env_int('ZYNTHIAN_UI_CTRL_GRAPH', 1)
 control_test_enabled = get_env_int('ZYNTHIAN_UI_CONTROL_TEST_ENABLED', 0)
 power_save_secs = 60 * get_env_int('ZYNTHIAN_UI_POWER_SAVE_MINUTES', 60)
-preset_preload = get_env_int('ZYNTHIAN_UI_PRESET_PRELOAD', "1")
+preset_preload = get_env_int('ZYNTHIAN_UI_PRESET_PRELOAD', 1)
 
 # ------------------------------------------------------------------------------
 # Audio Options
