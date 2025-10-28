@@ -550,6 +550,8 @@ if touch_navigation == "_UNDEF_":
         touch_keypad = os.environ.get('ZYNTHIAN_TOUCH_KEYPAD', '')
         if touch_keypad == "V5":
             touch_navigation = "v5_keypad_left"
+        else:
+            touch_navigation = None
 
 match touch_navigation:
     case "touch_widgets":
