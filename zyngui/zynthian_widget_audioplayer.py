@@ -424,7 +424,6 @@ class zynthian_widget_audioplayer(zynthian_widget_base.zynthian_widget_base):
             y0 = self.waveform_height // self.channels
             for chan in range(self.channels):
                 v_offset = chan * y0
-                # fill = zynthian_gui_config.LAUNCHER_COLOUR[chan // 2 % 16]["rgb"]
                 # fill=zynthian_gui_config.PAD_COLOUR_GROUP[chan // 2 % len(zynthian_gui_config.PAD_COLOUR_GROUP)]
                 if chan // 2 % 2:
                     fill = self.bg_color_alt
