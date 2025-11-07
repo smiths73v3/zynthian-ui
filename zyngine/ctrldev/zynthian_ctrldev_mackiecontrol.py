@@ -641,12 +641,12 @@ class zynthian_ctrldev_mackiecontrol(zynthian_ctrldev_zynmixer):
 				zyn_vol_level = mackie_vol_level / self.max_fader_value
 				if fader_channel == self.device_settings['masterfader_fader_num'] and self.device_settings['masterfader']:
 					self.zynmixer.set_level(self.get_master_chain_audio_channel(), zyn_vol_level)
-					#lib_zyncore.dev_send_pitchbend_change(self.idev_out, fader_channel, mackie_vol_level)
+					lib_zyncore.dev_send_pitchbend_change(self.idev_out, fader_channel, mackie_vol_level)
 				else:
 					mixer_chan = self.get_mixer_chan_from_device_col(fader_channel + self.first_zyn_channel_fader)
 					if mixer_chan is not None:
 						self.zynmixer.set_level(mixer_chan, zyn_vol_level)
-						#lib_zyncore.dev_send_pitchbend_change(self.idev_out, fader_channel, mackie_vol_level)
+						lib_zyncore.dev_send_pitchbend_change(self.idev_out, fader_channel, mackie_vol_level)
 
 			return True
 
