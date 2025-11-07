@@ -33,27 +33,27 @@ from zyngine.ctrldev.zynthian_ctrldev_base_moder import zynthian_ctrldev_base_mo
 
 _MODE_BANKS = {
     "notes": [
-        # Bank A
+        # Bank A (7-note scales => white keys)
         "Chromatic",
         "Major",
         "Minor",
+        "Harmonic Minor",
+        "Melodic Minor",
         "Dorian",
         "Mixolydian",
         "Lydian",
+        # Bank B (7-note scales => white keys)
+        "Chromatic",
         "Phrygian",
         "Locrian",
-        # Bank B
-        "Chromatic",
-        "Harmonic Minor",
-        "Melodic Minor",
         "Super Locrian",
         "Bhairav",
         "Hungarian Minor",
         "Minor Gypsy",
-        None
+        "Spanish",
     ],
     "CCs": [
-        # Bank A
+        # Bank A (5-note scales => black keys)
         "Chromatic",
         "Minor Pentatonic",
         "Major Pentatonic",
@@ -62,7 +62,7 @@ _MODE_BANKS = {
         "Iwato",
         "Kumoi",
         None,
-        # Bank B
+        # Bank B (other => custom keys)
         "Chromatic",
         "Diminished",
         "Whole-Half",
@@ -79,7 +79,7 @@ _MODE_BANKS = {
 # ------------------------------------------------------------------------------------------------------------------
 
 
-class zynthian_ctrldev_akai_mpk_moder(zynthian_ctrldev_base, zynthian_ctrldev_base_moder):
+class zynthian_ctrldev_akai_mpk_mini_mk3_moder(zynthian_ctrldev_base, zynthian_ctrldev_base_moder):
 
     dev_ids = ["MPK mini 3 IN 1"]
     driver_description = "Mode enforcer. Use pads notes & CCs to change mode:\n"\
