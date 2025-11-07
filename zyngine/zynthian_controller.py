@@ -104,7 +104,7 @@ class zynthian_controller:
         self.midi_cc_mode_detecting_ts = 0      # Used by CC mode detection algorithm
         self.midi_cc_mode_detecting_count = 0   # Used by CC mode detection algorithm
         self.midi_cc_mode_detecting_zero = 0    # Used by CC mode detection algorithm
-        self.midi_cc_debounce = False # True to enable debounce of toggle
+        self.midi_cc_debounce = False  # True to enable debounce of toggle
         self.midi_cc_debounce_timer = None
         self.osc_path = None  # OSC path to send value to
         self.graph_path = None  # Complex map of control to engine parameter
@@ -485,8 +485,7 @@ class zynthian_controller:
                 except Exception as e:
                     logging.warning("Can't send controller '{}' => {}".format(self.symbol, e))
 
-        # Send feedback to MIDI controllers => What MIDI controllers? Those selected as MIDI-out?
-        # TODO: Set midi_feeback to MIDI learn
+        # TODO: Set midi_feeback to MIDI learn?
         if self.midi_feedback:
             self.send_midi_feedback(mval)
 
@@ -507,6 +506,7 @@ class zynthian_controller:
         else:
             lib_zyncore.ui_send_ccontrol_change(self.midi_chan, self.midi_cc, mval)
 
+    # Send feedback to MIDI controllers => What MIDI controllers? Those selected as MIDI-out?
     def send_midi_feedback(self, mval=None):
         if mval is None:
             mval = self.get_ctrl_midi_val()
