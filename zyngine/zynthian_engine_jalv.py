@@ -354,7 +354,7 @@ class zynthian_engine_jalv(zynthian_engine):
         #a = datetime.now()
         try:
             self.proc.stdin.writelines([cmd + "\n"])
-            logging.debug(f"Executed jalv command '{cmd}'")
+            #logging.debug(f"Executed jalv command '{cmd}'")
         except BrokenPipeError:
             logging.error(f"Broken pipe when executing jalv command '{cmd}'. Restarting engine ...")
             self.proc_exit = True
