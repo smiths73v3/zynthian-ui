@@ -158,8 +158,11 @@ class zynthian_gui_preset(zynthian_gui_selector_info, zynthian_gui_save_preset):
             options["Processor"] = None
             options.update(proc_options)
 
-        self.zyngui.screens['option'].config(title, options, self.preset_options_cb)
-        self.zyngui.show_screen('option')
+        if options:
+            self.zyngui.screens['option'].config(title, options, self.preset_options_cb)
+            self.zyngui.show_screen('option')
+        else:
+            self.zyngui.close_screen()
 
     def show_menu(self):
         self.show_preset_options()
