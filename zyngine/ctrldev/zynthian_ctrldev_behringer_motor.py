@@ -150,22 +150,45 @@ class zynthian_ctrldev_behringer_motor(zynthian_ctrldev_base, zynthian_ctrldev_b
     pianoteq_proc = None
     ccnum2zctrls = {}
 
+    def init(self):
+        super().init()
+        # Register for processor tree changes
+        zynsigman.register_queued(zynsigman.S_STATE_MAN, self.state_manager.SS_LOAD_SNAPSHOT, self.refresh)
+        zynsigman.register_queued(zynsigman.S_CHAIN_MAN, self.chain_manager.SS_REMOVE_CHAIN, self.refresh)
+        zynsigman.register_queued(zynsigman.S_CHAIN_MAN, self.chain_manager.SS_REMOVE_ALL_CHAINS, self.refresh)
+        zynsigman.register_queued(zynsigman.S_CHAIN_MAN, self.chain_manager.SS_REMOVE_PROCESSOR, self.refresh)
+
+    def end(self):
+        self.reset_feedback()
+        # Unregister from processor tree changes
+        zynsigman.unregister(zynsigman.S_STATE_MAN, self.state_manager.SS_LOAD_SNAPSHOT, self.refresh)
+        zynsigman.unregister(zynsigman.S_CHAIN_MAN, self.chain_manager.SS_REMOVE_CHAIN, self.refresh)
+        zynsigman.unregister(zynsigman.S_CHAIN_MAN, self.chain_manager.SS_REMOVE_ALL_CHAINS, self.refresh)
+        zynsigman.unregister(zynsigman.S_CHAIN_MAN, self.chain_manager.SS_REMOVE_PROCESSOR, self.refresh)
+        super().end()
+
     def refresh(self):
+        changed = False
         # Look for setBfree engine
         if "BF" in self.chain_manager.zyngines:
-            self.setbfree_procs = self.chain_manager.zyngines["BF"].processors
-        else:
+            if self.setbfree_procs != self.chain_manager.zyngines["BF"].processors:
+                self.setbfree_procs = self.chain_manager.zyngines["BF"].processors
+                changed = True
+        elif self.setbfree_procs:
             self.setbfree_procs = None
+            changed = True
+
         # Look for pianoteq engine
         if "PT" in self.chain_manager.zyngines:
-            self.pianoteq_proc = self.chain_manager.zyngines["PT"].processors[0]
-        else:
+            if self.pianoteq_proc != self.chain_manager.zyngines["PT"].processors[0]:
+                self.pianoteq_proc = self.chain_manager.zyngines["PT"].processors[0]
+                changed = True
+        elif self.pianoteq_proc:
             self.pianoteq_proc = None
+            changed = True
 
-        if self.setbfree_procs or self.pianoteq_proc:
+        if changed:
             self.setup_feedback()
-        else:
-            self.ccnum2zctrls = {}
 
     def midi_event(self, ev):
         evtype = (ev[0] >> 4) & 0x0F
