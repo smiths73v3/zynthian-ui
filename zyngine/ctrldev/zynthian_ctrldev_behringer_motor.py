@@ -146,6 +146,7 @@ class zynthian_ctrldev_behringer_motor(zynthian_ctrldev_base, zynthian_ctrldev_b
             'reverb_duration': 78
         }
     }
+    fader_touch_flags = [False] * 33  # 4 banks x 8 faders + 1 master fader
     setbfree_procs = None
     pianoteq_proc = None
     ccnum2zctrls = {}
@@ -196,9 +197,20 @@ class zynthian_ctrldev_behringer_motor(zynthian_ctrldev_base, zynthian_ctrldev_b
 
         # By default, pads, faders and encoders use MIDI channel 2
         if evchan == 1:
-            # Note-On: pads
-            if evtype == 0x9:
+            # Note-Off:
+            if evtype == 0x8:
                 note = ev[1] & 0x7F
+                # Fader touch
+                if 0 <= note <= 32:
+                    self.fader_touch_flags[note] = False
+                    return True
+            # Note-On:
+            elif evtype == 0x9:
+                note = ev[1] & 0x7F
+                # Fader touch
+                if 0 <= note <= 32:
+                    self.fader_touch_flags[note] = True
+                    return True
                 # Pads (bank A, B, C & D) => Mode selection
                 if 66 <= note <= 97:
                     mode_key = _MODE_BANKS["notes"][note - 66]
@@ -265,6 +277,9 @@ class zynthian_ctrldev_behringer_motor(zynthian_ctrldev_base, zynthian_ctrldev_b
             #elif zctrl.processor in self.setbfree_procs:
             else:
                 ccnum = self.zctrls2ccnum[zctrl.processor.bank_name][zctrl.symbol]
+                # Don't send feedback if fader is touched
+                if 21 <= ccnum <= 53 and self.fader_touch_flags[ccnum - 21]:
+                    return
                 ccval = zctrl.value
             #logging.debug(f"Sending feedback to CC{ccnum} => {ccval}")
             lib_zyncore.dev_send_ccontrol_change(self.idev_out, 1, ccnum, ccval)
