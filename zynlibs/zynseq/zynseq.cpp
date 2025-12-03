@@ -440,18 +440,7 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
                     // if (lastClock.first) {
                     // offset += double(midiEvent.time + nNow - lastClock.first - nFrames) / double(pPattern->getClocksPerStep() * g_dFramesPerClock);
                     //}
-                    if (offset < 0.0)
-                        offset = 0;
-                    // Quantize or not
-                    /*
-                    if (pPattern->getQuantizeNotes()) {
-                        if (offset > 0.5)
-                            startEvents[midiEvent.buffer[1]].start++;
-                        startEvents[midiEvent.buffer[1]].offset = 0;
-                    } else {
-                    	startEvents[midiEvent.buffer[1]].offset = offset;
-                    }
-                    */
+                    if (offset < 0.0) offset = 0;
                     // Capture not quantized => quantization is done in real time (see track.cpp)
                     startEvents[midiEvent.buffer[1]].offset = offset;
                 }
@@ -475,14 +464,17 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
                     	if (midiEvent.buffer[2] > 0 && g_nSustainValue == 0) {
                         	g_nSustainValue = midiEvent.buffer[2];
                         	g_nSustainStart = nStep;
-							// Remove old pedals => "Overdubbing" sustain pedal is a mess!
-							pPattern->removeControlInterval(0, pPattern->getSteps()-1, 64);
                         	// Add pedal press
                         	pPattern->addControl(g_nSustainStart, 64, g_nSustainValue, g_nSustainValue);
+                        	setPatternModified(pPattern, true, false);
                     	} else if (midiEvent.buffer[2] == 0) {
                         	if (g_nSustainValue > 0) {
 								// Add pedal release
 								pPattern->addControl(nStep, 64, 0, 0);
+								setPatternModified(pPattern, true, false);
+								// The next should be improved to be functional!
+								// Remove old pedals inside the new one => "Overdubbing" sustain pedal is a mess!
+								//pPattern->removeControlInterval(g_nSustainStart + 1, nStep - 1, 64);
 							}
                         	g_nSustainValue = 0;
                     	}
@@ -662,7 +654,7 @@ int onJackProcess(jack_nframes_t nFrames, void* pArgs) {
 						pBuffer[1] = it->second->value1;
 					if (nSize > 2)
 						pBuffer[2] = it->second->value2;
-					DPRINTF("Sending MIDI event %d,%d,%d at %u\n", pBuffer[0], pBuffer[1], pBuffer[2], nNow + nTime);
+					DPRINTF("Sending MIDI event %x,%x,%x at %u\n", pBuffer[0], pBuffer[1], pBuffer[2], nNow + nTime);
 				}
                 delete it->second;
                 it->second = NULL;
