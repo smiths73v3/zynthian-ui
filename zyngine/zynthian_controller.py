@@ -80,6 +80,7 @@ class zynthian_controller:
         self.ticks = None  # List of discrete value ticks
         self.range_reversed = False  # Flag if ticks order is reversed
         self.is_toggle = False  # True if control is Boolean toggle
+        self.is_trigger = False  # True if control is one-shot trigger
         self.is_integer = True  # True if control is Integer
         self.is_logarithmic = False  # True if control uses logarithmic scale
         self.is_path = False  # True if the control is a file path (i.e. LV2's atom:Path)
@@ -96,17 +97,17 @@ class zynthian_controller:
         self.midi_chan = None  # MIDI channel to send CC messages from control
         self.midi_cc = None  # MIDI CC number to send CC messages from control
         self.midi_autolearn = True  # Auto-learn MIDI-CC based controllers
-        self.midi_feedback = None  # [chan,cc] for MIDI control feedback
         self.midi_cc_momentary_switch = False
         self.midi_cc_mode = -1                  # CC mode: -1=unknown,  0=abs, 1=rel1, 2=rel2, 3=rel3
         self.midi_cc_mode_detecting = 0         # Used by CC mode detection algorithm
         self.midi_cc_mode_detecting_ts = 0      # Used by CC mode detection algorithm
         self.midi_cc_mode_detecting_count = 0   # Used by CC mode detection algorithm
         self.midi_cc_mode_detecting_zero = 0    # Used by CC mode detection algorithm
-        self.midi_cc_debounce = False # True to enable debounce of toggle
+        self.midi_cc_debounce = False  # True to enable debounce of toggle
         self.midi_cc_debounce_timer = None
         self.osc_path = None  # OSC path to send value to
         self.graph_path = None  # Complex map of control to engine parameter
+        self.send_value_cb = None  # Called when value changes to send feedback to MIDI controllers
 
         self.label2value = None  # Dictionary for fast conversion from discrete label to value
         self.value2label = None  # Dictionary for fast conversion from discrete value to label
@@ -160,6 +161,8 @@ class zynthian_controller:
             self.ticks = options['ticks']
         if 'is_toggle' in options:
             self.is_toggle = options['is_toggle']
+        if 'is_trigger' in options:
+            self.is_trigger = options['is_trigger']
         if 'midi_cc_momentary_switch' in options:
             self.midi_cc_momentary_switch = options['midi_cc_momentary_switch']
         if 'midi_cc_debounce' in options:
@@ -207,6 +210,15 @@ class zynthian_controller:
             return
 
         if self.labels:
+            # Detect trigger (one-shot)
+            if len(self.labels) == 1:
+                self.is_trigger = True
+                if not self.ticks:
+                    if self.value_min is None:
+                        self.value_min = 0
+                    if self.value_max is None:
+                        self.value_max = 127
+
             # Detect toggle (on/off)
             if len(self.labels) == 2:
                 self.is_toggle = True
@@ -227,8 +239,9 @@ class zynthian_controller:
                 value_range = self.value_max - self.value_min
                 if n == 1:
                     # This shouldn't happen!
-                    self.value_max = self.value_min
-                    self.ticks.append(self.value_min)
+                    if self.value_max is None:
+                        self.value_max = self.value_min
+                    self.ticks.append(self.value_max)
                 elif self.is_integer:
                     for i in range(n):
                         self.ticks.append(
@@ -275,7 +288,7 @@ class zynthian_controller:
             if self.is_logarithmic:
                 self.nudge_factor = 0.01  # TODO: Use number of divisions
                 self.nudge_factor_fine = 0.003 * self.nudge_factor
-            elif not self.is_integer and not self.is_toggle:
+            elif not self.is_integer and not self.is_toggle and not self.is_trigger:
                 if self.value_range <= 2.0:
                     self.nudge_factor = 0.01
                     self.nudge_factor_fine = 0.001
@@ -319,9 +332,6 @@ class zynthian_controller:
 
         #logging.debug(f"CTRL '{self.name}' => RANGE={self.value_range} NUDGE FACTOR={self.nudge_factor}, FINE={self.nudge_factor_fine}, LOGARITHMIC={self.is_logarithmic}")
 
-        if self.midi_feedback is None and self.midi_chan is not None and self.midi_cc is not None:
-            self.midi_feedback = [self.midi_chan, self.midi_cc]
-
     def set_readonly(self, flag=True):
         if flag != self.readonly:
             self.readonly = flag
@@ -341,6 +351,12 @@ class zynthian_controller:
                 return False
         else:
             return False
+
+    def set_send_value_cb(self, cb_func):
+        self.send_value_cb = cb_func
+
+    def reset_send_value_cb(self):
+        self.send_value_cb = None
 
     def get_path(self):
         if self.osc_path:
@@ -448,7 +464,10 @@ class zynthian_controller:
         if old_val == self.value:
             return
         self.send_value(send)
-        self.is_dirty = True
+        if self.is_trigger:
+            self.value = self.value_min
+        else:
+            self.is_dirty = True
 
     def send_value(self, send=True):
         mval = None
@@ -469,10 +488,11 @@ class zynthian_controller:
                 except Exception as e:
                     logging.warning("Can't send controller '{}' => {}".format(self.symbol, e))
 
-        # Send feedback to MIDI controllers => What MIDI controllers? Those selected as MIDI-out?
-        # TODO: Set midi_feeback to MIDI learn
-        if self.midi_feedback:
-            self.send_midi_feedback(mval)
+        if self.send_value_cb and callable(self.send_value_cb):
+            try:
+                self.send_value_cb(self)
+            except Exception as e:
+                logging.warning(f"Can't send value change feedback for {self.symbol} => {e}")
 
     def send_midi_cc(self, mval=None):
         if mval is None:
@@ -490,14 +510,6 @@ class zynthian_controller:
         # what generates issues when combining some engines (for instance, fluidsynth + pianoteq)
         else:
             lib_zyncore.ui_send_ccontrol_change(self.midi_chan, self.midi_cc, mval)
-
-    def send_midi_feedback(self, mval=None):
-        if mval is None:
-            mval = self.get_ctrl_midi_val()
-        try:
-            lib_zyncore.ctrlfb_send_ccontrol_change(self.midi_feedback[0], self.midi_feedback[1], mval)
-        except Exception as e:
-            logging.warning("Can't send controller feedback '{}' => Val={}".format(self.symbol, e))
 
     # Get index of list entry closest to given value
     def get_value2index(self, val=None):

@@ -235,13 +235,13 @@ class zynthian_gui_zynpad(zynthian_gui_base.zynthian_gui_base):
             lst = [self.empty_icon]
             iconsize = (int(column_width * 0.22), int(row_height * 0.2))
             for f in ["zynpad_mode_oneshot", "zynpad_mode_loop", "zynpad_mode_oneshotall", "zynpad_mode_loopall", "zynpad_mode_oneshotsync", "zynpad_mode_loopsync"]:
-                img = Image.open(f"/zynthian/zynthian-ui/icons/{f}.png")
+                img = Image.open(f"{self.ui_dir}/icons/{f}.png")
                 lst.append(ImageTk.PhotoImage(img.resize(iconsize)))
             self.mode_icon[columns] = lst.copy()
             iconsize = (int(row_height * 0.18), int(row_height * 0.18))
             lst = []
             for f in ["stopped", "playing", "stopping", "starting"]:
-                img = Image.open(f"/zynthian/zynthian-ui/icons/{f}.png")
+                img = Image.open(f"{self.ui_dir}/icons/{f}.png")
                 lst.append(ImageTk.PhotoImage(img.resize(iconsize)))
             self.state_icon[columns] = lst.copy()
 

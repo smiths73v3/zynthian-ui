@@ -168,7 +168,7 @@ SEQ_EVENT* Track::getEvent() {
         // Have not yet started to interpolate value
         if (m_nEventValue == -1) {
             // Note Play Chance
-            int playChance = int(RAND_MAX * pPattern->getPlayChance() * pEvent->getPlayChance() / 100.0);
+            unsigned playChance = unsigned(RAND_MAX * pPattern->getPlayChance() * pEvent->getPlayChance() / 100.0);
             if (playChance < RAND_MAX && playChance < rand()) {
                 m_nEventValue = pEvent->getValue2end();
                 seqEvent.msg.command = 0xFE;
@@ -213,8 +213,8 @@ SEQ_EVENT* Track::getEvent() {
                     m_nEventValue = pEvent->getValue2end();
             } else
                 m_nEventValue = pEvent->getValue2end(); //!@todo Currently just move straight to end value but should interpolate for CC
-            // fprintf(stderr, "Scheduling note off. Event duration: %u, clocks per step: %u, samples per clock: %u\n", pEvent->getDuration(),
-            // pPattern->getClocksPerStep(), m_nSamplePerClock);
+            //fprintf(stderr, "Scheduling note off. Event duration: %u, clocks per step: %u, samples per clock: %u\n", pEvent->getDuration(),
+            //        pPattern->getClocksPerStep(), m_dSamplesPerClock);
         }
         seqEvent.msg.value1 = pEvent->getValue1start();
         // Velocity humanization

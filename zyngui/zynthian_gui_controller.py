@@ -474,7 +474,7 @@ class zynthian_gui_controller(tkinter.Canvas):
 						arc_len = max(5, degmax // n)
 						deg0 += degd + arc_len
 						degd = -arc_len
-				elif self.zctrl.value_range and self.zctrl.value_min <= 0 >= self.zctrl.value_max:
+				elif self.zctrl.value_range and self.zctrl.value_min <= 0 <= self.zctrl.value_max:
 					deg0 += degmax * self.zctrl.value_min / self.zctrl.value_range
 			self.itemconfig(self.graph, start=deg0, extent=degd)
 		self.itemconfig(self.value_text, text=self.value_print)
@@ -509,13 +509,21 @@ class zynthian_gui_controller(tkinter.Canvas):
 			elif self.zctrl == self.zyngui.state_manager.zctrl_y:
 				self.plot_midi_bind("Y")
 			elif midi_learn_params := self.zyngui.chain_manager.get_midi_learn_from_zctrl(self.zctrl):
-				zmip = (midi_learn_params[0] >> 24) & 0xff
-				chan = (midi_learn_params[0] >> 16) & 0xff
-				cc = (midi_learn_params[0] >> 8) & 0xff
-				if midi_learn_params[1]:
-					self.plot_midi_bind(f"{chan + 1}#{cc}")
-				else:
-					self.plot_midi_bind(f"{cc}")
+				key = midi_learn_params[0]
+				cc = key & 0xff
+				match midi_learn_params[1]:
+					case "abs":
+						#zmip = (key >> 16) & 0xff
+						chan = (key >> 8) & 0xff
+						self.plot_midi_bind(f"{chan + 1}#{cc}", zynthian_gui_config.color_ml)
+					case "chain":
+						chan = (key >> 8) & 0xff
+						if chan < 16:
+							self.plot_midi_bind(f"{chan + 1}#{cc}", zynthian_gui_config.color_hl)
+						else:
+							self.plot_midi_bind(f"{cc}")
+					case "zynstep":
+						self.plot_midi_bind(f"{cc}")
 			else:
 				self.erase_midi_bind()
 				return False
@@ -713,6 +721,8 @@ class zynthian_gui_controller(tkinter.Canvas):
 					if dts < zynthian_gui_config.zynswitch_bold_seconds:
 						if self.zctrl.is_toggle:
 							self.zctrl.toggle()
+						elif self.zctrl.is_trigger:
+							self.zctrl.set_value(self.zctrl.value_max)
 						elif self.zctrl.is_path:
 							self.zctrl.nudge(1)
 						#self.zyngui.cuia_v5_zynpot_switch((self.index, 'S'))
